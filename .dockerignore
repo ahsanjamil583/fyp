@@ -1,0 +1,16 @@
+.git
+.gitignore
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+**/venv
+**/node_modules
+frontend/dist
+backend/uploads
+backend/chroma-data
+backend/backups
+logs
+.env
+.env.*
+!.env.example

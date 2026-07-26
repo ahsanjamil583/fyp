@@ -1,0 +1,312 @@
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
+
+import { CustomerPaymentInstructions, getDefaultPaymentMethod } from "../../components/payments/CustomerPaymentInstructions.jsx";
+import { PaymentProofBadge, PaymentStatusBadge } from "../../components/payments/PaymentStatusBadge.jsx";
+import { createCustomerStripeCheckout, getCustomerPaymentReceiptHtml, getCustomerTransaction, reorderCustomerTransaction, resolveUploadUrl, submitCustomerPaymentProof, syncCustomerStripeCheckout } from "../../services/customerPortalApi.js";
+import { capitalize, formatTransactionType } from "../../utils/transaction.js";
+
+export function CustomerOrderDetailPage() {
+  const { orderId } = useParams();
+  const location = useLocation();
+  const [order, setOrder] = useState(null);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [proofDraft, setProofDraft] = useState({ amount: "", method: "", referenceNumber: "", notes: "", proofFile: null });
+  const [isSubmittingProof, setIsSubmittingProof] = useState(false);
+  const [isStartingStripe, setIsStartingStripe] = useState(false);
+  const [isSyncingStripe, setIsSyncingStripe] = useState(false);
+  const [openingReceiptId, setOpeningReceiptId] = useState("");
+  const syncedReturnRef = useRef("");
+
+  useEffect(() => {
+    loadOrder();
+  }, [orderId]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("payment") === "stripe_success") {
+      const sessionId = params.get("session_id") || "";
+      const syncKey = `${orderId}:${sessionId || "return"}`;
+      if (syncedReturnRef.current === syncKey) return;
+      syncedReturnRef.current = syncKey;
+      syncStripeReturn(sessionId);
+    }
+    if (params.get("payment") === "stripe_cancelled") {
+      setError("Stripe payment was cancelled. You can try again or choose another payment method.");
+    }
+  }, [location.search]);
+
+  async function loadOrder() {
+    const data = await getCustomerTransaction(orderId);
+    setOrder(data);
+    setProofDraft((current) => ({
+      ...current,
+      amount: current.amount || data.paymentSummary?.balance || data.pricing?.total || "",
+      method: current.method || data.paymentPreference?.method || getDefaultPaymentMethod(data.paymentInstructions || {}),
+    }));
+  }
+
+  async function syncStripeReturn(sessionId) {
+    setIsSyncingStripe(true);
+    setMessage("Stripe payment completed. Syncing payment status...");
+    setError("");
+    try {
+      const data = await syncCustomerStripeCheckout(orderId, { sessionId });
+      if (data.providerStatus === "paid") {
+        setMessage("Stripe payment confirmed. Your order is now marked paid.");
+      } else {
+        setMessage(`Stripe checkout was checked. Current Stripe status: ${data.providerStatus || "pending"}.`);
+      }
+      await loadOrder();
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "Stripe payment completed, but we could not sync the status yet. It may update when the webhook arrives.");
+      setMessage("");
+    } finally {
+      setIsSyncingStripe(false);
+    }
+  }
+
+  async function submitProof(event) {
+    event.preventDefault();
+    setMessage("");
+    setError("");
+    setIsSubmittingProof(true);
+    try {
+      await submitCustomerPaymentProof(order.id, {
+        ...proofDraft,
+        amount: Number(proofDraft.amount || 0),
+      });
+      setMessage("Payment proof submitted. The business owner will verify it soon.");
+      setProofDraft((current) => ({ ...current, referenceNumber: "", notes: "", proofFile: null }));
+      await loadOrder();
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "Unable to submit payment proof.");
+    } finally {
+      setIsSubmittingProof(false);
+    }
+  }
+
+  async function startStripeCheckout() {
+    setMessage("");
+    setError("");
+    setIsStartingStripe(true);
+    try {
+      const data = await createCustomerStripeCheckout(order.id, {});
+      if (!data.checkoutUrl) {
+        throw new Error("Stripe checkout URL was not returned.");
+      }
+      window.location.href = data.checkoutUrl;
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || requestError.message || "Unable to start Stripe checkout.");
+      setIsStartingStripe(false);
+    }
+  }
+
+  async function openReceipt(paymentRecordId) {
+    setOpeningReceiptId(paymentRecordId);
+    setError("");
+    try {
+      const html = await getCustomerPaymentReceiptHtml(order.id, paymentRecordId);
+      openReceiptWindow(html);
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || "Unable to open payment receipt.");
+    } finally {
+      setOpeningReceiptId("");
+    }
+  }
+
+  if (!order) return <section className="text-sm text-muted">Loading transaction...</section>;
+
+  const paymentMethods = order.paymentInstructions?.methods || [];
+  const selectedMethod = proofDraft.method || order.paymentPreference?.method || getDefaultPaymentMethod(order.paymentInstructions || {});
+  const canPayStripe = selectedMethod === "stripe_test" && !["paid", "cod", "refunded"].includes(order.paymentStatus);
+  const canSubmitProof = selectedMethod && !["cod", "stripe_test"].includes(selectedMethod) && !["paid", "cod", "refunded"].includes(order.paymentStatus);
+
+  return (
+    <section className="space-y-6">
+      <div className="border-b border-line pb-6">
+        <Link className="text-sm font-semibold text-brand" to="/customer/orders">Back to orders</Link>
+        <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-brand">Transaction Detail</p>
+        <h1 className="mt-2 text-3xl font-semibold text-ink">{order.transactionNumber}</h1>
+        <button
+          type="button"
+          className="mt-4 rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink"
+          onClick={async () => {
+            const result = await reorderCustomerTransaction(order.id);
+            setMessage(`Items were added back to your cart for ${result.tenantSlug}.`);
+          }}
+        >
+          Reorder these items
+        </button>
+      </div>
+      {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-6">
+          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-ink">Items</h2>
+            <div className="mt-4 space-y-3">
+              {order.items.map((item) => (
+                <div key={`${order.id}-${item.itemId}`} className="flex items-center justify-between rounded-md border border-line p-4">
+                  <div>
+                    <div className="font-semibold text-ink">{item.name}</div>
+                    <div className="text-sm text-muted">Qty: {item.quantity}</div>
+                  </div>
+                  <div className="text-sm font-semibold text-ink">{item.subtotal}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <form className="rounded-md border border-line bg-white p-5 shadow-sm" onSubmit={submitProof}>
+            <div className="flex flex-col gap-2 border-b border-line pb-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-ink">Submit payment proof</h2>
+                <p className="mt-1 text-sm text-muted">For bank, JazzCash, or EasyPaisa payments, send the reference and optional screenshot for owner verification.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <PaymentStatusBadge status={order.paymentStatus} />
+                <PaymentProofBadge summary={order.paymentProofSummary} />
+              </div>
+            </div>
+            {canPayStripe ? (
+              <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                <h3 className="text-sm font-bold text-blue-950">Pay online with Stripe test card</h3>
+                <p className="mt-1 text-sm leading-6 text-blue-800">
+                  You will be redirected to Stripe Checkout. Use test card 4242 4242 4242 4242 with any future expiry and CVC.
+                </p>
+                <button
+                  type="button"
+                  className="mt-3 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  disabled={isStartingStripe}
+                  onClick={startStripeCheckout}
+                >
+                  {isStartingStripe ? "Opening Stripe..." : "Pay with Stripe test card"}
+                </button>
+              </div>
+            ) : null}
+            {isSyncingStripe ? (
+              <div className="mt-4 rounded-md border border-blue-100 bg-white p-3 text-sm font-semibold text-blue-800">
+                Checking Stripe payment status...
+              </div>
+            ) : null}
+            {canSubmitProof ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <label className="block text-sm font-medium text-ink">
+                  <span className="mb-1.5 block">Amount</span>
+                  <input className="form-input" min="1" required type="number" value={proofDraft.amount} onChange={(event) => setProofDraft((current) => ({ ...current, amount: event.target.value }))} />
+                </label>
+                <label className="block text-sm font-medium text-ink">
+                  <span className="mb-1.5 block">Payment method</span>
+                  <select className="form-input" value={selectedMethod} onChange={(event) => setProofDraft((current) => ({ ...current, method: event.target.value }))}>
+                    {paymentMethods.filter((method) => method.code !== "cod").map((method) => (
+                      <option key={method.code} value={method.code}>{method.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm font-medium text-ink">
+                  <span className="mb-1.5 block">Reference / Transaction ID</span>
+                  <input className="form-input" placeholder="JazzCash/EasyPaisa/bank reference" value={proofDraft.referenceNumber} onChange={(event) => setProofDraft((current) => ({ ...current, referenceNumber: event.target.value }))} />
+                </label>
+                <label className="block text-sm font-medium text-ink">
+                  <span className="mb-1.5 block">Proof screenshot</span>
+                  <input className="form-input" accept="image/*" type="file" onChange={(event) => setProofDraft((current) => ({ ...current, proofFile: event.target.files?.[0] || null }))} />
+                </label>
+                <label className="block text-sm font-medium text-ink md:col-span-2">
+                  <span className="mb-1.5 block">Notes</span>
+                  <textarea className="form-input min-h-20" placeholder="Optional note for the business owner" value={proofDraft.notes} onChange={(event) => setProofDraft((current) => ({ ...current, notes: event.target.value }))} />
+                </label>
+                <button className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 md:col-span-2" disabled={isSubmittingProof}>
+                  {isSubmittingProof ? "Submitting..." : "Submit proof for verification"}
+                </button>
+              </div>
+            ) : !canPayStripe ? (
+              <div className="mt-4 rounded-md border border-dashed border-line bg-surface p-4 text-sm text-muted">
+                {order.paymentStatus === "paid"
+                  ? "This order is already marked paid."
+                  : selectedMethod === "cod"
+                    ? "COD does not need proof. The business will collect cash directly."
+                    : "Payment proof is not needed for this order right now."}
+              </div>
+            ) : null}
+          </form>
+
+          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-ink">Payment proof history</h2>
+            <div className="mt-4 space-y-3">
+              {(order.paymentRecords || []).map((record) => (
+                <div key={record.id} className="rounded-md border border-line bg-surface p-4 text-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="font-semibold text-ink">{record.methodLabel || record.method}</div>
+                      <div className="mt-1 text-muted">Reference: {record.referenceNumber || "Not provided"}</div>
+                      {record.notes ? <div className="mt-1 text-muted">Notes: {record.notes}</div> : null}
+                      {record.screenshotUrl ? <a className="mt-2 inline-flex font-semibold text-brand" href={resolveUploadUrl(record.screenshotUrl)} target="_blank" rel="noreferrer">View proof screenshot</a> : null}
+                      <button
+                        type="button"
+                        className="mt-2 inline-flex rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink disabled:opacity-60"
+                        disabled={openingReceiptId === record.id}
+                        onClick={() => openReceipt(record.id)}
+                      >
+                        {openingReceiptId === record.id ? "Opening..." : "Open receipt"}
+                      </button>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-ink">PKR {Number(record.amount || 0).toLocaleString()}</div>
+                      <div className="mt-1"><PaymentStatusBadge compact status={record.status} /></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {!(order.paymentRecords || []).length ? <div className="rounded-md border border-dashed border-line bg-surface p-4 text-sm text-muted">No payment proof submitted yet.</div> : null}
+            </div>
+          </div>
+        </div>
+        <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-ink">Summary</h2>
+          <div className="mt-4 space-y-3 text-sm">
+            <InfoRow label="Type" value={capitalize(formatTransactionType(order.transactionType))} />
+            <InfoRow label="Status" value={order.status} />
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <span className="text-muted">Payment</span>
+              <PaymentStatusBadge compact status={order.paymentStatus} />
+            </div>
+            <InfoRow label="Preferred method" value={order.paymentPreference?.methodLabel || "-"} />
+            <InfoRow label="Source" value={order.source} />
+            <InfoRow label="Total" value={order.pricing?.total} />
+          </div>
+          {order.paymentInstructions ? (
+            <div className="mt-5">
+              <CustomerPaymentInstructions
+                compact
+                options={order.paymentInstructions}
+                selectedMethod={order.paymentPreference?.method || order.paymentInstructions?.defaultMethod}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function openReceiptWindow(html) {
+  const receiptWindow = window.open("", "_blank", "width=960,height=800");
+  if (!receiptWindow) {
+    throw new Error("Popup blocked. Please allow popups to view the receipt.");
+  }
+  receiptWindow.opener = null;
+  receiptWindow.document.open();
+  receiptWindow.document.write(html);
+  receiptWindow.document.close();
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between border-b border-line pb-3 last:border-b-0 last:pb-0">
+      <span className="text-muted">{label}</span>
+      <span className="font-semibold capitalize text-ink">{value}</span>
+    </div>
+  );
+}

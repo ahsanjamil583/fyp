@@ -1,0 +1,47 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: bizxus-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build:
+      context: ./backend
+    container_name: bizxus-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB_NAME: bizxus_ai
+      LOCAL_UPLOAD_DIR: /app/uploads
+      TEMP_UPLOAD_DIR: /app/uploads/temp
+      LOG_DIR: /app/logs
+    depends_on:
+      - mongo
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend-uploads:/app/uploads
+      - backend-logs:/app/logs
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8000/api/v1
+    container_name: bizxus-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  mongo-data:
+  backend-uploads:
+  backend-logs:

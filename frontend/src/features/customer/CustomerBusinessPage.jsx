@@ -1,0 +1,138 @@
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+
+import { WhatsAppAgentCta, WhatsAppAgentInfo } from "../../components/whatsapp/WhatsAppAgentCta.jsx";
+import { addCartItem, addCustomerFavorite, getCustomerFavorites, getMarketplaceBusiness, getMarketplaceItems, removeCustomerFavorite, resolveUploadUrl } from "../../services/customerPortalApi.js";
+import { formatApiError } from "../../utils/apiErrors.js";
+
+export function CustomerBusinessPage() {
+  const { tenantSlug } = useParams();
+  const [business, setBusiness] = useState(null);
+  const [favorites, setFavorites] = useState([]);
+  const [items, setItems] = useState([]);
+  const [search, setSearch] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      setError("");
+      try {
+        const [businessData, itemData] = await Promise.all([
+          getMarketplaceBusiness(tenantSlug),
+          getMarketplaceItems(tenantSlug, { page: 1, limit: 20 }),
+        ]);
+        setBusiness(businessData);
+        setItems(itemData.items);
+        const favoriteData = await getCustomerFavorites();
+        setFavorites(favoriteData);
+      } catch (requestError) {
+        setError(formatApiError(requestError.response?.data?.detail, "Unable to load marketplace business."));
+      }
+    }
+    load();
+  }, [tenantSlug]);
+
+  async function searchItems(event) {
+    event.preventDefault();
+    const result = await getMarketplaceItems(tenantSlug, { search, page: 1, limit: 20 });
+    setItems(result.items);
+  }
+
+  async function addToCart(itemId) {
+    setMessage("");
+    setError("");
+    try {
+      await addCartItem({ tenantId: business.id, itemId, quantity: 1 });
+      setMessage("Item added to cart.");
+    } catch (requestError) {
+      setError(formatApiError(requestError.response?.data?.detail, "Unable to add item to cart."));
+    }
+  }
+
+  async function toggleFavorite(itemId) {
+    if (!business) return;
+    const exists = favorites.some((favorite) => favorite.item?.id === itemId && favorite.tenant?.id === business.id);
+    const next = exists ? await removeCustomerFavorite(itemId, business.id) : await addCustomerFavorite({ tenantId: business.id, itemId });
+    setFavorites(next);
+  }
+
+  if (error && !business) {
+    return (
+      <section className="space-y-4">
+        <h1 className="text-3xl font-semibold text-ink">Business unavailable</h1>
+        <p className="text-sm text-muted">{error}</p>
+      </section>
+    );
+  }
+
+  if (!business) {
+    return <section className="text-sm text-muted">Loading business...</section>;
+  }
+
+  return (
+    <section className="space-y-6">
+      <div className="border-b border-line pb-6">
+        <Link className="text-sm font-semibold text-brand" to="/customer/marketplace">Back to marketplace</Link>
+        <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-brand">Business</p>
+        <h1 className="mt-2 text-3xl font-semibold text-ink">{business.name}</h1>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-muted">{business.description || "Browse the available products and services below."}</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {business.enabledModuleCodes?.includes("ai_chat") ? (
+            <Link className="inline-flex rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" to={`/customer/businesses/${tenantSlug}/chat`}>
+              Open AI order chat
+            </Link>
+          ) : null}
+          <WhatsAppAgentCta agent={business.whatsappAgent} />
+        </div>
+        <div className="mt-4 max-w-xl">
+          <WhatsAppAgentInfo agent={business.whatsappAgent} />
+        </div>
+      </div>
+
+      {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+
+      <form className="flex gap-2 rounded-md border border-line bg-white p-5 shadow-sm" onSubmit={searchItems}>
+        <input className="form-input" placeholder="Search items" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">Search</button>
+      </form>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {items.map((item) => (
+          <div key={item.id} className="rounded-md border border-line bg-white p-4 shadow-sm">
+            <Link className="block" to={`/customer/businesses/${tenantSlug}/items/${item.id}`}>
+              {item.images?.[0]?.url ? (
+                <img alt="" className="mb-4 h-40 w-full rounded-md object-cover" src={resolveUploadUrl(item.images[0].url)} />
+              ) : (
+                <div className="mb-4 h-40 rounded-md bg-surface" />
+              )}
+              <div className="text-lg font-semibold text-ink">{item.name}</div>
+            </Link>
+            <p className="mt-2 line-clamp-2 text-sm text-muted">{item.description || "No description added."}</p>
+            {item.serviceDetails?.durationMinutes ? (
+              <div className="mt-2 text-xs font-semibold text-muted">{item.serviceDetails.durationMinutes} min service</div>
+            ) : null}
+            {item.variants?.length ? (
+              <div className="mt-2 text-xs font-semibold text-muted">{item.variants.length} variants available</div>
+            ) : null}
+            {item.bundleComponents?.length ? (
+              <div className="mt-2 text-xs font-semibold text-muted">{item.bundleComponents.length} items in bundle</div>
+            ) : null}
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-sm font-semibold text-ink">{item.currency} {item.price}</div>
+              <div className="flex gap-2">
+                <button className="rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink" onClick={() => toggleFavorite(item.id)}>
+                  {favorites.some((favorite) => favorite.item?.id === item.id && favorite.tenant?.id === business.id) ? "Saved" : "Save"}
+                </button>
+                <button className="rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white" onClick={() => addToCart(item.id)}>
+                  Add to cart
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
