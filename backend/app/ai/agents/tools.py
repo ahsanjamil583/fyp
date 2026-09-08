@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -7,6 +8,10 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+from app.core.item_views import coarse_stock_status, customer_stock_snapshot
 from app.core.object_ids import serialize_document
 from app.db.mongodb import get_database
 from app.services.category_config_service import hydrate_category_document
@@ -438,6 +443,37 @@ def find_best_variant_match(message_text: str, item: dict[str, Any]) -> dict[str
     }
 
 
+# Customers ask for a product family ("shoes"), but catalog names are specific
+# ("Brown Leather Loafers"). Each family label is added to any token set that
+# contains one of its members, so the two sides can meet without making unrelated
+# members interchangeable: a "sneakers" query still ranks sneakers above loafers.
+PRODUCT_FAMILY_SYNONYMS: dict[str, set[str]] = {
+    "shoes": {
+        "shoe", "shoes", "footwear", "sneaker", "sneakers", "loafer", "loafers", "heel", "heels",
+        "boot", "boots", "sandal", "sandals", "slipper", "slippers", "pump", "pumps", "trainer",
+        "trainers", "moccasin", "oxford", "brogue", "jogger", "joggers", "chappal", "khussa",
+    },
+    "clothes": {
+        "clothes", "clothing", "apparel", "garment", "dress", "shirt", "shirts", "tshirt", "tee",
+        "hoodie", "hoodies", "jacket", "jackets", "jeans", "denim", "trouser", "trousers", "pant",
+        "pants", "tracksuit", "kurta", "shalwar", "kameez", "abaya", "scarf", "suit", "sweater",
+    },
+    "bags": {"bag", "bags", "handbag", "handbags", "backpack", "backpacks", "purse", "purses", "wallet", "wallets", "clutch", "tote"},
+    "accessories": {"accessory", "accessories", "watch", "watches", "belt", "belts", "cap", "caps", "hat", "hats", "sunglasses", "jewellery", "jewelry", "ring", "rings", "bracelet", "necklace"},
+    "electronics": {"electronics", "mobile", "mobiles", "phone", "phones", "laptop", "laptops", "tablet", "charger", "chargers", "earbuds", "headphone", "headphones", "speaker", "speakers"},
+    "food": {"food", "burger", "burgers", "pizza", "pizzas", "sandwich", "fries", "biryani", "karahi", "roll", "rolls", "shawarma", "drink", "drinks", "juice", "chai", "coffee", "dessert", "cake"},
+}
+
+
+def expand_family_tokens(tokens: set[str]) -> set[str]:
+    """Add the family label for any product-family word present in ``tokens``."""
+    expanded = set(tokens)
+    for family, members in PRODUCT_FAMILY_SYNONYMS.items():
+        if tokens & members:
+            expanded.add(family)
+    return expanded
+
+
 def score_item_match(message_text: str, item: dict[str, Any]) -> int:
     text = normalize_message_text(message_text)
     name = normalize_message_text(str(item.get("name", "")))
@@ -446,9 +482,9 @@ def score_item_match(message_text: str, item: dict[str, Any]) -> int:
     custom_fields = normalize_message_text(_flatten_dict_text(item.get("customFields") or {}))
     variant_text = normalize_message_text(" ".join(_variant_search_text(variant) for variant in item.get("variants", [])))
 
-    message_tokens = tokenize(text)
-    name_tokens = tokenize(name)
-    item_tokens = tokenize(f"{name} {description} {tags} {custom_fields} {variant_text}")
+    message_tokens = expand_family_tokens(tokenize(text))
+    name_tokens = expand_family_tokens(tokenize(name))
+    item_tokens = expand_family_tokens(tokenize(f"{name} {description} {tags} {custom_fields} {variant_text}"))
 
     score = 0
     if name and name in text:
@@ -597,6 +633,12 @@ async def retrieve_sellable_items(tenant: dict[str, Any]) -> list[dict[str, Any]
     ).to_list(length=150)
 
 
+# A family query ("shoes") legitimately matches every item in that family, so the
+# cap has to clear a small catalog's worth of equally-scoring items rather than
+# dropping some of them arbitrarily.
+MAX_RANKED_ITEMS = 8
+
+
 def rank_matching_items(message_text: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ranked_items: list[tuple[dict[str, Any], int]] = []
     budget = extract_budget_constraint(message_text)
@@ -617,8 +659,60 @@ def rank_matching_items(message_text: str, items: list[dict[str, Any]]) -> list[
             ranked_items.append((enriched, item_score))
     ranked_items.sort(key=lambda row: row[1], reverse=True)
     if ranked_items and ranked_items[0][1] >= 120:
-        return [row[0] for row in ranked_items[:5] if row[1] >= max(25, ranked_items[0][1] * 0.35)]
-    return [row[0] for row in ranked_items[:5]]
+        return [row[0] for row in ranked_items[:MAX_RANKED_ITEMS] if row[1] >= max(25, ranked_items[0][1] * 0.35)]
+    return [row[0] for row in ranked_items[:MAX_RANKED_ITEMS]]
+
+
+# Intents where the customer is browsing rather than naming a product. A keyword
+# matcher cannot score "what do you have?" against any specific item, so these
+# intents fall back to showing the catalog instead of nothing.
+# Channels whose audience is the business itself; everything else is a customer.
+OWNER_CHANNELS = frozenset({"owner_preview", "owner_agent"})
+
+BROWSE_INTENTS = {"ask_recommendation", "ask_availability", "ask_price", "general_info", "greeting"}
+
+CATALOG_PROMPT_LIMIT = 12
+
+
+def select_catalog_for_prompt(
+    matched_items: list[dict[str, Any]],
+    all_items: list[dict[str, Any]],
+    intent_profile: dict[str, Any],
+    limit: int = CATALOG_PROMPT_LIMIT,
+) -> list[dict[str, Any]]:
+    """Choose the catalog rows the model is allowed to quote."""
+    if matched_items:
+        return matched_items[:limit]
+    if intent_profile.get("intent") in BROWSE_INTENTS:
+        return all_items[:limit]
+    return []
+
+
+def format_catalog_for_prompt(items: list[dict[str, Any]], *, owner_channel: bool = False) -> str:
+    """Render the catalog the model may quote.
+
+    Customer-facing channels get an availability band; exact counts stay with the
+    owner, because whatever reaches the prompt can be repeated back to a visitor.
+    """
+    if not items:
+        return "No catalog items available for this business."
+    lines = []
+    for item in items:
+        price = float(item.get("price", 0) or 0)
+        parts = [f"- {item.get('name', 'Item')} ({item.get('currency', 'PKR')} {price:,.0f})"]
+        if item.get("isStockTracked"):
+            stock = item.get("stock") or {}
+            available = max(0.0, float(stock.get("quantity", 0) or 0) - float(stock.get("reservedQuantity", 0) or 0))
+            if owner_channel:
+                parts.append(f"stock {int(available)}")
+            else:
+                parts.append(coarse_stock_status(available, stock.get("lowStockThreshold")).replace("_", " "))
+        variants = [str(v.get("name", "")).strip() for v in (item.get("variants") or []) if v.get("isActive", True)]
+        variants = [name for name in variants if name]
+        if variants:
+            parts.append("options: " + ", ".join(variants[:6]))
+        lines.append(" | ".join(parts))
+    return "\n".join(lines)
 
 
 async def retrieve_tenant_knowledge(tenant: dict[str, Any], query_text: str, intent_profile: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -776,7 +870,7 @@ def summarize_payment_tool(tenant: dict[str, Any], draft_order: dict[str, Any]) 
 
 
 def summarize_report_tool(channel: str, intent_profile: dict[str, Any]) -> dict[str, Any]:
-    owner_channel = channel in {"owner_preview", "owner_agent"}
+    owner_channel = channel in OWNER_CHANNELS
     return {
         "tool": "report_tool",
         "ownerOnly": True,
@@ -804,7 +898,10 @@ def build_system_prompt(
     intent_profile: dict[str, Any],
     language_mode: str,
     safety: dict[str, Any],
+    catalog_items: list[dict[str, Any]] | None = None,
+    channel: str = "customer_portal",
 ) -> str:
+    catalog_text = format_catalog_for_prompt(catalog_items or [], owner_channel=channel in OWNER_CHANNELS)
     knowledge_text = "\n\n".join(
         f"{doc.get('title', 'Knowledge')} ({doc.get('matchType', 'source')}, confidence {doc.get('confidence', 0)}): "
         f"{(doc.get('excerpt') or doc.get('content', ''))[:600]}"
@@ -837,7 +934,9 @@ def build_system_prompt(
         f"You are BizXus AI for the business '{tenant.get('name', 'Business')}'. "
         "Answer only using the business knowledge, catalog, and safe operational rules provided. "
         "Use retrieved knowledge chunks as ground truth for delivery, return, payment, timing, FAQ, and policy questions. "
-        "Use catalog data as ground truth for products, variants, prices, options, and stock. "
+        "Use the catalog block as ground truth for products, variants, prices, options, and stock. "
+        "The catalog block is the complete set of items you may mention; never invent an item, price, or option that is not listed there. "
+        "When the customer asks what is available, browse-style, list the catalog items with their prices rather than naming only one or two. "
         "If the answer is not found in the provided business data, say that clearly and ask for clarification; do not invent facts. "
         "If a requested product does not fit the business category, explain the mismatch and suggest relevant category examples. "
         "If the customer wants to place an order, suggest items and clearly ask them to confirm the draft order. "
@@ -860,6 +959,7 @@ def build_system_prompt(
         f"Category analytics focus: {analytics_hints}\n"
         f"Safety policy: {safety.get('policy', '')} {safety_instruction}\n"
         "Local quality checklist: keep wording usable for Pakistani customers, prefer WhatsApp/contact style language where relevant, use PKR for prices, and end with a clear next step when useful.\n"
+        f"Catalog available to quote ({len(catalog_items or [])} item(s)):\n{catalog_text}\n\n"
         f"Retrieved tenant knowledge:\n{knowledge_text}\n\n"
         f"Current draft order: {draft_text}"
     )
@@ -890,7 +990,10 @@ async def generate_openai_response(system_prompt: str, user_message: str, recent
             response.raise_for_status()
             data = response.json()
             return data["choices"][0]["message"]["content"].strip()
-    except Exception:
+    except Exception as exc:
+        # Falling through to the next provider is intentional, but doing it silently
+        # made a bad key or a rate limit look like the model simply choosing not to answer.
+        logger.warning("OpenAI completion failed (%s): %s", type(exc).__name__, exc)
         return None
 
 
@@ -908,7 +1011,8 @@ async def generate_groq_response(system_prompt: str, user_message: str, recent_m
             response.raise_for_status()
             data = response.json()
             return data["choices"][0]["message"]["content"].strip()
-    except Exception:
+    except Exception as exc:
+        logger.warning("Groq completion failed (%s): %s", type(exc).__name__, exc)
         return None
 
 
@@ -1030,8 +1134,14 @@ async def generate_agent_response(
     draft_order: dict[str, Any],
     matched_items: list[dict[str, Any]],
     safety: dict[str, Any],
+    all_items: list[dict[str, Any]] | None = None,
+    channel: str = "customer_portal",
 ) -> tuple[str, str]:
-    system_prompt = build_system_prompt(tenant, knowledge_docs, draft_order, intent_profile, language_mode, safety)
+    catalog_items = select_catalog_for_prompt(matched_items, all_items or [], intent_profile)
+    system_prompt = build_system_prompt(
+        tenant, knowledge_docs, draft_order, intent_profile, language_mode, safety,
+        catalog_items=catalog_items, channel=channel,
+    )
     if not safety.get("allowed", True):
         return generate_rule_based_response(tenant, knowledge_docs, draft_order, intent_profile, matched_items, language_mode, safety), "safety_rule"
 

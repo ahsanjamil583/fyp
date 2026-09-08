@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import HTTPException, status
 
+from app.core.item_views import customer_item_view
 from app.core.object_ids import parse_object_id, serialize_document
 from app.db.mongodb import get_database
 from app.services.ai_chat_service import clear_customer_conversation_draft
@@ -111,7 +112,7 @@ async def list_marketplace_items(slug: str, search: str = "", item_type: str | N
     total = await db.items.count_documents(query)
     cursor = db.items.find(query).sort("createdAt", -1).skip((page - 1) * limit).limit(limit)
     return {
-        "items": [serialize_document(item) async for item in cursor],
+        "items": [customer_item_view(item) async for item in cursor],
         "pagination": {
             "page": page,
             "limit": limit,
@@ -135,7 +136,7 @@ async def get_marketplace_item(slug: str, item_id: str) -> dict:
     )
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Marketplace item not found.")
-    return serialize_document(item)
+    return customer_item_view(item)
 
 
 async def _resolve_item_for_customer(tenant_oid: ObjectId, item_id: str) -> dict:
@@ -191,16 +192,29 @@ async def get_customer_cart(current_user: dict) -> list[dict]:
 async def list_customer_favorites(current_user: dict) -> list[dict]:
     db = get_database()
     _, user_id = await _get_customer_profile_and_user(current_user)
-    cursor = db.customer_favorites.find({"customerUserId": ObjectId(user_id)}).sort("createdAt", -1)
+    rows = await db.customer_favorites.find({"customerUserId": ObjectId(user_id)}).sort("createdAt", -1).to_list(length=500)
+    if not rows:
+        return []
+
+    # One query per collection instead of two per favourite.
+    tenant_map = {
+        tenant["_id"]: tenant
+        async for tenant in db.tenants.find({"_id": {"$in": list({row["tenantId"] for row in rows})}})
+    }
+    item_map = {
+        item["_id"]: item
+        async for item in db.items.find({"_id": {"$in": list({row["itemId"] for row in rows})}})
+    }
+
     favorites = []
-    async for favorite in cursor:
-        tenant = await db.tenants.find_one({"_id": favorite["tenantId"]})
-        item = await db.items.find_one({"_id": favorite["itemId"]})
+    for favorite in rows:
+        tenant = tenant_map.get(favorite["tenantId"])
+        item = item_map.get(favorite["itemId"])
         if not tenant or not item:
             continue
         serialized = serialize_document(favorite)
         serialized["tenant"] = serialize_document(tenant)
-        serialized["item"] = serialize_document(item)
+        serialized["item"] = customer_item_view(item)
         favorites.append(serialized)
     return favorites
 

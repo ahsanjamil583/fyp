@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { AdminLayout } from "../components/layout/AdminLayout.jsx";
@@ -7,68 +8,73 @@ import { DashboardLayout } from "../components/layout/DashboardLayout.jsx";
 import { PublicLayout } from "../components/layout/PublicLayout.jsx";
 import { PlaceholderPage } from "../components/common/PlaceholderPage.jsx";
 import { NotFoundPage } from "../components/common/NotFoundPage.jsx";
-import { AdminCategoriesPage } from "../features/admin/AdminCategoriesPage.jsx";
-import { AdminModulesPage } from "../features/admin/AdminModulesPage.jsx";
-import { AdminOverviewPage } from "../features/admin/AdminOverviewPage.jsx";
-import { AdminPaymentsPage } from "../features/admin/AdminPaymentsPage.jsx";
-import { AdminReportsPage } from "../features/admin/AdminReportsPage.jsx";
-import { AdminTenantsPage } from "../features/admin/AdminTenantsPage.jsx";
-import { AdminUsersPage } from "../features/admin/AdminUsersPage.jsx";
-import { BusinessLogin } from "../features/auth/BusinessLogin.jsx";
-import { BusinessRegister } from "../features/auth/BusinessRegister.jsx";
-import { PhonePasswordResetPage } from "../features/auth/PhonePasswordResetPage.jsx";
-import { CustomerLogin } from "../features/customer/CustomerLogin.jsx";
-import { CustomerBusinessItemPage } from "../features/customer/CustomerBusinessItemPage.jsx";
-import { CustomerBusinessChatPage } from "../features/customer/CustomerBusinessChatPage.jsx";
-import { CustomerBusinessPage } from "../features/customer/CustomerBusinessPage.jsx";
-import { CustomerCartPage } from "../features/customer/CustomerCartPage.jsx";
-import { CustomerMarketplace } from "../features/customer/CustomerMarketplace.jsx";
-import { CustomerNotificationsPage } from "../features/customer/CustomerNotificationsPage.jsx";
-import { CustomerOrderDetailPage } from "../features/customer/CustomerOrderDetailPage.jsx";
-import { CustomerOrdersPage } from "../features/customer/CustomerOrdersPage.jsx";
-import { CustomerProfileSettings } from "../features/customer/CustomerProfileSettings.jsx";
-import { CustomerRegister } from "../features/customer/CustomerRegister.jsx";
-import { CustomerProfilePage } from "../features/customers/CustomerProfilePage.jsx";
-import { CustomersPage } from "../features/customers/CustomersPage.jsx";
-import { CustomFieldsPage } from "../features/custom-fields/CustomFieldsPage.jsx";
-import { AnalyticsPage } from "../features/dashboard/AnalyticsPage.jsx";
-import { AIConversationsPage } from "../features/dashboard/AIConversationsPage.jsx";
-import { AgentToolsPage } from "../features/dashboard/AgentToolsPage.jsx";
-import { DashboardHome } from "../features/dashboard/DashboardHome.jsx";
-import { DeploymentReadinessPage } from "../features/dashboard/DeploymentReadinessPage.jsx";
-import { FinalQAPage } from "../features/dashboard/FinalQAPage.jsx";
-import { NotificationsPage } from "../features/dashboard/NotificationsPage.jsx";
-import { OwnerAgentPage } from "../features/dashboard/OwnerAgentPage.jsx";
-import { PaymentsPage } from "../features/dashboard/PaymentsPage.jsx";
-import { ReportsPage } from "../features/dashboard/ReportsPage.jsx";
-import { SubmissionCenterPage } from "../features/dashboard/SubmissionCenterPage.jsx";
-import { KnowledgeBasePage } from "../features/dashboard/KnowledgeBasePage.jsx";
-import { LaunchWizardPage } from "../features/dashboard/LaunchWizardPage.jsx";
-import { TransactionsPage } from "../features/dashboard/TransactionsPage.jsx";
-import { WhatsAppAgentPage } from "../features/dashboard/WhatsAppAgentPage.jsx";
-import { WhatsAppConnectCallbackPage } from "../features/dashboard/WhatsAppConnectCallbackPage.jsx";
-import { ItemDetailPage } from "../features/items/ItemDetailPage.jsx";
-import { ItemImportPage } from "../features/items/ItemImportPage.jsx";
-import { ItemsPage } from "../features/items/ItemsPage.jsx";
-import { ModuleMarketplace } from "../features/modules/ModuleMarketplace.jsx";
-import { LandingPage } from "../features/public/LandingPage.jsx";
-import { PublicBusinessPage } from "../features/public/PublicBusinessPage.jsx";
-import { PublicBusinessAboutPage } from "../features/public/PublicBusinessAboutPage.jsx";
-import { PublicBusinessChatPage } from "../features/public/PublicBusinessChatPage.jsx";
-import { PublicBusinessCatalogPage } from "../features/public/PublicBusinessCatalogPage.jsx";
-import { PublicBusinessContactPage } from "../features/public/PublicBusinessContactPage.jsx";
-import { PublicItemPage } from "../features/public/PublicItemPage.jsx";
-import { PublicBusinessRequestPage } from "../features/public/PublicBusinessRequestPage.jsx";
-import { PublicWebsiteSettings } from "../features/public-website/PublicWebsiteSettings.jsx";
-import { BusinessProfile } from "../features/tenants/BusinessProfile.jsx";
+
+// Every page is code-split so the first paint no longer downloads the whole app.
+// Layouts and guards above stay eager because they render immediately.
+const AdminCategoriesPage = lazy(() => import("../features/admin/AdminCategoriesPage.jsx").then((m) => ({ default: m.AdminCategoriesPage })));
+const AdminModulesPage = lazy(() => import("../features/admin/AdminModulesPage.jsx").then((m) => ({ default: m.AdminModulesPage })));
+const AdminOverviewPage = lazy(() => import("../features/admin/AdminOverviewPage.jsx").then((m) => ({ default: m.AdminOverviewPage })));
+const AdminPaymentsPage = lazy(() => import("../features/admin/AdminPaymentsPage.jsx").then((m) => ({ default: m.AdminPaymentsPage })));
+const AdminReportsPage = lazy(() => import("../features/admin/AdminReportsPage.jsx").then((m) => ({ default: m.AdminReportsPage })));
+const AdminTenantsPage = lazy(() => import("../features/admin/AdminTenantsPage.jsx").then((m) => ({ default: m.AdminTenantsPage })));
+const AdminUsersPage = lazy(() => import("../features/admin/AdminUsersPage.jsx").then((m) => ({ default: m.AdminUsersPage })));
+const BusinessLogin = lazy(() => import("../features/auth/BusinessLogin.jsx").then((m) => ({ default: m.BusinessLogin })));
+const BusinessRegister = lazy(() => import("../features/auth/BusinessRegister.jsx").then((m) => ({ default: m.BusinessRegister })));
+const ForcedPasswordResetPage = lazy(() => import("../features/auth/ForcedPasswordResetPage.jsx").then((m) => ({ default: m.ForcedPasswordResetPage })));
+const PhonePasswordResetPage = lazy(() => import("../features/auth/PhonePasswordResetPage.jsx").then((m) => ({ default: m.PhonePasswordResetPage })));
+const CustomerLogin = lazy(() => import("../features/customer/CustomerLogin.jsx").then((m) => ({ default: m.CustomerLogin })));
+const CustomerBusinessItemPage = lazy(() => import("../features/customer/CustomerBusinessItemPage.jsx").then((m) => ({ default: m.CustomerBusinessItemPage })));
+const CustomerBusinessChatPage = lazy(() => import("../features/customer/CustomerBusinessChatPage.jsx").then((m) => ({ default: m.CustomerBusinessChatPage })));
+const CustomerBusinessPage = lazy(() => import("../features/customer/CustomerBusinessPage.jsx").then((m) => ({ default: m.CustomerBusinessPage })));
+const CustomerCartPage = lazy(() => import("../features/customer/CustomerCartPage.jsx").then((m) => ({ default: m.CustomerCartPage })));
+const CustomerMarketplace = lazy(() => import("../features/customer/CustomerMarketplace.jsx").then((m) => ({ default: m.CustomerMarketplace })));
+const CustomerNotificationsPage = lazy(() => import("../features/customer/CustomerNotificationsPage.jsx").then((m) => ({ default: m.CustomerNotificationsPage })));
+const CustomerOrderDetailPage = lazy(() => import("../features/customer/CustomerOrderDetailPage.jsx").then((m) => ({ default: m.CustomerOrderDetailPage })));
+const CustomerOrdersPage = lazy(() => import("../features/customer/CustomerOrdersPage.jsx").then((m) => ({ default: m.CustomerOrdersPage })));
+const CustomerProfileSettings = lazy(() => import("../features/customer/CustomerProfileSettings.jsx").then((m) => ({ default: m.CustomerProfileSettings })));
+const CustomerRegister = lazy(() => import("../features/customer/CustomerRegister.jsx").then((m) => ({ default: m.CustomerRegister })));
+const CustomerProfilePage = lazy(() => import("../features/customers/CustomerProfilePage.jsx").then((m) => ({ default: m.CustomerProfilePage })));
+const CustomersPage = lazy(() => import("../features/customers/CustomersPage.jsx").then((m) => ({ default: m.CustomersPage })));
+const CustomFieldsPage = lazy(() => import("../features/custom-fields/CustomFieldsPage.jsx").then((m) => ({ default: m.CustomFieldsPage })));
+const AnalyticsPage = lazy(() => import("../features/dashboard/AnalyticsPage.jsx").then((m) => ({ default: m.AnalyticsPage })));
+const AIConversationsPage = lazy(() => import("../features/dashboard/AIConversationsPage.jsx").then((m) => ({ default: m.AIConversationsPage })));
+const AgentToolsPage = lazy(() => import("../features/dashboard/AgentToolsPage.jsx").then((m) => ({ default: m.AgentToolsPage })));
+const DashboardHome = lazy(() => import("../features/dashboard/DashboardHome.jsx").then((m) => ({ default: m.DashboardHome })));
+const DeploymentReadinessPage = lazy(() => import("../features/dashboard/DeploymentReadinessPage.jsx").then((m) => ({ default: m.DeploymentReadinessPage })));
+const FinalQAPage = lazy(() => import("../features/dashboard/FinalQAPage.jsx").then((m) => ({ default: m.FinalQAPage })));
+const NotificationsPage = lazy(() => import("../features/dashboard/NotificationsPage.jsx").then((m) => ({ default: m.NotificationsPage })));
+const OwnerAgentPage = lazy(() => import("../features/dashboard/OwnerAgentPage.jsx").then((m) => ({ default: m.OwnerAgentPage })));
+const PaymentsPage = lazy(() => import("../features/dashboard/PaymentsPage.jsx").then((m) => ({ default: m.PaymentsPage })));
+const ReportsPage = lazy(() => import("../features/dashboard/ReportsPage.jsx").then((m) => ({ default: m.ReportsPage })));
+const SubmissionCenterPage = lazy(() => import("../features/dashboard/SubmissionCenterPage.jsx").then((m) => ({ default: m.SubmissionCenterPage })));
+const KnowledgeBasePage = lazy(() => import("../features/dashboard/KnowledgeBasePage.jsx").then((m) => ({ default: m.KnowledgeBasePage })));
+const LaunchWizardPage = lazy(() => import("../features/dashboard/LaunchWizardPage.jsx").then((m) => ({ default: m.LaunchWizardPage })));
+const TransactionsPage = lazy(() => import("../features/dashboard/TransactionsPage.jsx").then((m) => ({ default: m.TransactionsPage })));
+const WhatsAppAgentPage = lazy(() => import("../features/dashboard/WhatsAppAgentPage.jsx").then((m) => ({ default: m.WhatsAppAgentPage })));
+const ItemDetailPage = lazy(() => import("../features/items/ItemDetailPage.jsx").then((m) => ({ default: m.ItemDetailPage })));
+const ItemImportPage = lazy(() => import("../features/items/ItemImportPage.jsx").then((m) => ({ default: m.ItemImportPage })));
+const ItemsPage = lazy(() => import("../features/items/ItemsPage.jsx").then((m) => ({ default: m.ItemsPage })));
+const ModuleMarketplace = lazy(() => import("../features/modules/ModuleMarketplace.jsx").then((m) => ({ default: m.ModuleMarketplace })));
+const LandingPage = lazy(() => import("../features/public/LandingPage.jsx").then((m) => ({ default: m.LandingPage })));
+const PublicBusinessPage = lazy(() => import("../features/public/PublicBusinessPage.jsx").then((m) => ({ default: m.PublicBusinessPage })));
+const PublicBusinessAboutPage = lazy(() => import("../features/public/PublicBusinessAboutPage.jsx").then((m) => ({ default: m.PublicBusinessAboutPage })));
+const PublicBusinessChatPage = lazy(() => import("../features/public/PublicBusinessChatPage.jsx").then((m) => ({ default: m.PublicBusinessChatPage })));
+const PublicBusinessCatalogPage = lazy(() => import("../features/public/PublicBusinessCatalogPage.jsx").then((m) => ({ default: m.PublicBusinessCatalogPage })));
+const PublicBusinessContactPage = lazy(() => import("../features/public/PublicBusinessContactPage.jsx").then((m) => ({ default: m.PublicBusinessContactPage })));
+const PublicItemPage = lazy(() => import("../features/public/PublicItemPage.jsx").then((m) => ({ default: m.PublicItemPage })));
+const PublicBusinessRequestPage = lazy(() => import("../features/public/PublicBusinessRequestPage.jsx").then((m) => ({ default: m.PublicBusinessRequestPage })));
+const PublicWebsiteSettings = lazy(() => import("../features/public-website/PublicWebsiteSettings.jsx").then((m) => ({ default: m.PublicWebsiteSettings })));
+const BusinessProfile = lazy(() => import("../features/tenants/BusinessProfile.jsx").then((m) => ({ default: m.BusinessProfile })));
 
 export const router = createBrowserRouter([
   { path: "/login", element: <BusinessLogin /> },
   { path: "/register", element: <BusinessRegister /> },
   { path: "/forgot-password", element: <PhonePasswordResetPage /> },
+  { path: "/update-password", element: <ForcedPasswordResetPage /> },
   { path: "/customer/login", element: <CustomerLogin /> },
   { path: "/customer/register", element: <CustomerRegister /> },
   { path: "/customer/forgot-password", element: <PhonePasswordResetPage customer /> },
+  { path: "/customer/update-password", element: <ForcedPasswordResetPage customer /> },
   {
     element: <PublicLayout />,
     children: [
@@ -169,7 +175,6 @@ export const router = createBrowserRouter([
           { path: "agent-tools", element: <AgentToolsPage /> },
           { path: "owner-agent", element: <OwnerAgentPage /> },
           { path: "whatsapp-agent", element: <WhatsAppAgentPage /> },
-          { path: "whatsapp-agent/connect/callback", element: <WhatsAppConnectCallbackPage /> },
           { path: "payments", element: <PaymentsPage /> },
           { path: "reports", element: <ReportsPage /> },
           { path: "notifications", element: <NotificationsPage /> },

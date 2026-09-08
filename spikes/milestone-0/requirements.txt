@@ -1,0 +1,15 @@
+# Milestone 0 spike dependencies.
+#
+# Deliberately separate from backend/requirements.txt: these are throwaway
+# experiments, and pyaudiowpatch is Windows-only so it must never become a
+# dependency of the API.
+#
+# Install into the local venv:
+#     python -m venv .venv
+#     .venv\Scripts\python.exe -m pip install -r requirements.txt
+
+pyaudiowpatch==0.2.12.8   # PyAudio fork with WASAPI loopback capture (Windows only)
+edge-tts==7.2.8           # Microsoft Edge voices; no API key, includes ur-PK
+httpx==0.28.1             # backend + Groq Whisper calls
+pywin32==312              # Windows SAPI, as an offline TTS baseline
+numpy==2.5.1              # audio level maths

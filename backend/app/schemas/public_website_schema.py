@@ -1,7 +1,11 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class PublicOrderItemRequest(BaseModel):
+    # Orders are built from the cart or the named draft lines. Silently dropping an
+    # unknown field would let a client believe it ordered something it did not.
+    model_config = ConfigDict(extra="forbid")
+
     itemId: str
     quantity: int = Field(default=1, ge=1, le=99)
     selectedVariantIndex: int | None = None
@@ -11,6 +15,10 @@ class PublicOrderItemRequest(BaseModel):
 
 
 class PublicOrderRequest(BaseModel):
+    # Orders are built from the cart or the named draft lines. Silently dropping an
+    # unknown field would let a client believe it ordered something it did not.
+    model_config = ConfigDict(extra="forbid")
+
     customerName: str = Field(min_length=2, max_length=120)
     customerPhone: str = Field(min_length=7, max_length=30)
     customerEmail: EmailStr | str = ""

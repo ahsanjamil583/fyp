@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import time
+import logging
 import uuid
-from collections import defaultdict, deque
-from typing import Deque
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
+from app.core.rate_limit import check_rate_limit, resolve_rule
+
+logger = logging.getLogger(__name__)
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
@@ -38,39 +39,32 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 class SimpleRateLimitMiddleware(BaseHTTPMiddleware):
-    """In-memory per-IP rate limiter for demo/small deployments.
+    """Applies the per-route budgets declared in ``app.core.rate_limit``.
 
-    It is intentionally disabled by default because production deployments should normally use a
-    gateway-level limiter. Enabling RATE_LIMIT_ENABLED=true gives the FYP/demo app a basic safety
-    net without adding Redis or a paid service.
+    Health checks are exempt so a throttled client cannot make the service look down to
+    a load balancer.
     """
 
-    _hits: dict[str, Deque[float]] = defaultdict(deque)
-
     async def dispatch(self, request: Request, call_next):
-        if not settings.rate_limit_enabled or request.url.path.endswith("/health"):
+        path = request.url.path
+        if not settings.rate_limit_enabled or "/health" in path:
             return await call_next(request)
 
-        now = time.monotonic()
-        window_seconds = 60
-        max_hits = settings.rate_limit_requests_per_minute
+        rule = resolve_rule(request.method, path)
         client_ip = request.client.host if request.client else "unknown"
-        bucket = self._hits[client_ip]
+        allowed, retry_after = await check_rate_limit(rule, client_ip)
 
-        while bucket and now - bucket[0] > window_seconds:
-            bucket.popleft()
-
-        if len(bucket) >= max_hits:
+        if not allowed:
+            logger.warning("Rate limit hit: rule=%s ip=%s path=%s", rule.name, client_ip, path)
             return JSONResponse(
                 status_code=429,
                 content={
                     "success": False,
-                    "message": "Too many requests. Please try again after a minute.",
+                    "message": "Too many requests. Please slow down and try again shortly.",
                     "data": None,
-                    "meta": {"retryAfterSeconds": window_seconds},
+                    "meta": {"retryAfterSeconds": retry_after, "limit": rule.name},
                 },
-                headers={"Retry-After": str(window_seconds)},
+                headers={"Retry-After": str(retry_after)},
             )
 
-        bucket.append(now)
         return await call_next(request)

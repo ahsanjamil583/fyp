@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import HTTPException, status
 
+from app.core.config import settings
 from app.db.mongodb import get_database
 
 PLAN_ORDER = ["starter", "growth", "scale"]
@@ -75,6 +76,31 @@ async def ensure_tenant_module_enabled(tenant_id: ObjectId, module_code: str) ->
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Module is not available on the current '{plan_code}' plan.",
+        )
+
+
+async def ensure_tenant_ai_budget(tenant_id: ObjectId) -> None:
+    """Cap billed AI replies per tenant per day.
+
+    The plan limits cover a month, which is too coarse to stop a single bad day from
+    consuming the whole allowance: the public chat endpoint needs no account, so one
+    script can exhaust a month's budget in an afternoon. This is the daily ceiling.
+    """
+    if settings.ai_daily_message_cap <= 0:
+        return
+
+    db = get_database()
+    day_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    used_today = await db.messages.count_documents(
+        {"tenantId": tenant_id, "sender": "customer", "createdAt": {"$gte": day_start}}
+    )
+    if used_today >= settings.ai_daily_message_cap:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "This business has reached its daily AI assistant limit. "
+                "Please try again tomorrow or contact the business directly."
+            ),
         )
 
 

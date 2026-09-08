@@ -13,7 +13,7 @@ const schema = Joi.object({
   fullName: Joi.string().min(2).required().label("Full name"),
   phone: Joi.string().min(7).required().label("Phone"),
   email: Joi.string().allow("").email({ tlds: false }).label("Email"),
-  password: Joi.string().min(6).required().label("Password"),
+  password: Joi.string().min(8).required().label("Password"),
   otpCode: Joi.string().allow("").min(4).label("OTP code"),
 });
 

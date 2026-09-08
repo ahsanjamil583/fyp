@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CartItemCreateRequest(BaseModel):
@@ -17,6 +17,10 @@ class CartItemUpdateRequest(BaseModel):
 
 
 class CustomerOrderCreateRequest(BaseModel):
+    # Orders are built from the cart or the named draft lines. Silently dropping an
+    # unknown field would let a client believe it ordered something it did not.
+    model_config = ConfigDict(extra="forbid")
+
     tenantId: str
     transactionType: str = "auto"
     paymentMethod: str | None = None
@@ -26,6 +30,10 @@ class CustomerOrderCreateRequest(BaseModel):
 
 
 class CustomerDraftConfirmRequest(BaseModel):
+    # Orders are built from the cart or the named draft lines. Silently dropping an
+    # unknown field would let a client believe it ordered something it did not.
+    model_config = ConfigDict(extra="forbid")
+
     conversationId: str | None = None
     transactionType: str = "auto"
     paymentMethod: str | None = None

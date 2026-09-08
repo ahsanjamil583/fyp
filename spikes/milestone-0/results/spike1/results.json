@@ -1,0 +1,466 @@
+[
+  {
+    "index": 1,
+    "tenant": "captured",
+    "language": "english",
+    "question": "(stored sample)",
+    "reply": "We have the following products available: White Running Sneakers PKR 4,500. Black Formal Shoes PKR 5,000. Brown Leather Loafers PKR 6,200.",
+    "renders": [
+      {
+        "engine": "edge_en_us",
+        "voice": "en-US-AriaNeural",
+        "file": "sample01_edge_en_us.mp3",
+        "synthSeconds": 1.7,
+        "heard": "We have the following products available, white running sneakers PKR 4500, black formal shoes PKR 5000, brown leather loafers PKR 6200.",
+        "sttSeconds": 1.08,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 0.81,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_en_in",
+        "voice": "en-IN-NeerjaNeural",
+        "file": "sample01_edge_en_in.mp3",
+        "synthSeconds": 2.21,
+        "heard": "We have the following products available. White running sneakers PKR 4500. Black formal shoes PKR 5000. Brown leather loafers PKR 6200.",
+        "sttSeconds": 0.84,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 0.81,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_ur_pk",
+        "voice": "ur-PK-UzmaNeural",
+        "file": "sample01_edge_ur_pk.mp3",
+        "synthSeconds": 2.4,
+        "heard": "We have the following products available. White running sneakers 4500. Black formal shoes 5000. Brown leather loafers 6200.",
+        "sttSeconds": 0.91,
+        "sttFailed": false,
+        "contentRecall": 0.938,
+        "similarity": 0.718,
+        "scriptShift": false
+      },
+      {
+        "engine": "windows_sapi",
+        "voice": "default",
+        "file": "sample01_sapi.wav",
+        "synthSeconds": 0.21,
+        "durationSeconds": 16.2,
+        "heard": "We have the following products available, white running sneakers PKR 4500. Black formal shoes PKR 5000. Brown leather loafers PKR 6200.",
+        "sttSeconds": 1.11,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 0.81,
+        "scriptShift": false
+      }
+    ]
+  },
+  {
+    "index": 2,
+    "tenant": "captured",
+    "language": "english",
+    "question": "(stored sample)",
+    "reply": "Yes, we have a variety of shoes. Would you like to know more about any of these?",
+    "renders": [
+      {
+        "engine": "edge_en_us",
+        "voice": "en-US-AriaNeural",
+        "file": "sample02_edge_en_us.mp3",
+        "synthSeconds": 1.38,
+        "heard": "Yes, we have a variety of shoes. Would you like to know more about any of these?",
+        "sttSeconds": 0.83,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 1.0,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_en_in",
+        "voice": "en-IN-NeerjaNeural",
+        "file": "sample02_edge_en_in.mp3",
+        "synthSeconds": 2.36,
+        "heard": "Yes, we have a variety of shoes. Would you like to know more about any of these?",
+        "sttSeconds": 0.85,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 1.0,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_ur_pk",
+        "voice": "ur-PK-UzmaNeural",
+        "file": "sample02_edge_ur_pk.mp3",
+        "synthSeconds": 2.01,
+        "heard": "Yes, we have a variety of shoes. Would you like to know more about any of these?",
+        "sttSeconds": 0.83,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 1.0,
+        "scriptShift": false
+      },
+      {
+        "engine": "windows_sapi",
+        "voice": "default",
+        "file": "sample02_sapi.wav",
+        "synthSeconds": 0.13,
+        "durationSeconds": 6.8,
+        "heard": "Yes, we have a variety of shoes. Would you like to know more about any of these?",
+        "sttSeconds": 1.19,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 1.0,
+        "scriptShift": false
+      }
+    ]
+  },
+  {
+    "index": 3,
+    "tenant": "captured",
+    "language": "roman_urdu",
+    "question": "(stored sample)",
+    "reply": "Ji, White Running Sneakers available hain. Qeemat PKR 4,500 hai.",
+    "renders": [
+      {
+        "engine": "edge_en_us",
+        "voice": "en-US-AriaNeural",
+        "file": "sample03_edge_en_us.mp3",
+        "synthSeconds": 1.69,
+        "heard": "G. White running sneakers available Hain. Heimat PKR 4500 High.",
+        "sttSeconds": 0.74,
+        "sttFailed": false,
+        "contentRecall": 0.857,
+        "similarity": 0.6,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_en_in",
+        "voice": "en-IN-NeerjaNeural",
+        "file": "sample03_edge_en_in.mp3",
+        "synthSeconds": 2.11,
+        "heard": "जी, वाइट रॉनिंग स्नीकर्स अवेलिबल है। कीमत PKR 4500 है।",
+        "sttSeconds": 0.74,
+        "sttFailed": false,
+        "contentRecall": 0.286,
+        "similarity": 0.1,
+        "scriptShift": true
+      },
+      {
+        "engine": "edge_ur_pk",
+        "voice": "ur-PK-UzmaNeural",
+        "file": "sample03_edge_ur_pk.mp3",
+        "synthSeconds": 1.75,
+        "heard": "G. White running sneakers available high. 4500 high.",
+        "sttSeconds": 0.73,
+        "sttFailed": false,
+        "contentRecall": 0.714,
+        "similarity": 0.444,
+        "scriptShift": false
+      },
+      {
+        "engine": "windows_sapi",
+        "voice": "default",
+        "file": "sample03_sapi.wav",
+        "synthSeconds": 0.17,
+        "durationSeconds": 7.95,
+        "heard": "White running sneakers available Hain Keymat PKR 4500 HI",
+        "sttSeconds": 1.89,
+        "sttFailed": false,
+        "contentRecall": 0.857,
+        "similarity": 0.526,
+        "scriptShift": false
+      }
+    ]
+  },
+  {
+    "index": 4,
+    "tenant": "captured",
+    "language": "roman_urdu",
+    "question": "(stored sample)",
+    "reply": "footwear hai: White Running Sneakers PKR 4,500, Black Formal Shoes PKR 5,000. kya chahiyeh?",
+    "renders": [
+      {
+        "engine": "edge_en_us",
+        "voice": "en-US-AriaNeural",
+        "file": "sample04_edge_en_us.mp3",
+        "synthSeconds": 1.63,
+        "heard": "Footwear high, white running sneakers PKR 4500, black formal shoes PKR 5000. Hia Chihia?",
+        "sttSeconds": 0.83,
+        "sttFailed": false,
+        "contentRecall": 0.909,
+        "similarity": 0.643,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_en_in",
+        "voice": "en-IN-NeerjaNeural",
+        "file": "sample04_edge_en_in.mp3",
+        "synthSeconds": 2.02,
+        "heard": "Footwear है, White Running Sneakers PKR 4500, Black Formal Shoes PKR 5000. क्या चाहिए?",
+        "sttSeconds": 0.8,
+        "sttFailed": false,
+        "contentRecall": 0.909,
+        "similarity": 0.643,
+        "scriptShift": true
+      },
+      {
+        "engine": "edge_ur_pk",
+        "voice": "ur-PK-UzmaNeural",
+        "file": "sample04_edge_ur_pk.mp3",
+        "synthSeconds": 1.99,
+        "heard": "फुट्वर हाई, वाइट रानिंग स्नीकर्स 4500, ब्लेक फोर्मल शूस 5000, किया.",
+        "sttSeconds": 0.85,
+        "sttFailed": false,
+        "contentRecall": 0.182,
+        "similarity": 0.0,
+        "scriptShift": true
+      },
+      {
+        "engine": "windows_sapi",
+        "voice": "default",
+        "file": "sample04_sapi.wav",
+        "synthSeconds": 0.15,
+        "durationSeconds": 10.9,
+        "heard": "Footwear High, White Running Sneakers PKR 4500, Black Formal Shoes PKR 5000 Kyachahaya",
+        "sttSeconds": 1.14,
+        "sttFailed": false,
+        "contentRecall": 0.909,
+        "similarity": 0.667,
+        "scriptShift": false
+      }
+    ]
+  },
+  {
+    "index": 5,
+    "tenant": "captured",
+    "language": "roman_urdu",
+    "question": "(stored sample)",
+    "reply": "Maine Grey Tracksuit find kar liya hai aur quantity 2 ka draft tayar kar diya hai. Aap neeche draft confirm kar sakte hain.",
+    "renders": [
+      {
+        "engine": "edge_en_us",
+        "voice": "en-US-AriaNeural",
+        "file": "sample05_edge_en_us.mp3",
+        "synthSeconds": 2.03,
+        "heard": "Main grey tracksuit find car lia high or quantity 2 ca draft tire car dia high. AAP Neche draft confirm car socked hain.",
+        "sttSeconds": 0.86,
+        "sttFailed": false,
+        "contentRecall": 0.7,
+        "similarity": 0.435,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_en_in",
+        "voice": "en-IN-NeerjaNeural",
+        "file": "sample05_edge_en_in.mp3",
+        "synthSeconds": 1.77,
+        "heard": "मैंने ग्रेट राक सूट फाइन कर लिया है और क्वांटिटी तुका ड्राफ्ट तैयार कर दिया है। आप नीचे ड्राफ्ट कन्फर्म कर सकते हैं।",
+        "sttSeconds": 0.9,
+        "sttFailed": false,
+        "contentRecall": 0.0,
+        "similarity": 0.0,
+        "scriptShift": true
+      },
+      {
+        "engine": "edge_ur_pk",
+        "voice": "ur-PK-UzmaNeural",
+        "file": "sample05_edge_ur_pk.mp3",
+        "synthSeconds": 1.99,
+        "heard": "Main Gray Treksuit Find Car High A or Quantity 2 का Draft Car D.H. AP Draft Confirm Car High A.",
+        "sttSeconds": 0.82,
+        "sttFailed": false,
+        "contentRecall": 0.5,
+        "similarity": 0.279,
+        "scriptShift": true
+      },
+      {
+        "engine": "windows_sapi",
+        "voice": "default",
+        "file": "sample05_sapi.wav",
+        "synthSeconds": 0.11,
+        "durationSeconds": 10.69,
+        "heard": "Main grey tracksuit find car lia high or quantity 2K Draft Tyre car dia high. App niche draft confirm car sacked Hain.",
+        "sttSeconds": 1.31,
+        "sttFailed": false,
+        "contentRecall": 0.7,
+        "similarity": 0.356,
+        "scriptShift": false
+      }
+    ]
+  },
+  {
+    "index": 6,
+    "tenant": "captured",
+    "language": "roman_urdu",
+    "question": "(stored sample)",
+    "reply": "Grey Tracksuit ki price PKR 4,800 hai.",
+    "renders": [
+      {
+        "engine": "edge_en_us",
+        "voice": "en-US-AriaNeural",
+        "file": "sample06_edge_en_us.mp3",
+        "synthSeconds": 1.45,
+        "heard": "Gray tracksuit key price PKR 4800 high.",
+        "sttSeconds": 0.89,
+        "sttFailed": false,
+        "contentRecall": 0.8,
+        "similarity": 0.429,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_en_in",
+        "voice": "en-IN-NeerjaNeural",
+        "file": "sample06_edge_en_in.mp3",
+        "synthSeconds": 1.59,
+        "heard": "ग्रेट रैक सूट की प्राइस P.K.R. 4,800 है।",
+        "sttSeconds": 5.12,
+        "sttFailed": false,
+        "contentRecall": 0.2,
+        "similarity": 0.133,
+        "scriptShift": true
+      },
+      {
+        "engine": "edge_ur_pk",
+        "voice": "ur-PK-UzmaNeural",
+        "file": "sample06_edge_ur_pk.mp3",
+        "synthSeconds": 1.21,
+        "heard": "ग्रे ट्रेक्सूट की प्राइस 4800 हाई",
+        "sttSeconds": 0.7,
+        "sttFailed": false,
+        "contentRecall": 0.2,
+        "similarity": 0.0,
+        "scriptShift": true
+      },
+      {
+        "engine": "windows_sapi",
+        "voice": "default",
+        "file": "sample06_sapi.wav",
+        "synthSeconds": 0.07,
+        "durationSeconds": 5.15,
+        "heard": "Gray track suit key price PKR 4800 high",
+        "sttSeconds": 5.21,
+        "sttFailed": false,
+        "contentRecall": 0.6,
+        "similarity": 0.267,
+        "scriptShift": false
+      }
+    ]
+  },
+  {
+    "index": 7,
+    "tenant": "captured",
+    "language": "english",
+    "question": "(stored sample)",
+    "reply": "This is a Fashion business, so pizza is not available here. You can ask about shirts, hoodies, shoes, jeans, sizes, or colors.",
+    "renders": [
+      {
+        "engine": "edge_en_us",
+        "voice": "en-US-AriaNeural",
+        "file": "sample07_edge_en_us.mp3",
+        "synthSeconds": 1.51,
+        "heard": "This is a fashion business, so pizza is not available here. You can ask about shirts, hoodies, shoes, jeans, sizes, or colors.",
+        "sttSeconds": 0.85,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 1.0,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_en_in",
+        "voice": "en-IN-NeerjaNeural",
+        "file": "sample07_edge_en_in.mp3",
+        "synthSeconds": 2.06,
+        "heard": "This is a fashion business, so Pisa is not available here. You can ask about shirts, hoodies, shoes, jeans, sizes, or colors.",
+        "sttSeconds": 5.21,
+        "sttFailed": false,
+        "contentRecall": 0.917,
+        "similarity": 0.955,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_ur_pk",
+        "voice": "ur-PK-UzmaNeural",
+        "file": "sample07_edge_ur_pk.mp3",
+        "synthSeconds": 1.35,
+        "heard": "This is a fashion business, so pizza is not available here. You can ask about shirts, hoodies, shoes, jeans, sizes, aor colors.",
+        "sttSeconds": 0.8,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 0.955,
+        "scriptShift": false
+      },
+      {
+        "engine": "windows_sapi",
+        "voice": "default",
+        "file": "sample07_sapi.wav",
+        "synthSeconds": 0.08,
+        "durationSeconds": 11.76,
+        "heard": "This is a fashion business, so pizza is not available here. You can ask about shirts, hoodies, shoes, jeans, sizes, or colors.",
+        "sttSeconds": 5.7,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 1.0,
+        "scriptShift": false
+      }
+    ]
+  },
+  {
+    "index": 8,
+    "tenant": "captured",
+    "language": "english",
+    "question": "(stored sample)",
+    "reply": "Draft ready: 2x Black Formal Shoes. Total: PKR 10000. Delivery or pickup?",
+    "renders": [
+      {
+        "engine": "edge_en_us",
+        "voice": "en-US-AriaNeural",
+        "file": "sample08_edge_en_us.mp3",
+        "synthSeconds": 1.31,
+        "heard": "Draft ready, 2X black formal shoes. Total, PKR 10,000. Delivery or pickup.",
+        "sttSeconds": 0.84,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 0.667,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_en_in",
+        "voice": "en-IN-NeerjaNeural",
+        "file": "sample08_edge_en_in.mp3",
+        "synthSeconds": 1.75,
+        "heard": "Draft ready, 2X black formal shoes. Total, PKR 10,000. Delivery or pickup.",
+        "sttSeconds": 5.0,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 0.667,
+        "scriptShift": false
+      },
+      {
+        "engine": "edge_ur_pk",
+        "voice": "ur-PK-UzmaNeural",
+        "file": "sample08_edge_ur_pk.mp3",
+        "synthSeconds": 1.3,
+        "heard": "Draft ready, 2X black formal shoes. Total, 10,000. Delivery or pick-up.",
+        "sttSeconds": 0.83,
+        "sttFailed": false,
+        "contentRecall": 0.818,
+        "similarity": 0.609,
+        "scriptShift": false
+      },
+      {
+        "engine": "windows_sapi",
+        "voice": "default",
+        "file": "sample08_sapi.wav",
+        "synthSeconds": 0.11,
+        "durationSeconds": 9.77,
+        "heard": "Draft ready, 2X black formal shoes. Total, PKR 10,000. Delivery or pickup.",
+        "sttSeconds": 5.88,
+        "sttFailed": false,
+        "contentRecall": 1.0,
+        "similarity": 0.667,
+        "scriptShift": false
+      }
+    ]
+  }
+]

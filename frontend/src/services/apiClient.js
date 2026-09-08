@@ -73,11 +73,29 @@ async function refreshBusinessAccessToken() {
   return businessRefreshRequest;
 }
 
+const PASSWORD_RESET_REQUIRED = "password_reset_required";
+
+function redirectToForcedPasswordReset(isCustomerRequest) {
+  const target = isCustomerRequest ? "/customer/update-password" : "/update-password";
+  if (window.location.pathname !== target) {
+    window.location.assign(target);
+  }
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
     const isBusinessRequest = !originalRequest?.url?.startsWith("/customer/");
+
+    // The API blocks every route except the change-password one until a weak
+    // legacy password is replaced. Send the user straight to that form.
+    if (error.response?.status === 403 && error.response?.data?.detail === PASSWORD_RESET_REQUIRED) {
+      if (!originalRequest?.url?.includes("/password/change")) {
+        redirectToForcedPasswordReset(!isBusinessRequest);
+      }
+      return Promise.reject(error);
+    }
     const isAuthRefreshRequest = originalRequest?.url?.includes("/auth/refresh");
     const isAuthLoginRequest = originalRequest?.url?.includes("/auth/login");
     const isAuthRegisterRequest = originalRequest?.url?.includes("/auth/register");

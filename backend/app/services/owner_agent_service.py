@@ -72,27 +72,53 @@ def _normalize_text(text: str) -> str:
     return " ".join(str(text or "").lower().strip().split())
 
 
-def _classify_owner_intent(text: str) -> str:
+CATALOG_COUNT_PHRASES = [
+    "kitny products", "kitne products", "how many products", "product count",
+    "total products", "list products", "items hain", "products hyn", "products hain",
+]
+
+# Owners ask compound questions ("how many products and what is my revenue?"). Each
+# entry is checked independently so every topic raised gets answered, rather than the
+# first match winning and the rest of the question being dropped.
+OWNER_INTENT_RULES: list[tuple[str, list[str]]] = [
+    ("catalog_count", CATALOG_COUNT_PHRASES),
+    ("low_stock", ["low stock", "inventory", "reorder", "khatam", "kam"]),
+    ("top_items", ["top", "best", "popular", "selling", "bik", "zayada", "zyada"]),
+    ("pending_orders", ["pending", "new order", "orders", "booking", "quote", "inquiry"]),
+    ("customer_chats", ["chat", "conversation", "whatsapp", "customer query", "message"]),
+    ("payment_health", ["payment", "paid", "unpaid", "refund", "cod", "jazzcash", "easypaisa"]),
+    ("promotion_ideas", ["promotion", "offer", "discount", "marketing", "campaign", "sale"]),
+    ("business_summary", ["report", "summary", "today", "sales", "revenue", "business", "performance", "insight"]),
+]
+
+# More than a few sections stops being an answer and starts being a dump.
+MAX_OWNER_INTENTS = 3
+
+DEFAULT_OWNER_INTENT = "business_summary"
+
+
+def detect_owner_intents(text: str) -> list[str]:
+    """Every topic the owner asked about, in the order the rules are declared."""
     normalized = _normalize_text(text)
-    if any(phrase in normalized for phrase in ["kitny products", "kitne products", "how many products", "product count", "total products", "list products", "items hain", "products hyn", "products hain"]):
-        return "catalog_count"
-    if any(word in normalized for word in ["low stock", "inventory", "reorder", "khatam", "kam"]):
-        return "low_stock"
-    if "stock" in normalized and not any(phrase in normalized for phrase in ["kitny products", "kitne products", "how many products", "total products"]):
-        return "low_stock"
-    if any(word in normalized for word in ["top", "best", "popular", "selling", "bik", "zayada", "zyada"]):
-        return "top_items"
-    if any(word in normalized for word in ["pending", "new order", "orders", "booking", "quote", "inquiry"]):
-        return "pending_orders"
-    if any(word in normalized for word in ["chat", "conversation", "whatsapp", "customer query", "message"]):
-        return "customer_chats"
-    if any(word in normalized for word in ["payment", "paid", "unpaid", "refund", "cod", "jazzcash", "easypaisa"]):
-        return "payment_health"
-    if any(word in normalized for word in ["promotion", "offer", "discount", "marketing", "campaign", "sale"]):
-        return "promotion_ideas"
-    if any(word in normalized for word in ["report", "summary", "today", "sales", "revenue", "business", "performance", "insight"]):
-        return "business_summary"
-    return "business_summary"
+    intents: list[str] = []
+
+    for intent, keywords in OWNER_INTENT_RULES:
+        if any(keyword in normalized for keyword in keywords):
+            intents.append(intent)
+
+    # "stock" on its own means inventory, unless the question is really a product count.
+    if "stock" in normalized and "low_stock" not in intents:
+        if not any(phrase in normalized for phrase in CATALOG_COUNT_PHRASES):
+            intents.append("low_stock")
+
+    if not intents:
+        return [DEFAULT_OWNER_INTENT]
+    return intents[:MAX_OWNER_INTENTS]
+
+
+def _classify_owner_intent(text: str) -> str:
+    """Primary intent, kept for callers and stored conversation metadata."""
+    return detect_owner_intents(text)[0]
 
 
 def _money(value) -> str:
@@ -158,10 +184,14 @@ async def chat_with_owner_agent(tenant_id: str, payload: OwnerAgentChatRequest, 
     conversation = await _get_or_create_owner_conversation(tenant, user)
     language = detect_language_mode(payload.messageText)
     await save_message(conversation, tenant_oid, "owner", payload.messageText, intent="owner_query", confidence=1.0)
-    intent = _classify_owner_intent(payload.messageText)
-    context = await _build_owner_context(tenant_id, tenant_oid, user, intent)
-    reply = _build_owner_reply(tenant, payload.messageText, intent, context, language)
-    tool_calls = [{"tool": intent, "status": "completed", "summary": f"Owner agent used {intent.replace('_', ' ')} context."}]
+    intents = detect_owner_intents(payload.messageText)
+    intent = intents[0]
+    context = await _build_owner_context(tenant_id, tenant_oid, user, intents)
+    reply = _build_owner_reply(tenant, payload.messageText, intents, context, language)
+    tool_calls = [
+        {"tool": used, "status": "completed", "summary": f"Owner agent used {used.replace('_', ' ')} context."}
+        for used in intents
+    ]
     assistant_message = await save_message(conversation, tenant_oid, "assistant", reply, intent=intent, confidence=0.9, tool_calls=tool_calls)
     await db.conversations.update_one(
         {"_id": conversation["_id"]},
@@ -182,6 +212,7 @@ async def chat_with_owner_agent(tenant_id: str, payload: OwnerAgentChatRequest, 
         "conversationId": str(conversation["_id"]),
         "reply": reply,
         "intent": intent,
+        "intents": intents,
         "toolCalls": tool_calls,
         "context": context,
         "message": serialize_document(assistant_message),
@@ -189,7 +220,42 @@ async def chat_with_owner_agent(tenant_id: str, payload: OwnerAgentChatRequest, 
     }
 
 
-async def _build_owner_context(tenant_id: str, tenant_oid: ObjectId, user: dict, intent: str) -> dict:
+SECTION_HEADINGS = {
+    "catalog_count": "Catalog",
+    "business_summary": "Business summary",
+    "low_stock": "Low stock",
+    "top_items": "Top items",
+    "pending_orders": "Pending work",
+    "customer_chats": "Customer conversations",
+    "payment_health": "Payments",
+    "promotion_ideas": "Promotion ideas",
+}
+
+
+def _build_owner_reply(tenant: dict, message_text: str, intents: list[str] | str, context: dict, language: str) -> str:
+    """Answer every topic raised, one section each.
+
+    A compound question used to lose everything after the first matched keyword, so
+    "how many products and what is my revenue?" returned only the product list.
+    """
+    intents = [intents] if isinstance(intents, str) else list(intents)
+    sections = []
+    for intent in intents:
+        body = _build_owner_section(tenant, message_text, intent, context, language)
+        if not body:
+            continue
+        if len(intents) > 1:
+            body = f"{SECTION_HEADINGS.get(intent, intent.replace('_', ' ').title())}\n{body}"
+        sections.append(body)
+    return "\n\n".join(sections) or _build_owner_section(tenant, message_text, DEFAULT_OWNER_INTENT, context, language)
+
+
+async def _build_owner_context(tenant_id: str, tenant_oid: ObjectId, user: dict, intents: list[str] | str) -> dict:
+    """Load the data every requested topic needs.
+
+    Accepts a single intent for older callers and a list for compound questions.
+    """
+    intents = [intents] if isinstance(intents, str) else list(intents)
     db = get_database()
     analytics = await get_analytics_summary(tenant_id, user)
     context = {
@@ -198,22 +264,22 @@ async def _build_owner_context(tenant_id: str, tenant_oid: ObjectId, user: dict,
         "topItems": analytics.get("topItems", [])[:8],
         "recentTransactions": analytics.get("recentTransactions", [])[:8],
     }
-    if intent == "catalog_count":
+    if "catalog_count" in intents:
         cursor = db.items.find({"tenantId": tenant_oid, "status": {"$ne": "archived"}}).sort("createdAt", -1).limit(200)
         context["catalogItems"] = [serialize_document(row) async for row in cursor]
         context["activeProductCount"] = await db.items.count_documents({"tenantId": tenant_oid, "status": "active", "itemType": "product"})
         context["activeItemCount"] = await db.items.count_documents({"tenantId": tenant_oid, "status": "active"})
-    if intent == "business_summary":
+    if "business_summary" in intents:
         try:
             context["dailySummary"] = await get_daily_summary(tenant_id, user)
         except Exception:
             context["dailySummary"] = {}
-    if intent == "pending_orders":
+    if "pending_orders" in intents:
         cursor = db.transactions.find(
             {"tenantId": tenant_oid, "status": {"$in": ["new", "pending", "draft", "requested", "confirmed"]}}
         ).sort("createdAt", -1).limit(8)
         context["pendingTransactions"] = [serialize_document(row) async for row in cursor]
-    if intent == "customer_chats":
+    if "customer_chats" in intents:
         since = datetime.now(timezone.utc) - timedelta(days=7)
         pipeline = [
             {"$match": {"tenantId": tenant_oid, "lastMessageAt": {"$gte": since}}},
@@ -227,7 +293,7 @@ async def _build_owner_context(tenant_id: str, tenant_oid: ObjectId, user: dict,
         ]
         recent_cursor = db.conversations.find({"tenantId": tenant_oid}).sort("lastMessageAt", -1).limit(5)
         context["recentConversations"] = [serialize_document(row) async for row in recent_cursor]
-    if intent == "payment_health":
+    if "payment_health" in intents:
         rows = await db.transactions.aggregate(
             [
                 {"$match": {"tenantId": tenant_oid, "status": {"$ne": "cancelled"}}},
@@ -238,7 +304,7 @@ async def _build_owner_context(tenant_id: str, tenant_oid: ObjectId, user: dict,
             {"paymentStatus": row.get("_id") or "unknown", "count": row.get("count", 0), "amount": round(float(row.get("amount", 0) or 0), 2)}
             for row in rows
         ]
-    if intent == "promotion_ideas":
+    if "promotion_ideas" in intents:
         top_ids = {row.get("itemId") for row in analytics.get("topItems", []) if row.get("itemId")}
         cursor = db.items.find({"tenantId": tenant_oid, "status": "active"}).sort("createdAt", 1).limit(20)
         slow_candidates = []
@@ -251,7 +317,7 @@ async def _build_owner_context(tenant_id: str, tenant_oid: ObjectId, user: dict,
     return context
 
 
-def _build_owner_reply(tenant: dict, message_text: str, intent: str, context: dict, language: str) -> str:
+def _build_owner_section(tenant: dict, message_text: str, intent: str, context: dict, language: str) -> str:
     analytics = context.get("analytics") or {}
     summary = analytics.get("summary") or {}
     revenue = analytics.get("revenue") or {}

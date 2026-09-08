@@ -193,6 +193,9 @@ async def update_transaction(tenant_id: str, transaction_id: str, payload, user:
             f"{updated.get('transactionNumber', 'Transaction')} updated",
             f"{updated.get('transactionType', 'transaction').replace('_', ' ').title()} updated: {', '.join(changed_fields)}.",
             priority="medium",
+            # One notification per transaction per status, collapsing the burst an owner
+            # sees when they move an order through several states in a row.
+            source_key=f"txn_update:{updated['_id']}:{updated.get('status', '')}",
             metadata={
                 "transactionId": str(updated["_id"]),
                 "transactionNumber": updated.get("transactionNumber", ""),

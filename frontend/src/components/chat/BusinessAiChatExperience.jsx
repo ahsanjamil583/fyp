@@ -82,6 +82,15 @@ function TypingIndicator() {
   );
 }
 
+// The API reports availability as a band rather than a count, so customers cannot
+// read a business's exact inventory out of a draft order.
+function stockLabel(stock) {
+  if (!stock?.tracked) return "Stock not tracked or service item";
+  if (stock.status === "out_of_stock") return "Currently out of stock";
+  if (stock.status === "low_stock") return "Only a few left in stock";
+  return "In stock";
+}
+
 function DraftItemCard({ item, quantity, onQuantityChange }) {
   const options = optionText(item.selectedOptions);
   const stock = item.stockSnapshot || {};
@@ -119,9 +128,7 @@ function DraftItemCard({ item, quantity, onQuantityChange }) {
         <span className="text-slate-500">Line total</span>
         <span className="font-semibold text-slate-950">{formatMoney(item.currency, lineTotal)}</span>
       </div>
-      <div className="mt-2 text-xs text-slate-500">
-        {stock.tracked ? `${stock.availableQuantity ?? 0} units available` : "Stock not tracked or service item"}
-      </div>
+      <div className="mt-2 text-xs text-slate-500">{stockLabel(stock)}</div>
     </div>
   );
 }

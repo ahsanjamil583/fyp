@@ -53,7 +53,7 @@ class SecurityTests(unittest.TestCase):
 
     def test_get_current_user_loads_active_user(self):
         from fastapi.security import HTTPAuthorizationCredentials
-        from app.core.security import get_current_user
+        from app.core.security import get_authenticated_user
 
         user = {
             "_id": ObjectId(),
@@ -67,7 +67,7 @@ class SecurityTests(unittest.TestCase):
 
         async def runner():
             with patch("app.core.security.get_database", return_value=fake_db):
-                current = await get_current_user(credentials)
+                current = await get_authenticated_user(credentials)
             self.assertEqual(current["_id"], user["_id"])
 
         import asyncio

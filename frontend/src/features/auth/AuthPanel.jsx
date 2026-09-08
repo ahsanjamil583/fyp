@@ -150,7 +150,7 @@ export function AuthPanel({
 
             {mode === "register" || !isPhoneOtp ? (
               <Field icon={<LockKeyhole size={17} />} label="Password" error={errors.password?.message}>
-                <input {...register("password")} type="password" className="auth-input" placeholder="Minimum 6 characters" />
+                <input {...register("password")} type="password" className="auth-input" placeholder="Minimum 8 characters" />
               </Field>
             ) : null}
 

@@ -27,6 +27,10 @@ export function BusinessLogin() {
 
   async function goAfterLogin(session) {
     setSession(session);
+    if (session.user.mustResetPassword) {
+      navigate("/update-password");
+      return;
+    }
     if (session.user.globalRole === "platform_admin") {
       navigate("/admin");
       return;

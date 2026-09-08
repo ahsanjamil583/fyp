@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import HTTPException, status
 
+from app.core.password_policy import validate_password_strength
 from app.core.security import hash_password
 from app.db.mongodb import get_database
 from app.services.auth_service import auth_payload, duplicate_account_detail, find_user_by_email_or_phone
@@ -33,6 +34,8 @@ async def register_customer(payload) -> dict:
     existing = await find_user_by_email_or_phone(normalized_email, normalized_phone)
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=duplicate_account_detail(existing, normalized_email, normalized_phone))
+
+    validate_password_strength(payload.password, normalized_email, normalized_phone, payload.fullName)
 
     user = {
         "fullName": payload.fullName,

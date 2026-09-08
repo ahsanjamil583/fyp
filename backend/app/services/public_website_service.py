@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 
+from app.core.item_views import customer_item_view
 from app.core.object_ids import parse_object_id, serialize_document
 from app.db.mongodb import get_database
 from app.services.category_config_service import validate_tenant_fulfillment
@@ -73,7 +74,7 @@ async def list_public_items(slug: str, search: str = "", item_type: str | None =
     total = await db.items.count_documents(query)
     cursor = db.items.find(query).sort("createdAt", -1).skip((page - 1) * limit).limit(limit)
     return {
-        "items": [serialize_document(item) async for item in cursor],
+        "items": [customer_item_view(item) async for item in cursor],
         "pagination": {
             "page": page,
             "limit": limit,
@@ -97,7 +98,7 @@ async def get_public_item(slug: str, item_id: str) -> dict:
     )
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Public item not found.")
-    return serialize_document(item)
+    return customer_item_view(item)
 
 
 async def create_public_transaction(slug: str, payload) -> dict:
@@ -194,9 +195,9 @@ async def create_public_transaction(slug: str, payload) -> dict:
         },
     )
     if getattr(payload, "conversationId", None):
-        conversation_oid = parse_object_id(payload.conversationId, "conversationId")
+        # Website chat identifies a conversation by its opaque session token, not by ObjectId.
         await db.conversations.update_one(
-            {"_id": conversation_oid, "tenantId": tenant["_id"], "channel": "website"},
+            {"publicSessionToken": str(payload.conversationId).strip(), "tenantId": tenant["_id"], "channel": "website"},
             {"$set": {"pendingOrderDraft": {}, "summary": f"Draft confirmed as {transaction['transactionNumber']}.", "updatedAt": now, "lastMessageAt": now}},
         )
     return serialize_document(transaction)

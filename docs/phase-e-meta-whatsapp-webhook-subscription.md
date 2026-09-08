@@ -1,3 +1,9 @@
+> **Superseded.** This phase documented the Meta WhatsApp Cloud API integration, which
+> was replaced by the Baileys linked-device bridge in `whatsapp-bridge/`. The webhook
+> routes described here no longer exist and the provider now accepts only `mock` or
+> `baileys`. Kept for project history; see the "WhatsApp Bridge" section of `README.md`
+> for the current setup.
+
 # Phase E - Meta WhatsApp WABA Webhook Subscription
 
 Phase E completes the next step after Embedded Signup token exchange. After the business owner finishes Meta Embedded Signup and the backend exchanges the returned code for a business token, BizXusAI must subscribe the connected WhatsApp Business Account (WABA) to this app's webhook.

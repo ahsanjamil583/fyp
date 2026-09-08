@@ -6,6 +6,7 @@ from uuid import uuid4
 from bson import ObjectId
 from fastapi import BackgroundTasks, HTTPException, UploadFile, status
 from openpyxl import load_workbook
+from pymongo.errors import DuplicateKeyError
 
 from app.core.config import settings
 from app.core.module_guard import ensure_tenant_module_enabled, ensure_tenant_module_usage_available
@@ -296,6 +297,16 @@ async def delete_item_category(tenant_id: str, category_id: str, user: dict) -> 
     return serialize_document(await db.item_categories.find_one({"_id": category_oid, "tenantId": tenant_oid}))
 
 
+def _duplicate_item_detail(payload) -> str:
+    sku = str(getattr(payload, "sku", "") or "").strip()
+    if sku:
+        return f"An active item with SKU '{sku}' already exists. Edit that item instead of creating a second one."
+    return (
+        f"An active item named '{getattr(payload, 'name', '')}' at this price already exists. "
+        "Edit that item, change the price or name, or archive the old one first."
+    )
+
+
 async def create_item(tenant_id: str, payload, user: dict, background_tasks: BackgroundTasks | None = None) -> dict:
     db = get_database()
     tenant_oid = await _ensure_item_access(tenant_id, user)
@@ -328,7 +339,15 @@ async def create_item(tenant_id: str, payload, user: dict, background_tasks: Bac
         "createdAt": now,
         "updatedAt": now,
     }
-    item["_id"] = (await db.items.insert_one(item)).inserted_id
+    try:
+        item["_id"] = (await db.items.insert_one(item)).inserted_id
+    except DuplicateKeyError as exc:
+        # A unique index guards against re-imports and double-submitted forms. Report the
+        # collision plainly instead of surfacing a driver error as a 500.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=_duplicate_item_detail(payload),
+        ) from exc
     if background_tasks:
         background_tasks.add_task(index_item_for_rag, tenant_oid, item)
     else:
@@ -351,8 +370,14 @@ async def list_items(
     page = max(page, 1)
     limit = min(max(limit, 1), 100)
     query = {"tenantId": tenant_oid}
-    if status_filter:
+    # Archived items accumulate and are not part of day-to-day work, so they stay out of
+    # the default view. Pass status=archived to review them, or status=all for everything.
+    if status_filter == "all":
+        pass
+    elif status_filter:
         query["status"] = status_filter
+    else:
+        query["status"] = {"$ne": "archived"}
     if item_type:
         query["itemType"] = item_type
     if category_id:
@@ -659,6 +684,15 @@ async def import_items_from_excel(tenant_id: str, file: UploadFile, user: dict, 
                     background_tasks.add_task(index_item_for_rag, tenant_oid, item)
                 else:
                     await index_item_for_rag(tenant_oid, item)
+            except DuplicateKeyError:
+                # Re-running the same sheet is a normal thing to do; report the row as a
+                # skip rather than a driver-level failure.
+                errors.append(
+                    {
+                        "row": row_number,
+                        "message": f"Skipped: an active item named '{item.get('name', '')}' at this price already exists.",
+                    }
+                )
             except Exception as exc:
                 errors.append({"row": row_number, "message": str(exc)})
 

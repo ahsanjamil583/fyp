@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
-from app.core.config import settings
+from app.core.config import settings, warn_about_insecure_settings
 from app.core.logging import configure_logging
 from app.core.middleware import RequestIdMiddleware, SecurityHeadersMiddleware, SimpleRateLimitMiddleware
 from app.db.indexes import create_indexes
@@ -19,6 +19,7 @@ from app.db.seeders.seed_modules import seed_modules
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging()
+    warn_about_insecure_settings()
     await connect_to_mongo()
     await create_indexes()
     await seed_default_admin()
@@ -42,10 +43,14 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(SimpleRateLimitMiddleware)
 
+    # Any localhost port is convenient while developing (Vite moves ports when 5173 is
+    # taken), but shipping a credentialed wildcard to production is not. Production
+    # trusts only the configured allowlist.
+    local_origin_regex = None if settings.app_env == "production" else r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+        allow_origin_regex=local_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

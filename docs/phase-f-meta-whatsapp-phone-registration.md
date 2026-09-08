@@ -1,3 +1,9 @@
+> **Superseded.** This phase documented the Meta WhatsApp Cloud API integration, which
+> was replaced by the Baileys linked-device bridge in `whatsapp-bridge/`. The webhook
+> routes described here no longer exist and the provider now accepts only `mock` or
+> `baileys`. Kept for project history; see the "WhatsApp Bridge" section of `README.md`
+> for the current setup.
+
 # Phase F — Meta WhatsApp Phone Number Registration
 
 Phase F registers the verified WhatsApp Business phone number for Cloud API use after Embedded Signup token exchange and WABA webhook subscription.

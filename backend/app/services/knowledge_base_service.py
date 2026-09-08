@@ -21,6 +21,26 @@ from app.services.rag_vector_service import delete_knowledge_document_vectors, u
 OWNER_SOURCE_TYPES = {"owner_text", "owner_upload"}
 ALLOWED_UPLOAD_EXTENSIONS = {".txt", ".md", ".csv", ".xlsx", ".xlsm", ".pdf", ".docx"}
 MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024
+UPLOAD_CHUNK_BYTES = 1024 * 1024
+
+
+async def _read_upload_within_limit(file) -> bytes:
+    """Read an upload in chunks, stopping as soon as it exceeds the limit.
+
+    Reading the whole body first and checking the length afterwards means a multi-
+    gigabyte POST is fully resident in memory before it can be rejected.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while chunk := await file.read(UPLOAD_CHUNK_BYTES):
+        total += len(chunk)
+        if total > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Knowledge-base file must be 10MB or smaller.",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 MAX_EXTRACTED_CHARS = 120000
 
 
@@ -329,11 +349,9 @@ async def upload_knowledge_document(
         allowed = ", ".join(sorted(ALLOWED_UPLOAD_EXTENSIONS))
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Unsupported file type. Allowed: {allowed}.")
 
-    data = await file.read()
+    data = await _read_upload_within_limit(file)
     if not data:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Uploaded file is empty.")
-    if len(data) > MAX_UPLOAD_SIZE_BYTES:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Knowledge-base file must be 10MB or smaller.")
 
     extracted_text = _clean_text(_extract_upload_text(data, extension))
     if not extracted_text:

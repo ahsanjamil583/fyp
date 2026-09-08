@@ -38,6 +38,10 @@ export function CustomerLogin() {
 
   async function finishLogin(session) {
     setCustomerSession(session);
+    if (session.user.mustResetPassword) {
+      navigate("/customer/update-password");
+      return;
+    }
     const me = await getCustomerMe();
     setCustomerSession({ ...session, profile: me.profile });
     navigate("/customer/marketplace");

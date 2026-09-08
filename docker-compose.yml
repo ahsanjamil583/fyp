@@ -13,8 +13,12 @@ services:
       context: ./backend
     container_name: bizxus-backend
     restart: unless-stopped
+    # backend/.env is gitignored, so a fresh clone has none and `docker compose up` would
+    # fail with an opaque error. Marked optional; the values below plus the image defaults
+    # are enough to boot, and a real .env still overrides them when present.
     env_file:
-      - ./backend/.env
+      - path: ./backend/.env
+        required: false
     environment:
       MONGODB_URI: mongodb://mongo:27017
       MONGODB_DB_NAME: bizxus_ai

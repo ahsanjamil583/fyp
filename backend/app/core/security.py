@@ -72,7 +72,16 @@ def decode_token(token: str, expected_type: str = "access") -> dict:
     return payload
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> dict:
+PASSWORD_RESET_REQUIRED_DETAIL = "password_reset_required"
+
+
+async def get_authenticated_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> dict:
+    """Resolve the signed-in user without applying the forced-reset gate.
+
+    Only the routes that let a user out of that state may depend on this.
+    """
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
 
@@ -82,6 +91,28 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials | None = De
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive.")
     return user
+
+
+async def get_current_user(user: dict = Depends(get_authenticated_user)) -> dict:
+    if user.get("mustResetPassword"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PASSWORD_RESET_REQUIRED_DETAIL)
+    return user
+
+
+async def require_auth_in_production(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> dict | None:
+    """Gate diagnostic endpoints that are useful in demos but leak detail in production.
+
+    Readiness and demo-account routes describe integrations, filesystem paths, and seeded
+    logins. Those stay open for local demos and smoke checks, and require a signed-in user
+    once the deployment is real.
+    """
+    if settings.app_env != "production":
+        return None
+    if credentials is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
+    return await get_authenticated_user(credentials)
 
 
 async def get_current_business_user(current_user: dict = Depends(get_current_user)) -> dict:

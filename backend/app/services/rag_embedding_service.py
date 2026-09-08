@@ -1,3 +1,4 @@
+import logging
 import hashlib
 import math
 import re
@@ -5,6 +6,8 @@ import re
 import httpx
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 EMBEDDING_DIMENSION = 384
 
@@ -70,7 +73,8 @@ async def generate_embedding(text: str) -> tuple[list[float], str]:
                 response.raise_for_status()
                 data = response.json()
                 return data["data"][0]["embedding"], f"openai:{settings.openai_embedding_model}"
-        except Exception:
-            pass
+        except Exception as exc:
+            # Falls back to the local embedding; worth knowing the hosted one is failing.
+            logger.warning("OpenAI embedding failed (%s): %s", type(exc).__name__, exc)
 
     return generate_local_embedding(clean_text), "local-hash-v1"

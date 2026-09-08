@@ -65,6 +65,11 @@ export async function resetBusinessPasswordWithEmailOtp(payload) {
   return response.data.data;
 }
 
+export async function changeBusinessPassword(payload) {
+  const response = await apiClient.post("/auth/password/change", payload);
+  return response.data.data;
+}
+
 export async function getBusinessMe() {
   const response = await apiClient.get("/auth/me");
   return response.data.data;

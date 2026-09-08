@@ -774,7 +774,7 @@ Phase E has been implemented for the Meta WhatsApp Embedded Signup flow. After P
 - `backend/app/api/v1/whatsapp_routes.py`
 - `frontend/src/services/whatsappApi.js`
 - `frontend/src/features/dashboard/WhatsAppAgentPage.jsx`
-- `backend/tests/test_phase_e_whatsapp_webhooks.py`
+- `backend/tests/test_phase_e_whatsapp_webhooks.py` _(removed with the Meta WhatsApp integration; see `whatsapp-bridge/`)_
 - `docs/phase-e-meta-whatsapp-webhook-subscription.md`
 
 ### Next step
@@ -808,7 +808,7 @@ Implemented multi-business webhook routing for Meta WhatsApp Embedded Signup. In
 - `backend/app/db/indexes.py`
 - `frontend/src/services/whatsappApi.js`
 - `frontend/src/features/dashboard/WhatsAppAgentPage.jsx`
-- `backend/tests/test_phase_g_whatsapp_routing.py`
+- `backend/tests/test_phase_g_whatsapp_routing.py` _(removed with the Meta WhatsApp integration; see `whatsapp-bridge/`)_
 - `docs/phase-g-meta-whatsapp-webhook-routing.md`
 
 ### Next step
@@ -837,7 +837,7 @@ Implemented the final live WhatsApp agent behavior after Phase G routing. Incomi
 
 - `backend/app/services/whatsapp_service.py`
 - `frontend/src/features/dashboard/WhatsAppAgentPage.jsx`
-- `backend/tests/test_phase_h_whatsapp_ai_agent.py`
+- `backend/tests/test_phase_h_whatsapp_ai_agent.py` _(removed with the Meta WhatsApp integration; see `whatsapp-bridge/`)_
 - `docs/phase-h-whatsapp-ai-agent-live-replies.md`
 
 ### Next step
@@ -866,7 +866,7 @@ Implemented the final WhatsApp dashboard polish and troubleshooting layer after 
 - `backend/app/schemas/whatsapp_schema.py`
 - `frontend/src/services/whatsappApi.js`
 - `frontend/src/features/dashboard/WhatsAppAgentPage.jsx`
-- `backend/tests/test_phase_i_whatsapp_dashboard.py`
+- `backend/tests/test_phase_i_whatsapp_dashboard.py` _(removed with the Meta WhatsApp integration; see `whatsapp-bridge/`)_
 - `docs/phase-i-whatsapp-dashboard-troubleshooting.md`
 
 ### Next step

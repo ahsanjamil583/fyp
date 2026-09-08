@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 from datetime import datetime, timezone
 from html import escape
 from typing import Any
@@ -21,6 +22,8 @@ from app.services.inventory_service import restore_transaction_stock
 from app.services.customer_notification_service import create_customer_notification
 from app.services.storage_service import store_payment_proof_image
 from app.services.transaction_workflow_service import get_allowed_payment_statuses
+
+logger = logging.getLogger(__name__)
 
 PAYMENT_METHODS = {"cod", "manual_bank", "bank_transfer", "jazzcash_mock", "easypaisa_mock", "stripe_test", "manual", "jazzcash", "easypaisa", "stripe", "card", "online_card"}
 CANONICAL_PAYMENT_METHODS = {"cod", "manual_bank", "jazzcash_mock", "easypaisa_mock", "stripe_test"}
@@ -998,19 +1001,39 @@ def _stripe_success_url(path_template: str, order_id: str, override_url: str = "
     return f"{success_url}{separator}session_id={{CHECKOUT_SESSION_ID}}"
 
 
+STRIPE_SIGNATURE_TOLERANCE_SECONDS = 300
+
+
 def _verify_stripe_signature(payload: bytes, signature_header: str) -> bool:
+    """Verify Stripe's `Stripe-Signature` header, failing closed.
+
+    An unverified webhook can mark any order paid, so a missing secret is treated as a
+    rejection rather than a reason to skip the check.
+    """
     if not settings.stripe_webhook_secret:
-        return settings.app_env != "production"
+        logger.error("Rejecting Stripe webhook: STRIPE_WEBHOOK_SECRET is not configured.")
+        return False
+
     pieces: dict[str, list[str]] = {}
     for part in signature_header.split(","):
         if "=" in part:
             key, value = part.split("=", 1)
-            pieces.setdefault(key, []).append(value)
+            pieces.setdefault(key, []).append(value.strip())
     timestamp = pieces.get("t", [""])[0]
     signatures = pieces.get("v1", [])
     if not timestamp or not signatures:
         return False
-    signed_payload = f"{timestamp}.{payload.decode('utf-8')}".encode("utf-8")
+
+    # Reject stale headers so a captured webhook cannot be replayed indefinitely.
+    try:
+        age_seconds = abs(datetime.now(timezone.utc).timestamp() - int(timestamp))
+    except (TypeError, ValueError):
+        return False
+    if age_seconds > STRIPE_SIGNATURE_TOLERANCE_SECONDS:
+        logger.warning("Rejecting Stripe webhook: signature timestamp is %.0fs old.", age_seconds)
+        return False
+
+    signed_payload = b"%s.%s" % (timestamp.encode("utf-8"), payload)
     expected = hmac.new(settings.stripe_webhook_secret.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
     return any(hmac.compare_digest(expected, signature) for signature in signatures)
 

@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.responses import success_response
-from app.core.security import get_current_customer_user
-from app.schemas.auth_schema import LoginRequest, RefreshTokenRequest
+from app.core.security import get_authenticated_user, get_current_customer_user
+from app.schemas.auth_schema import LoginRequest, PasswordChangeRequest, RefreshTokenRequest
 from app.schemas.customer_auth_schema import CustomerProfileUpdateRequest, CustomerRegisterRequest
 from app.schemas.otp_schema import (
     PhoneCustomerRegisterRequest,
@@ -11,7 +11,14 @@ from app.schemas.otp_schema import (
     PhoneOtpVerifyRequest,
     PhonePasswordResetRequest,
 )
-from app.services.auth_service import login_user, login_user_with_phone_otp, refresh_auth_token, reset_password_with_phone_otp, user_public
+from app.services.auth_service import (
+    change_password,
+    login_user,
+    login_user_with_phone_otp,
+    refresh_auth_token,
+    reset_password_with_phone_otp,
+    user_public,
+)
 from app.services.customer_auth_service import get_customer_profile, register_customer, update_customer_profile
 from app.services.otp_service import mark_user_phone_verified, request_phone_otp, verify_phone_otp
 
@@ -132,6 +139,18 @@ async def request_current_phone_verification(payload: PhoneOtpRequest, current_u
         channel=payload.channel,
     )
     return success_response("Phone verification OTP sent successfully.", data)
+
+
+@router.post("/password/change")
+async def change_customer_password(
+    payload: PasswordChangeRequest,
+    current_user: dict = Depends(get_authenticated_user),
+):
+    """Depends on the ungated dependency so an account flagged for reset can escape it."""
+    if current_user.get("accountType") != "customer":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Customer account required.")
+    data = await change_password(current_user, payload.currentPassword, payload.newPassword)
+    return success_response("Password changed successfully.", data)
 
 
 @router.post("/me/phone/verify")

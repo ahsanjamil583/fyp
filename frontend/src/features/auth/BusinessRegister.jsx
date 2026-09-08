@@ -17,7 +17,7 @@ const schema = Joi.object({
   }),
   fullName: Joi.string().min(2).required().label("Full name"),
   businessName: Joi.string().allow("").max(160).label("Business name"),
-  password: Joi.string().min(6).required().label("Password"),
+  password: Joi.string().min(8).required().label("Password"),
 });
 
 export function BusinessRegister() {
@@ -212,7 +212,7 @@ export function BusinessRegister() {
                   <input {...form.register("businessName")} className="auth-input" placeholder="Your business name" />
                 </Field>
                 <Field icon={<LockKeyhole size={17} />} label="Password" error={form.formState.errors.password?.message}>
-                  <input {...form.register("password")} type="password" className="auth-input" placeholder="Minimum 6 characters" />
+                  <input {...form.register("password")} type="password" className="auth-input" placeholder="Minimum 8 characters" />
                 </Field>
                 <button type="button" onClick={form.handleSubmit(submit)} disabled={form.formState.isSubmitting} className="w-full rounded-md bg-brand px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
                   {form.formState.isSubmitting ? "Please wait..." : "Create account"}

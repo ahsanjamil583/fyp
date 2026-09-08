@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.ai.agents.state import AgentRunState
+from app.core.item_views import customer_stock_snapshot
 from app.ai.agents.tools import (
     build_agent_meta,
     build_draft_order,
@@ -12,10 +13,12 @@ from app.ai.agents.tools import (
     detect_language_mode,
     generate_agent_response,
     hydrate_tenant_category,
+    OWNER_CHANNELS,
     rank_matching_items,
     retrieve_sellable_items,
     retrieve_tenant_knowledge,
     run_safety_guard,
+    select_catalog_for_prompt,
     summarize_notification_tool,
     summarize_payment_tool,
     summarize_report_tool,
@@ -123,6 +126,11 @@ async def run_customer_agent(
     )
 
     state.draftOrder = build_draft_order(state.tenant, effective_message, state.matchedItems, state.intentProfile)
+    if state.channel not in OWNER_CHANNELS:
+        # Draft lines are echoed straight back to the customer, so the availability
+        # snapshot must not carry exact on-hand quantities.
+        for line in state.draftOrder.get("items", []):
+            line["stockSnapshot"] = customer_stock_snapshot(line.get("stockSnapshot"))
     state.add_event(
         agent="order_agent",
         tool="draft_order_tool",
@@ -179,13 +187,20 @@ async def run_customer_agent(
         state.draftOrder,
         state.matchedItems,
         state.safety,
+        all_items=state.items,
+        channel=state.channel,
     )
     state.replyText = clean_customer_reply(state.replyText, state.channel)
+    catalog_items = select_catalog_for_prompt(state.matchedItems, state.items, state.intentProfile)
     state.add_event(
         agent="response_agent",
         tool="response_generator",
         summary="Generated final customer-safe answer.",
-        output_data={"provider": state.responseSource, "replyLength": len(state.replyText)},
+        output_data={
+            "provider": state.responseSource,
+            "replyLength": len(state.replyText),
+            "catalogItemsInPrompt": len(catalog_items),
+        },
     )
 
     state.localizationEval = evaluate_localized_reply(

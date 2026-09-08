@@ -1,5 +1,6 @@
 import logging
 
+from app.core.config import settings
 from app.db.mongodb import get_database, get_mongo_status
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,24 @@ async def create_indexes() -> None:
     await db.items.create_index([("tenantId", 1), ("status", 1)])
     await db.items.create_index([("tenantId", 1), ("itemType", 1)])
     await db.items.create_index([("tenantId", 1), ("categoryId", 1)])
+    # Repeated imports and double-submitted forms created identical active items that
+    # customers saw twice. Only active rows are constrained, so archiving a duplicate
+    # remains the way to resolve one. Case-insensitive so "Blue Shirt" and "blue shirt"
+    # collide. Run scripts/dedupe_catalog_items.py first if this index fails to build.
+    await db.items.create_index(
+        [("tenantId", 1), ("branchId", 1), ("name", 1), ("price", 1)],
+        unique=True,
+        partialFilterExpression={"status": "active"},
+        collation={"locale": "en", "strength": 2},
+        name="items_active_identity_unique",
+    )
+    # SKUs are optional and stored as "" when unset, so only non-empty ones are unique.
+    await db.items.create_index(
+        [("tenantId", 1), ("sku", 1)],
+        unique=True,
+        partialFilterExpression={"status": "active", "sku": {"$gt": ""}},
+        name="items_active_sku_unique",
+    )
     await db.item_imports.create_index("tenantId")
     await db.knowledge_documents.create_index([("tenantId", 1), ("sourceType", 1), ("sourceId", 1)], unique=True)
     await db.knowledge_documents.create_index([("tenantId", 1), ("moduleCode", 1)])
@@ -93,20 +112,25 @@ async def create_indexes() -> None:
     await db.business_notifications.create_index([("tenantId", 1), ("type", 1), ("createdAt", -1)])
     await db.whatsapp_integrations.create_index("tenantId", unique=True)
     await db.whatsapp_integrations.create_index("normalizedBusinessWhatsAppNumber")
-    await db.whatsapp_integrations.create_index("phoneNumberId")
-    await db.whatsapp_integrations.create_index("wabaId")
-    await db.whatsapp_integrations.create_index("metaBusinessId")
     await db.whatsapp_integrations.create_index("connectionStatus")
     await db.whatsapp_integrations.create_index("webhookVerifyToken")
+    await db.whatsapp_integrations.create_index([("tenantId", 1), ("bridgeToken", 1), ("provider", 1)])
+    # WhatsApp logs hold customer phone numbers and full message bodies. Without a TTL
+    # that is unbounded PII retention, so rows expire after the configured window.
+    try:
+        await db.whatsapp_message_logs.drop_index("createdAt_1")
+    except Exception:
+        pass
+    await db.whatsapp_message_logs.create_index(
+        "createdAt",
+        expireAfterSeconds=settings.whatsapp_log_retention_days * 86400,
+        name="createdAt_1",
+    )
     await db.whatsapp_message_logs.create_index([("tenantId", 1), ("createdAt", -1)])
     await db.whatsapp_message_logs.create_index([("conversationId", 1), ("createdAt", 1)])
     await db.whatsapp_message_logs.create_index([("tenantId", 1), ("direction", 1), ("providerMessageId", 1)])
-    await db.whatsapp_message_logs.create_index("providerMessageId")
-    await db.whatsapp_routing_events.create_index([("tenantId", 1), ("createdAt", -1)])
-    await db.whatsapp_routing_events.create_index([("phoneNumberId", 1), ("createdAt", -1)])
-    await db.whatsapp_routing_events.create_index([("eventType", 1), ("createdAt", -1)])
-    await db.whatsapp_go_live_runs.create_index([("tenantId", 1), ("createdAt", -1)])
-    await db.whatsapp_go_live_runs.create_index([("tenantId", 1), ("result", 1)])
+    await db.whatsapp_security_events.create_index([("tenantId", 1), ("createdAt", -1)])
+    await db.whatsapp_security_events.create_index([("tenantId", 1), ("eventType", 1), ("createdAt", -1)])
     try:
         await db.business_notifications.drop_index("tenantId_1_sourceKey_1")
     except Exception:
@@ -126,6 +150,12 @@ async def create_indexes() -> None:
     await db.conversations.create_index([("tenantId", 1), ("ownerUserId", 1), ("channel", 1), ("status", 1)])
     await db.conversations.create_index([("tenantId", 1), ("channel", 1), ("externalCustomerPhone", 1), ("status", 1)])
     await db.conversations.create_index("lastMessageAt")
+    await db.conversations.create_index(
+        "publicSessionToken",
+        unique=True,
+        partialFilterExpression={"publicSessionToken": {"$type": "string"}},
+        name="publicSessionToken_1",
+    )
     await db.messages.create_index([("conversationId", 1), ("createdAt", 1)])
     await db.messages.create_index([("tenantId", 1), ("sender", 1)])
     await db.otp_challenges.create_index([("phone", 1), ("accountType", 1), ("purpose", 1), ("status", 1)])
@@ -136,4 +166,6 @@ async def create_indexes() -> None:
     await db.qa_demo_runs.create_index([("tenantId", 1), ("result", 1)])
     await db.submission_signoffs.create_index([("tenantId", 1), ("createdAt", -1)])
     await db.submission_signoffs.create_index([("tenantId", 1), ("status", 1)])
+    # Shared rate-limit windows; Mongo reclaims each one shortly after it closes.
+    await db.rate_limit_counters.create_index("expiresAt", expireAfterSeconds=0, name="expiresAt_1")
     logger.info("MongoDB indexes are ready.")

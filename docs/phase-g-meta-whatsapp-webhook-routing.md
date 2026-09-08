@@ -1,3 +1,9 @@
+> **Superseded.** This phase documented the Meta WhatsApp Cloud API integration, which
+> was replaced by the Baileys linked-device bridge in `whatsapp-bridge/`. The webhook
+> routes described here no longer exist and the provider now accepts only `mock` or
+> `baileys`. Kept for project history; see the "WhatsApp Bridge" section of `README.md`
+> for the current setup.
+
 # Phase G — Meta WhatsApp Webhook Routing by Phone Number ID
 
 Phase G completes the multi-business WhatsApp routing layer for Meta Embedded Signup.

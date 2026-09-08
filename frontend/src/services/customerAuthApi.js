@@ -40,6 +40,11 @@ export async function resetCustomerPasswordWithOtp(payload) {
   return response.data.data;
 }
 
+export async function changeCustomerPassword(payload) {
+  const response = await apiClient.post("/customer/auth/password/change", payload);
+  return response.data.data;
+}
+
 export async function getCustomerMe() {
   const response = await apiClient.get("/customer/auth/me");
   return response.data.data;

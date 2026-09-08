@@ -2,7 +2,7 @@ import unittest
 
 from bson import ObjectId
 
-from app.services.ai_chat_service import build_draft_order, classify_message_intent, detect_language_mode
+from app.ai.agents.tools import build_draft_order, classify_message_intent, detect_language_mode
 
 
 class AIChatTests(unittest.TestCase):

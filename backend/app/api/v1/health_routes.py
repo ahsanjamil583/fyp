@@ -1,7 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.ai.rag.chroma_client import chroma_client
 from app.core.config import settings
+from app.core.security import require_auth_in_production
 from app.db.mongodb import get_mongo_status
 from app.services.system_validation_service import build_demo_accounts, build_readiness_report
 from app.services.qa_service import build_phase_summary
@@ -27,7 +28,7 @@ async def health_check():
 
 
 @router.get("/health/readiness")
-async def readiness_check():
+async def readiness_check(_: dict | None = Depends(require_auth_in_production)):
     report = await build_readiness_report()
     return {
         "success": report["overallStatus"] != "not_ready",
@@ -38,7 +39,7 @@ async def readiness_check():
 
 
 @router.get("/health/demo-accounts")
-async def demo_accounts():
+async def demo_accounts(_: dict | None = Depends(require_auth_in_production)):
     return {
         "success": True,
         "message": "Demo account information fetched successfully.",

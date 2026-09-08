@@ -8,15 +8,16 @@ from app.core.config import settings
 from app.db.mongodb import get_database, get_mongo_status
 
 
-SAFE_PROVIDER_VALUES = {"mock", "meta", "http", "local", "imagekit", "disabled", ""}
+SAFE_PROVIDER_VALUES = {"mock", "baileys", "http", "local", "imagekit", "disabled", ""}
 
 
 def _mask_secret(value: str) -> str:
-    if not value:
-        return "not_set"
-    if len(value) <= 8:
-        return "set"
-    return f"set:{value[:3]}...{value[-3:]}"
+    """Report only whether a secret is configured.
+
+    Echoing a prefix and suffix leaks enough to identify the key and narrow a search
+    for it, and the readiness report is reachable by anyone who can call the API.
+    """
+    return "set" if value else "not_set"
 
 
 def _directory_status(path_value: str) -> dict[str, Any]:
@@ -38,43 +39,20 @@ def _is_public_https_url(value: str) -> bool:
     return normalized.startswith("https://") and "localhost" not in normalized and "127.0.0.1" not in normalized
 
 
-def build_meta_embedded_signup_readiness() -> dict[str, Any]:
-    frontend_callback = f"{settings.frontend_base_url}{settings.meta_business_login_redirect_path}"
+def build_whatsapp_readiness() -> dict[str, Any]:
+    # The Meta webhook route was retired with the move to the Baileys bridge; the bridge
+    # posts inbound messages here instead.
     webhook_callback = (
-        f"{settings.backend_public_url}{settings.api_v1_prefix}/webhooks/whatsapp"
+        f"{settings.backend_public_url}{settings.api_v1_prefix}/whatsapp/bridge/inbound"
         if settings.backend_public_url
         else ""
     )
     checks = [
         {
-            "code": "meta_app_id",
-            "label": "Meta App ID",
-            "status": "pass" if settings.meta_app_id else "missing",
-            "message": "Meta App ID is configured." if settings.meta_app_id else "Add META_APP_ID from Meta Developer Dashboard.",
-        },
-        {
-            "code": "meta_app_secret",
-            "label": "Meta App Secret",
-            "status": "pass" if settings.meta_app_secret else "missing",
-            "message": "Meta App Secret is configured." if settings.meta_app_secret else "Add META_APP_SECRET. Never expose it in frontend.",
-        },
-        {
-            "code": "embedded_signup_config",
-            "label": "Embedded Signup Configuration ID",
-            "status": "pass" if settings.meta_embedded_signup_config_id else "missing",
-            "message": "Embedded Signup Configuration ID is configured." if settings.meta_embedded_signup_config_id else "Add META_EMBEDDED_SIGNUP_CONFIG_ID.",
-        },
-        {
-            "code": "frontend_callback",
-            "label": "Frontend callback URL",
-            "status": "pass" if settings.frontend_base_url else "missing",
-            "message": frontend_callback if settings.frontend_base_url else "Set FRONTEND_BASE_URL.",
-        },
-        {
-            "code": "backend_public_url",
-            "label": "Backend public HTTPS URL",
-            "status": "pass" if _is_public_https_url(settings.backend_public_url) else "missing",
-            "message": webhook_callback or "Set BACKEND_PUBLIC_URL to an HTTPS ngrok/Railway URL. Meta webhooks cannot use localhost.",
+            "code": "whatsapp_provider",
+            "label": "WhatsApp provider",
+            "status": "pass" if settings.whatsapp_provider in SAFE_PROVIDER_VALUES else "missing",
+            "message": f"WhatsApp provider: {settings.whatsapp_provider or 'not configured'}.",
         },
         {
             "code": "webhook_verify_token",
@@ -83,19 +61,23 @@ def build_meta_embedded_signup_readiness() -> dict[str, Any]:
             "message": "Webhook verify token is configured." if settings.whatsapp_verify_token else "Set WHATSAPP_VERIFY_TOKEN.",
         },
     ]
+    if settings.backend_public_url:
+        checks.append(
+            {
+                "code": "backend_public_url",
+                "label": "Backend public URL",
+                "status": "pass" if _is_public_https_url(settings.backend_public_url) else "missing",
+                "message": webhook_callback or "Set BACKEND_PUBLIC_URL to a public HTTPS backend URL.",
+            }
+        )
     missing = [check["code"] for check in checks if check["status"] != "pass"]
     return {
         "ready": not missing,
         "status": "ready" if not missing else "needs_setup",
         "missing": missing,
         "checks": checks,
-        "metaAppId": settings.meta_app_id,
-        "embeddedSignupConfigId": settings.meta_embedded_signup_config_id,
-        "graphApiVersion": settings.meta_graph_api_version,
-        "frontendCallbackUrl": frontend_callback,
         "webhookCallbackUrl": webhook_callback,
         "webhookVerifyToken": settings.whatsapp_verify_token,
-        "requiredScopes": ["whatsapp_business_management", "whatsapp_business_messaging", "business_management"],
     }
 
 
@@ -140,6 +122,27 @@ async def _demo_seed_status(mongo: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+async def _disconnected_whatsapp_integrations(mongo: dict[str, Any]) -> list[str]:
+    """Names of businesses whose WhatsApp stopped working.
+
+    A migration or a WhatsApp-side logout leaves the integration in place but unable to
+    send or receive, which is otherwise invisible until a customer is ignored.
+    """
+    if not mongo.get("connected"):
+        return []
+    try:
+        db = get_database()
+        names: list[str] = []
+        query = {"$or": [{"status": "needs_reconnect"}, {"bridgeStatus": {"$in": ["logged_out", "connection_failed"]}}]}
+        async for integration in db.whatsapp_integrations.find(query, {"tenantId": 1}):
+            tenant = await db.tenants.find_one({"_id": integration.get("tenantId")}, {"name": 1})
+            names.append((tenant or {}).get("name", str(integration.get("tenantId"))))
+        return names
+    except Exception:
+        # A readiness probe reports problems; it must not become one.
+        return []
+
+
 async def build_readiness_report() -> dict[str, Any]:
     mongo = await get_mongo_status()
     chroma = chroma_client.status()
@@ -147,7 +150,8 @@ async def build_readiness_report() -> dict[str, Any]:
     temp_dir = _directory_status(settings.temp_upload_dir)
     log_dir = _directory_status(settings.log_dir)
     demo_seed = await _demo_seed_status(mongo)
-    meta_embedded_signup = build_meta_embedded_signup_readiness()
+    whatsapp_readiness = build_whatsapp_readiness()
+    disconnected = await _disconnected_whatsapp_integrations(mongo)
 
     checks = [
         {
@@ -165,8 +169,12 @@ async def build_readiness_report() -> dict[str, Any]:
         {
             "code": "jwt_secret",
             "label": "JWT secret",
-            "status": "fail" if settings.app_env == "production" and settings.jwt_secret_key in {"", "change-this-secret", "changeme", "secret"} else "pass",
-            "message": "JWT secret is configured." if settings.jwt_secret_key not in {"", "change-this-secret", "changeme", "secret"} else "Use a strong JWT_SECRET_KEY before production.",
+            "status": "fail" if settings.jwt_secret_is_public and settings.app_env == "production" else ("pass" if not settings.jwt_secret_is_public else "warn"),
+            "message": (
+                "JWT secret is private and long enough."
+                if not settings.jwt_secret_is_public
+                else "JWT_SECRET_KEY is a known placeholder or too short. Rotate it before deploying."
+            ),
         },
         {
             "code": "debug_mode",
@@ -193,10 +201,20 @@ async def build_readiness_report() -> dict[str, Any]:
             "message": f"WhatsApp provider: {settings.whatsapp_provider or 'not configured'}.",
         },
         {
-            "code": "meta_embedded_signup",
-            "label": "Meta Embedded Signup readiness",
-            "status": "pass" if meta_embedded_signup["ready"] else "warn",
-            "message": "Meta Embedded Signup env is ready." if meta_embedded_signup["ready"] else f"Missing Meta setup: {', '.join(meta_embedded_signup['missing'])}.",
+            "code": "whatsapp_readiness",
+            "label": "WhatsApp readiness",
+            "status": "pass" if whatsapp_readiness["ready"] else "warn",
+            "message": "WhatsApp base setup is ready." if whatsapp_readiness["ready"] else f"Missing WhatsApp setup: {', '.join(whatsapp_readiness['missing'])}.",
+        },
+        {
+            "code": "whatsapp_connections",
+            "label": "WhatsApp connections",
+            "status": "pass" if not disconnected else "warn",
+            "message": (
+                "All WhatsApp integrations are connected."
+                if not disconnected
+                else f"{len(disconnected)} WhatsApp integration(s) need re-pairing: {', '.join(disconnected)}."
+            ),
         },
         {
             "code": "sms_provider",
@@ -256,18 +274,13 @@ async def build_readiness_report() -> dict[str, Any]:
             "tempUploads": temp_dir,
             "logs": log_dir,
             "demoSeed": demo_seed,
-            "metaEmbeddedSignup": meta_embedded_signup,
+            "whatsapp": whatsapp_readiness,
         },
         "integrations": {
             "whatsapp": {
                 "provider": settings.whatsapp_provider,
-                "phoneNumberId": _mask_secret(settings.whatsapp_phone_number_id),
-                "accessToken": _mask_secret(settings.whatsapp_access_token),
-                "metaAppId": _mask_secret(settings.meta_app_id),
-                "embeddedSignupConfigId": _mask_secret(settings.meta_embedded_signup_config_id),
                 "backendPublicUrl": settings.backend_public_url or "not_set",
-                "frontendCallbackUrl": meta_embedded_signup["frontendCallbackUrl"],
-                "webhookCallbackUrl": meta_embedded_signup["webhookCallbackUrl"],
+                "webhookCallbackUrl": whatsapp_readiness["webhookCallbackUrl"],
             },
             "sms": {
                 "provider": settings.sms_provider,
@@ -292,6 +305,11 @@ async def build_readiness_report() -> dict[str, Any]:
 
 
 def build_demo_accounts() -> dict[str, Any]:
+    if settings.app_env == "production":
+        return {
+            "available": False,
+            "note": "Demo account credentials are not published in production.",
+        }
     return {
         "businessOwner": {
             "email": "owner@bizxus.demo",

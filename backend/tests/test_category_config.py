@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 from bson import ObjectId
 from fastapi import HTTPException
 
-from app.services.ai_chat_service import build_system_prompt
+from app.ai.agents.tools import build_system_prompt
 from app.services.category_config_service import (
     apply_category_default_custom_fields,
     build_category_runtime_config,
@@ -96,6 +96,6 @@ class CategoryConfigTests(unittest.IsolatedAsyncioTestCase):
                 "analyticsConfig": {"suggestions": ["Track inquiry volume."]},
             },
         }
-        prompt = build_system_prompt(tenant, [], {}, {"intent": "general_info"}, "mixed")
+        prompt = build_system_prompt(tenant, [], {}, {"intent": "general_info"}, "mixed", {})
         self.assertIn("Avoid diagnosis.", prompt)
         self.assertIn("Track inquiry volume.", prompt)

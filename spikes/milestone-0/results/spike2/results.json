@@ -1,0 +1,46 @@
+{
+  "check": {
+    "checks": [
+      {
+        "label": "WASAPI host API present",
+        "pass": true
+      },
+      {
+        "label": "Loopback device available",
+        "pass": true
+      },
+      {
+        "label": "VB-CABLE input (we play here)",
+        "pass": false
+      },
+      {
+        "label": "VB-CABLE output (WhatsApp mic)",
+        "pass": false
+      },
+      {
+        "label": "Default-speaker loopback resolved",
+        "pass": true
+      }
+    ],
+    "loopbackCount": 1,
+    "captureDevice": "Speakers (Realtek(R) Audio) [Loopback]",
+    "playbackDevice": null,
+    "whatsappMicDevice": null,
+    "allPassed": false
+  },
+  "capture": {
+    "ok": false,
+    "device": "Speakers (Realtek(R) Audio) [Loopback]",
+    "peakRms": 0.0,
+    "meanRms": 0.0,
+    "file": "C:\\Users\\ahsan\\Desktop\\BIZXUSAI\\phase-32\\bizxus-code\\spikes\\milestone-0\\results\\spike2\\captured_caller.wav",
+    "seconds": 4.0
+  },
+  "selftest": {
+    "ok": true,
+    "peakRms": 11912.9,
+    "frames": 764,
+    "device": "Speakers (Realtek(R) Audio) [Loopback]",
+    "file": "C:\\Users\\ahsan\\Desktop\\BIZXUSAI\\phase-32\\bizxus-code\\spikes\\milestone-0\\results\\spike2\\selftest_loopback.wav"
+  }
+}

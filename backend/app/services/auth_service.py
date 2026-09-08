@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import HTTPException, status
 
+from app.core.password_policy import is_password_acceptable, validate_password_strength
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -26,6 +27,7 @@ def user_public(user: dict) -> dict:
         "status": user["status"],
         "isEmailVerified": user.get("isEmailVerified", False),
         "isPhoneVerified": user.get("isPhoneVerified", False),
+        "mustResetPassword": bool(user.get("mustResetPassword", False)),
     }
 
 
@@ -72,6 +74,8 @@ async def register_business_owner(payload) -> dict:
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=duplicate_account_detail(existing, normalized_email, normalized_phone))
 
+    validate_password_strength(payload.password, normalized_email, normalized_phone, payload.fullName)
+
     user = {
         "fullName": payload.fullName,
         **optional_email_to_document(normalized_email),
@@ -97,6 +101,8 @@ async def register_business_owner_with_email_otp(payload) -> dict:
     existing = await db.users.find_one({"email": normalized_email})
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This email is already registered. Please login.")
+
+    validate_password_strength(payload.password, normalized_email, payload.fullName)
 
     verification = await verify_email_otp(
         email=normalized_email,
@@ -142,11 +148,43 @@ async def login_user(email: str, password: str, expected_account_type: str | Non
     if expected_account_type and user["accountType"] != expected_account_type:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account type is not allowed here.")
 
+    # A stored bcrypt hash cannot be tested against the policy, so accounts created before
+    # it existed are audited here — the one moment the plaintext is available.
+    must_reset = not is_password_acceptable(password, user.get("email"), user.get("phone"), user.get("fullName"))
+    now = datetime.now(timezone.utc)
     await db.users.update_one(
         {"_id": user["_id"]},
-        {"$set": {"lastLoginAt": datetime.now(timezone.utc), "updatedAt": datetime.now(timezone.utc)}},
+        {"$set": {"lastLoginAt": now, "updatedAt": now, "mustResetPassword": must_reset}},
     )
+    user["mustResetPassword"] = must_reset
     return auth_payload(user)
+
+
+async def change_password(current_user: dict, current_password: str, new_password: str) -> dict:
+    """Change the password of a signed-in account and clear any forced-reset flag."""
+    db = get_database()
+    if not verify_password(current_password, current_user["passwordHash"]):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current password is incorrect.")
+    if current_password == new_password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="New password must be different from the current password.",
+        )
+
+    validate_password_strength(
+        new_password,
+        current_user.get("email"),
+        current_user.get("phone"),
+        current_user.get("fullName"),
+    )
+
+    now = datetime.now(timezone.utc)
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"passwordHash": hash_password(new_password), "mustResetPassword": False, "updatedAt": now}},
+    )
+    updated = await db.users.find_one({"_id": current_user["_id"]})
+    return auth_payload(updated)
 
 
 async def refresh_auth_token(refresh_token: str) -> dict:
@@ -185,6 +223,11 @@ async def login_user_with_phone_otp(phone: str, code: str, expected_account_type
 async def reset_password_with_phone_otp(phone: str, code: str, new_password: str, expected_account_type: str) -> dict:
     db = get_database()
     normalized_phone = normalize_pk_phone(phone)
+    user = await db.users.find_one({"phone": normalized_phone, "accountType": expected_account_type, "status": "active"})
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found for this phone number.")
+
+    validate_password_strength(new_password, user.get("email"), user.get("phone"), user.get("fullName"))
     verification = await verify_phone_otp(
         phone=normalized_phone,
         code=code,
@@ -193,8 +236,15 @@ async def reset_password_with_phone_otp(phone: str, code: str, new_password: str
         consume=True,
     )
     result = await db.users.update_one(
-        {"phone": normalized_phone, "accountType": expected_account_type, "status": "active"},
-        {"$set": {"passwordHash": hash_password(new_password), "isPhoneVerified": True, "updatedAt": datetime.now(timezone.utc)}},
+        {"_id": user["_id"]},
+        {
+            "$set": {
+                "passwordHash": hash_password(new_password),
+                "isPhoneVerified": True,
+                "mustResetPassword": False,
+                "updatedAt": datetime.now(timezone.utc),
+            }
+        },
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found for this phone number.")
@@ -204,6 +254,11 @@ async def reset_password_with_phone_otp(phone: str, code: str, new_password: str
 async def reset_password_with_email_otp(email: str, code: str, new_password: str, expected_account_type: str) -> dict:
     db = get_database()
     normalized_email = normalize_optional_email(email)
+    user = await db.users.find_one({"email": normalized_email, "accountType": expected_account_type, "status": "active"})
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found for this email address.")
+
+    validate_password_strength(new_password, user.get("email"), user.get("phone"), user.get("fullName"))
     verification = await verify_email_otp(
         email=normalized_email,
         code=code,
@@ -212,12 +267,13 @@ async def reset_password_with_email_otp(email: str, code: str, new_password: str
         consume=True,
     )
     result = await db.users.update_one(
-        {"email": normalized_email, "accountType": expected_account_type, "status": "active"},
+        {"_id": user["_id"]},
         {
             "$set": {
                 "passwordHash": hash_password(new_password),
                 "isEmailVerified": True,
                 "emailVerifiedAt": datetime.now(timezone.utc),
+                "mustResetPassword": False,
                 "updatedAt": datetime.now(timezone.utc),
             }
         },

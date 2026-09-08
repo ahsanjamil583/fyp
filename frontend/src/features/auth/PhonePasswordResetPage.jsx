@@ -13,7 +13,7 @@ import { requestCustomerPasswordResetOtp, resetCustomerPasswordWithOtp } from ".
 const phoneSchema = Joi.object({
   phone: Joi.string().min(7).required().label("Phone"),
   otpCode: Joi.string().min(4).required().label("OTP code"),
-  newPassword: Joi.string().min(6).required().label("New password"),
+  newPassword: Joi.string().min(8).required().label("New password"),
 });
 
 const emailSchema = Joi.object({
@@ -21,7 +21,7 @@ const emailSchema = Joi.object({
   otpCode: Joi.string().pattern(/^\d{6}$/).required().label("Verification code").messages({
     "string.pattern.base": "Verification code must be 6 digits.",
   }),
-  newPassword: Joi.string().min(6).required().label("New password"),
+  newPassword: Joi.string().min(8).required().label("New password"),
 });
 
 export function PhonePasswordResetPage({ customer = false }) {
@@ -111,7 +111,7 @@ export function PhonePasswordResetPage({ customer = false }) {
             </button>
           </div>
           <Field icon={<LockKeyhole size={17} />} label="New password" error={form.formState.errors.newPassword?.message}>
-            <input {...form.register("newPassword")} type="password" className="auth-input" placeholder="Minimum 6 characters" />
+            <input {...form.register("newPassword")} type="password" className="auth-input" placeholder="Minimum 8 characters" />
           </Field>
           <button type="submit" disabled={form.formState.isSubmitting} className="w-full rounded-md bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
             {form.formState.isSubmitting ? "Please wait..." : "Reset password"}

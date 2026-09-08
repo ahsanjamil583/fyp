@@ -6,6 +6,7 @@ const AuthContext = createContext(null);
 const accessKey = "bizxus_business_access_token";
 const refreshKey = "bizxus_business_refresh_token";
 const userKey = "bizxus_business_user";
+const PASSWORD_RESET_REQUIRED = "password_reset_required";
 
 function readBusinessSessionValue(key) {
   const sessionValue = sessionStorage.getItem(key);
@@ -78,6 +79,23 @@ export function AuthProvider({ children }) {
       setIsAuthReady(true);
       return currentUser;
     } catch (error) {
+      if (error.response?.status === 403 && error.response?.data?.detail === PASSWORD_RESET_REQUIRED) {
+        const saved = readBusinessSessionValue(userKey);
+        let blockedUser = user;
+        if (saved) {
+          try {
+            blockedUser = { ...JSON.parse(saved), mustResetPassword: true };
+            sessionStorage.setItem(userKey, JSON.stringify(blockedUser));
+          } catch {
+            blockedUser = user ? { ...user, mustResetPassword: true } : null;
+          }
+        }
+        setTokenState(currentToken);
+        setUserState(blockedUser);
+        setIsAuthReady(true);
+        return blockedUser;
+      }
+
       if (error.response?.status === 401 && storedRefreshToken) {
         try {
           const session = await refreshBusinessAuth(storedRefreshToken);

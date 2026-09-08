@@ -1,10 +1,12 @@
 from pydantic import BaseModel, EmailStr, Field
 
+from app.core.password_policy import MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH
+
 
 class CustomerRegisterRequest(BaseModel):
     fullName: str = Field(min_length=2, max_length=120)
     phone: str = Field(min_length=7, max_length=30)
-    password: str = Field(min_length=6, max_length=128)
+    password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH)
     email: EmailStr | None = None
 
 

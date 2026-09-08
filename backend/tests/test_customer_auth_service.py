@@ -25,7 +25,7 @@ class CustomerAuthServiceTests(unittest.IsolatedAsyncioTestCase):
         payload = type(
             "Payload",
             (),
-            {"fullName": "Danyal Khan", "email": "danyal@gmail.com", "phone": "03001234567", "password": "secret123"},
+            {"fullName": "Danyal Khan", "email": "danyal@gmail.com", "phone": "03001234567", "password": "Str0ng!Secret"},
         )()
 
         with (

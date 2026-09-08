@@ -1,0 +1,28 @@
+[tool.ruff]
+# Matches the width already used across the services.
+line-length = 150
+target-version = "py312"
+exclude = [".venv", "venv", "__pycache__", "uploads", "chroma-data", "backups"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes: undefined names, unused imports
+    "I",    # import ordering
+    "B",    # bugbear: likely bugs
+    "UP",   # pyupgrade
+    "C4",   # comprehensions
+]
+ignore = [
+    "E501",  # line length is enforced by the formatter, not the linter
+    "B008",  # FastAPI's Depends() in defaults is the framework's own idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Migrations and scripts intentionally import after adjusting sys.path.
+"scripts/*" = ["E402"]
+# Tests re-import inside test bodies to keep patches local.
+"tests/*" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

@@ -1,8 +1,28 @@
+import logging
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
 from pydantic import AliasChoices, Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+# Values that have been published in this repository, shipped in .env.example, or are
+# common throwaway placeholders. Any of them means the signing key is public knowledge,
+# so tokens and OTP hashes derived from it are forgeable.
+PUBLIC_JWT_SECRETS = frozenset(
+    {
+        "",
+        "secret",
+        "changeme",
+        "change-this-secret",
+        "replace_with_a_strong_random_secret",
+        "bizxusai_live_2026_super_secure_key_948275193746",
+    }
+)
+
+MIN_JWT_SECRET_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -14,14 +34,14 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    cors_origins: list[str] = Field(
+    cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
     )
 
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_db_name: str = "bizxus_ai"
 
-    jwt_secret_key: str = "bizxusai_live_2026_super_secure_key_948275193746"
+    jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
@@ -43,15 +63,8 @@ class Settings(BaseSettings):
     groq_model: str = "llama-3.1-8b-instant"
 
     whatsapp_provider: str = "mock"
+    whatsapp_log_retention_days: int = 180
     whatsapp_verify_token: str = "bizxus-whatsapp-verify"
-    whatsapp_access_token: str = ""
-    whatsapp_phone_number_id: str = ""
-    whatsapp_api_version: str = "v21.0"
-    meta_app_id: str = ""
-    meta_app_secret: str = ""
-    meta_embedded_signup_config_id: str = ""
-    meta_graph_api_version: str = "v21.0"
-    meta_business_login_redirect_path: str = "/dashboard/whatsapp-agent/connect/callback"
     backend_public_url: str = ""
 
     sms_provider: str = "mock"
@@ -89,10 +102,12 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     backup_dir: str = "./backups"
 
-    app_version: str = "0.32.0-phase-f"
-    build_label: str = "phase-i-whatsapp-dashboard-troubleshooting"
-    rate_limit_enabled: bool = False
-    rate_limit_requests_per_minute: int = 120
+    app_version: str = "0.32.0"
+    build_label: str = "phase-32-critical-bug-fixes"
+    rate_limit_enabled: bool = True
+    rate_limit_requests_per_minute: int = 300
+    # Daily ceiling on billed AI replies per tenant; 0 disables the cap.
+    ai_daily_message_cap: int = 300
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[2] / ".env",
@@ -140,31 +155,69 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_whatsapp_provider(cls, value):
         normalized = str(value or "mock").strip().lower()
-        if normalized in {"meta", "meta_cloud", "cloud", "whatsapp_cloud"}:
-            return "meta_cloud"
-        return "mock"
-
-    @field_validator("meta_graph_api_version", "whatsapp_api_version", mode="before")
-    @classmethod
-    def normalize_meta_api_version(cls, value):
-        normalized = str(value or "v21.0").strip()
-        return normalized if normalized.startswith("v") else f"v{normalized}"
+        return normalized if normalized in {"mock", "baileys"} else "mock"
 
     @field_validator("frontend_base_url", "backend_public_url", mode="before")
     @classmethod
     def normalize_base_url(cls, value):
         return str(value or "").strip().rstrip("/")
 
+    @field_validator("chroma_persist_directory", "local_upload_dir", "temp_upload_dir", "log_dir", "backup_dir", mode="after")
+    @classmethod
+    def resolve_data_path(cls, value: str) -> str:
+        """Anchor data directories to the backend package, not the working directory.
+
+        These defaulted to "./chroma-data" and friends, so starting the API from the repo
+        root instead of backend/ silently created a second vector store and upload tree.
+        Absolute paths in the environment are respected as-is.
+        """
+        path = Path(str(value or "").strip())
+        if path.is_absolute():
+            return str(path)
+        backend_root = Path(__file__).resolve().parents[2]
+        return str((backend_root / path).resolve())
+
+    @property
+    def jwt_secret_is_public(self) -> bool:
+        """True when the signing key is a known placeholder or too short to be safe."""
+        return self.jwt_secret_key in PUBLIC_JWT_SECRETS or len(self.jwt_secret_key) < MIN_JWT_SECRET_LENGTH
+
     @model_validator(mode="after")
     def enforce_production_safety(self):
         if self.app_env == "production":
             if self.debug:
                 raise ValueError("DEBUG must be false in production.")
-            if self.jwt_secret_key in {"", "change-this-secret", "changeme", "secret"}:
-                raise ValueError("Set a strong JWT_SECRET_KEY before running in production.")
+            if self.jwt_secret_key in PUBLIC_JWT_SECRETS:
+                raise ValueError(
+                    "JWT_SECRET_KEY is a known placeholder value and is public. Generate a private one, "
+                    "for example: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+                )
+            if len(self.jwt_secret_key) < MIN_JWT_SECRET_LENGTH:
+                raise ValueError(f"JWT_SECRET_KEY must be at least {MIN_JWT_SECRET_LENGTH} characters in production.")
             if self.bcrypt_rounds < 12:
                 raise ValueError("BCRYPT_ROUNDS must be at least 12 in production.")
+            if not self.stripe_webhook_secret and self.stripe_secret_key:
+                raise ValueError("STRIPE_WEBHOOK_SECRET is required in production when Stripe is enabled.")
         return self
+
+
+def warn_about_insecure_settings() -> None:
+    """Log configuration that is tolerable locally but unsafe once reachable.
+
+    Called from application startup rather than at import time, because settings are
+    built before logging is configured and a warning emitted then would be discarded.
+    """
+    if settings.jwt_secret_is_public:
+        logger.warning(
+            "JWT_SECRET_KEY is a known placeholder or shorter than %s characters. Access tokens and OTP hashes "
+            "signed with it can be forged by anyone who has this source. Rotate it with: "
+            'python -c "import secrets; print(secrets.token_urlsafe(48))"',
+            MIN_JWT_SECRET_LENGTH,
+        )
+    if settings.stripe_secret_key and not settings.stripe_webhook_secret:
+        logger.warning("STRIPE_WEBHOOK_SECRET is not set, so all Stripe webhooks will be rejected.")
+    if settings.rate_limit_enabled is False:
+        logger.info("Rate limiting is disabled. Public AI chat and order endpoints are unthrottled.")
 
 
 @lru_cache
