@@ -125,6 +125,12 @@ export async function syncCustomerStripeCheckout(orderId, payload = {}) {
   return response.data.data;
 }
 
+// Must stay under /customer/: apiClient picks the customer access token by that prefix.
+export async function startGatewayCheckout(orderId, provider) {
+  const response = await apiClient.post(`/customer/transactions/${orderId}/gateway-checkout`, { provider });
+  return response.data.data;
+}
+
 export async function getCustomerPaymentReceiptHtml(orderId, paymentRecordId) {
   const response = await apiClient.get(`/customer/transactions/${orderId}/payments/${paymentRecordId}/receipt`, {
     responseType: "text",
@@ -160,6 +166,6 @@ export async function markAllCustomerNotificationsRead() {
 export function resolveUploadUrl(url) {
   if (!url) return "";
   if (url.startsWith("http")) return url;
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1";
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "/api/v1";
   return `${apiBase.replace("/api/v1", "")}${url}`;
 }

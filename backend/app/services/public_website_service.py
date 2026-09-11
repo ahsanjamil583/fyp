@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
+import re
 
 from fastapi import HTTPException, status
 
 from app.core.item_views import customer_item_view
+from app.core.public_views import public_business_view, customer_order_view
 from app.core.object_ids import parse_object_id, serialize_document
 from app.db.mongodb import get_database
 from app.services.category_config_service import validate_tenant_fulfillment
@@ -41,7 +43,7 @@ async def _get_published_tenant(slug: str) -> dict:
 
 async def get_public_business(slug: str) -> dict:
     tenant = await _get_published_tenant(slug)
-    serialized = serialize_document(tenant)
+    serialized = public_business_view(tenant)
     serialized["paymentOptions"] = await get_customer_payment_options_for_tenant(tenant["_id"])
     serialized["whatsappAgent"] = await get_customer_facing_whatsapp_agent(tenant)
     return serialized
@@ -60,6 +62,7 @@ async def list_public_items(slug: str, search: str = "", item_type: str | None =
     if item_type:
         query["itemType"] = item_type
     if search:
+        search = re.escape(search[:200])
         query["$and"] = [
             {"$or": query.pop("$or")},
             {
@@ -200,7 +203,7 @@ async def create_public_transaction(slug: str, payload) -> dict:
             {"publicSessionToken": str(payload.conversationId).strip(), "tenantId": tenant["_id"], "channel": "website"},
             {"$set": {"pendingOrderDraft": {}, "summary": f"Draft confirmed as {transaction['transactionNumber']}.", "updatedAt": now, "lastMessageAt": now}},
         )
-    return serialize_document(transaction)
+    return customer_order_view(transaction)
 
 
 async def create_public_order(slug: str, payload) -> dict:

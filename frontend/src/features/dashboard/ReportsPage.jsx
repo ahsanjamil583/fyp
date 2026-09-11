@@ -10,6 +10,8 @@ import {
   getReportDeliverySettings,
   updateReportDeliverySettings,
 } from "../../services/reportApi.js";
+import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 function todayDateValue() {
   return new Date().toISOString().slice(0, 10);
@@ -160,30 +162,30 @@ export function ReportsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 border-b border-line pb-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-brand">Reports</p>
-          <h1 className="mt-2 text-3xl font-semibold text-ink">Daily Business Summary</h1>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Reports</p>
+          <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Daily Business Summary</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
             Generate a business-owner summary and deliver it through WhatsApp/SMS. This completes the proposal flow where the owner receives daily operational insights automatically.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input className="form-input" type="date" value={summaryDate} onChange={(event) => setSummaryDate(event.target.value)} />
-          <button className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60" disabled={isGenerating} onClick={handleGenerate} type="button">
+          <button className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60" disabled={isGenerating} onClick={handleGenerate} type="button">
             {isGenerating ? "Generating..." : "Generate Summary"}
           </button>
         </div>
       </div>
 
-      {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       {isLoading ? <div className="text-sm text-muted">Loading daily summary...</div> : null}
 
       {report ? (
         <>
-          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-            <div className="text-sm font-semibold uppercase tracking-wide text-brand">{report.summaryDate}</div>
+          <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">{report.summaryDate}</div>
             <h2 className="mt-2 text-2xl font-semibold text-ink">{report.headline}</h2>
             <p className="mt-3 text-sm leading-7 text-muted">{report.analyticsSummary || "No additional analytics summary yet."}</p>
           </div>
@@ -203,7 +205,7 @@ export function ReportsPage() {
             <div className="space-y-6">
               <Panel title="Top Items" emptyMessage="No ranked items yet.">
                 {(report.topItems || []).map((item) => (
-                  <div key={item.itemId || item.name} className="rounded-md border border-line px-3 py-2 text-sm">
+                  <div key={item.itemId || item.name} className="rounded-xl border border-line px-3 py-2 text-sm">
                     <div className="font-semibold text-ink">{item.name}</div>
                     <div className="mt-1 text-muted">Orders: {item.orders} / Quantity: {item.quantity} / Revenue: {item.revenue}</div>
                   </div>
@@ -212,7 +214,7 @@ export function ReportsPage() {
 
               <Panel title="Recent Transactions" emptyMessage="No recent transactions.">
                 {(report.recentTransactions || []).map((item) => (
-                  <div key={item.id} className="rounded-md border border-line px-3 py-2 text-sm">
+                  <div key={item.id} className="rounded-xl border border-line px-3 py-2 text-sm">
                     <div className="font-semibold text-ink">{item.transactionNumber}</div>
                     <div className="mt-1 text-muted">{item.transactionType} / {item.status} / {item.source}</div>
                   </div>
@@ -223,21 +225,21 @@ export function ReportsPage() {
             <div className="space-y-6">
               <Panel title="Low Stock Items" emptyMessage="No low-stock items right now.">
                 {(report.lowStockItems || []).map((item) => (
-                  <div key={item.id} className="rounded-md border border-line px-3 py-2 text-sm">
+                  <div key={item.id} className="rounded-xl border border-line px-3 py-2 text-sm">
                     <div className="font-semibold text-ink">{item.name}</div>
                     <div className="mt-1 text-muted">Quantity: {item.stock?.quantity ?? 0} / Threshold: {item.stock?.lowStockThreshold ?? 0}</div>
                   </div>
                 ))}
               </Panel>
 
-              <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+              <div className="rounded-xl border border-line bg-white p-5 shadow-card">
                 <div className="text-sm font-semibold text-ink">Hook Preview</div>
                 <div className="mt-3 space-y-2 text-sm text-muted">
                   <div>Webhook event: {report.hookPreview?.webhookEvent?.event || "n/a"}</div>
                   <div>WhatsApp template: {report.hookPreview?.whatsapp?.template || "n/a"}</div>
                   <div>SMS template: {report.hookPreview?.sms?.template || "n/a"}</div>
                 </div>
-                <div className="mt-4 rounded-md bg-surface p-3 text-xs text-muted">
+                <div className="mt-4 rounded-xl bg-surface p-3 text-xs text-muted">
                   {report.generatedAt ? `Generated at ${new Date(report.generatedAt).toLocaleString()}` : "Generated summary ready."}
                 </div>
               </div>
@@ -246,28 +248,28 @@ export function ReportsPage() {
         </>
       ) : null}
 
-      <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-line bg-white p-5 shadow-card">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-brand">Phase 26</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Phase 26</p>
             <h2 className="mt-1 text-2xl font-semibold text-ink">Daily WhatsApp/SMS Delivery</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">Save the owner recipient numbers, choose channels, and send the daily report now. The mock providers log delivery for FYP demos; real provider credentials can be configured later.</p>
+            <p className="mt-2 text-sm text-muted">Automatic delivery: {deliveryForm.schedulerActive ? "Active" : "Paused"}</p>
           </div>
           <div className="flex gap-2">
-            <button type="button" disabled={isDelivering} onClick={() => handleDeliverNow(true)} className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink disabled:opacity-60">Dry Run</button>
-            <button type="button" disabled={isDelivering} onClick={() => handleDeliverNow(false)} className="rounded-md bg-brand px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{isDelivering ? "Delivering..." : "Deliver Now"}</button>
+            <button type="button" disabled={isDelivering} onClick={() => handleDeliverNow(true)} className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink disabled:opacity-60">Dry Run</button>
+            <button type="button" disabled={isDelivering} onClick={() => handleDeliverNow(false)} className="rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{isDelivering ? "Delivering..." : "Deliver Now"}</button>
           </div>
         </div>
 
         <form onSubmit={handleSaveDelivery} className="mt-5 grid gap-4 lg:grid-cols-3">
           <label className="text-sm font-medium text-ink">Delivery time
-            <input className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" type="time" value={deliveryForm.deliveryTime || "21:00"} onChange={(event) => updateDeliveryField("deliveryTime", event.target.value)} />
+            <input className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm" type="time" value={deliveryForm.deliveryTime || "21:00"} onChange={(event) => updateDeliveryField("deliveryTime", event.target.value)} />
           </label>
           <label className="text-sm font-medium text-ink">Timezone
-            <input className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" value={deliveryForm.timezone || "Asia/Karachi"} onChange={(event) => updateDeliveryField("timezone", event.target.value)} />
+            <input className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm" value={deliveryForm.timezone || "Asia/Karachi"} onChange={(event) => updateDeliveryField("timezone", event.target.value)} />
           </label>
           <label className="text-sm font-medium text-ink">Language
-            <select className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" value={deliveryForm.languageMode || "auto"} onChange={(event) => updateDeliveryField("languageMode", event.target.value)}>
+            <select className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm" value={deliveryForm.languageMode || "auto"} onChange={(event) => updateDeliveryField("languageMode", event.target.value)}>
               <option value="auto">Auto</option>
               <option value="english">English</option>
               <option value="roman_urdu">Roman Urdu</option>
@@ -275,10 +277,10 @@ export function ReportsPage() {
             </select>
           </label>
           <label className="text-sm font-medium text-ink">WhatsApp recipient
-            <input className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" value={deliveryForm.whatsappRecipient || ""} onChange={(event) => updateDeliveryField("whatsappRecipient", event.target.value)} placeholder="+923001234567" />
+            <input className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm" value={deliveryForm.whatsappRecipient || ""} onChange={(event) => updateDeliveryField("whatsappRecipient", event.target.value)} placeholder="+923001234567" />
           </label>
           <label className="text-sm font-medium text-ink">SMS recipient
-            <input className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" value={deliveryForm.smsRecipient || ""} onChange={(event) => updateDeliveryField("smsRecipient", event.target.value)} placeholder="+923001234567" />
+            <input className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm" value={deliveryForm.smsRecipient || ""} onChange={(event) => updateDeliveryField("smsRecipient", event.target.value)} placeholder="+923001234567" />
           </label>
           <div className="flex flex-wrap items-end gap-4 text-sm text-ink">
             <label className="flex items-center gap-2"><input type="checkbox" checked={deliveryForm.enabled !== false} onChange={(event) => updateDeliveryField("enabled", event.target.checked)} /> Enabled</label>
@@ -291,24 +293,24 @@ export function ReportsPage() {
             <label className="flex items-center gap-2"><input type="checkbox" checked={deliveryForm.includeRecentOrders !== false} onChange={(event) => updateDeliveryField("includeRecentOrders", event.target.checked)} /> Include recent orders</label>
           </div>
           <div className="lg:col-span-3">
-            <button type="submit" disabled={isSavingDelivery} className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink disabled:opacity-60">{isSavingDelivery ? "Saving..." : "Save delivery settings"}</button>
+            <button type="submit" disabled={isSavingDelivery} className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink disabled:opacity-60">{isSavingDelivery ? "Saving..." : "Save delivery settings"}</button>
           </div>
         </form>
 
         {lastDelivery ? (
-          <div className="mt-5 rounded-md bg-surface p-3 text-sm text-muted">Last delivery status: <span className="font-semibold text-ink">{lastDelivery.deliveryStatus}</span></div>
+          <div className="mt-5 rounded-xl bg-surface p-3 text-sm text-muted">Last delivery status: <span className="font-semibold text-ink">{lastDelivery.deliveryStatus}</span></div>
         ) : null}
 
         <div className="mt-5">
-          <h3 className="text-sm font-semibold text-ink">Recent delivery logs</h3>
+          <SectionTitle className="!text-sm">Recent delivery logs</SectionTitle>
           <div className="mt-3 space-y-2">
             {deliveryLogs.length ? deliveryLogs.map((log) => (
-              <div key={log.id} className="rounded-md border border-line px-3 py-2 text-sm">
+              <div key={log.id} className="rounded-xl border border-line px-3 py-2 text-sm">
                 <div className="font-semibold text-ink">{log.channel} / {log.deliveryStatus} / {log.summaryDate}</div>
                 <div className="mt-1 text-muted">To: {log.recipient || "n/a"} / Provider: {log.provider || "mock"}</div>
                 {log.error ? <div className="mt-1 text-red-700">{log.error}</div> : null}
               </div>
-            )) : <div className="rounded-md border border-dashed border-line bg-surface p-4 text-sm text-muted">No delivery logs yet.</div>}
+            )) : <div className="rounded-xl border border-dashed border-line bg-surface p-4 text-sm text-muted">No delivery logs yet.</div>}
           </div>
         </div>
       </div>
@@ -317,22 +319,17 @@ export function ReportsPage() {
 }
 
 function MetricCard({ label, value }) {
-  return (
-    <div className="rounded-md border border-line bg-white p-4 shadow-sm">
-      <div className="text-sm text-muted">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-ink">{value}</div>
-    </div>
-  );
+  return <KitStatCard label={label} value={value} />;
 }
 
 function Panel({ title, emptyMessage, children }) {
   const items = Array.isArray(children) ? children.filter(Boolean) : [];
 
   return (
-    <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-      <div className="text-sm font-semibold text-ink">{title}</div>
+    <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+      <SectionTitle className="!text-sm">{title}</SectionTitle>
       <div className="mt-3 space-y-2">
-        {items.length ? items : <div className="rounded-md border border-dashed border-line bg-surface p-4 text-sm text-muted">{emptyMessage}</div>}
+        {items.length ? items : <div className="rounded-xl border border-dashed border-line bg-surface p-4 text-sm text-muted">{emptyMessage}</div>}
       </div>
     </div>
   );

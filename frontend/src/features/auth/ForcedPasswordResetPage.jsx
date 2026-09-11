@@ -55,10 +55,10 @@ export function ForcedPasswordResetPage({ customer = false }) {
 
   return (
     <div className="grid min-h-screen place-items-center bg-surface px-4 py-10">
-      <div className="w-full max-w-md rounded-md border border-line bg-white p-7 shadow-soft">
-        <BrandLogo showWordmark={false} className="mb-5 h-12 w-12 rounded-md bg-white" imageClassName="h-12 w-12 rounded-md object-contain" />
+      <div className="w-full max-w-md rounded-xl border border-line bg-white p-7 shadow-soft">
+        <BrandLogo showWordmark={false} className="mb-5 h-12 w-12 rounded-xl bg-white" imageClassName="h-12 w-12 rounded-xl object-contain" />
 
-        <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3">
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
           <ShieldAlert className="mt-0.5 shrink-0 text-amber-600" size={19} />
           <div className="text-sm leading-6 text-amber-900">
             <div className="font-semibold">Update your password to continue</div>
@@ -74,7 +74,7 @@ export function ForcedPasswordResetPage({ customer = false }) {
         </p>
 
         {serverError ? (
-          <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div>
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div>
         ) : null}
 
         <form className="mt-5 space-y-4" onSubmit={form.handleSubmit(submit)}>
@@ -90,7 +90,7 @@ export function ForcedPasswordResetPage({ customer = false }) {
           <button
             type="submit"
             disabled={form.formState.isSubmitting}
-            className="w-full rounded-md bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+            className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
           >
             {form.formState.isSubmitting ? "Updating..." : "Update password and continue"}
           </button>
@@ -123,7 +123,7 @@ function Field({ icon, label, error, children }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>
-      <div className="flex items-center gap-2 rounded-md border border-line bg-white px-3 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15">
+      <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15">
         <span className="text-muted">{icon}</span>
         {children}
       </div>

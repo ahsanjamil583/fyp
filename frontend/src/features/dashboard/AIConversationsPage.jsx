@@ -91,23 +91,23 @@ export function AIConversationsPage() {
 
   return (
     <section className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-      <aside className="rounded-md border border-line bg-white p-5 shadow-sm">
-        <div className="border-b border-line pb-3">
-          <p className="text-sm font-semibold uppercase tracking-wide text-brand">AI Conversations</p>
+      <aside className="rounded-xl border border-line bg-white p-5 shadow-card">
+        <div className="border-b border-line-soft pb-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">AI Conversations</p>
           <h1 className="mt-2 text-2xl font-semibold text-ink">{selectedTenant.name}</h1>
         </div>
-        {notice ? <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</div> : null}
-        {error ? <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+        {notice ? <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</div> : null}
+        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
         {isLoading ? <div className="mt-4 text-sm text-muted">Loading conversations...</div> : null}
         {ragStatus ? (
-          <div className="mt-4 rounded-md border border-line bg-surface p-4 text-sm text-muted">
+          <div className="mt-4 rounded-xl border border-line bg-surface p-4 text-sm text-muted">
             <div className="font-semibold text-ink">RAG Status</div>
             <div className="mt-2">Documents: {ragStatus.knowledgeDocumentCount || 0}</div>
             <div>Active documents: {ragStatus.activeKnowledgeDocumentCount || 0}</div>
             <div>Chunks: {ragStatus.chunkCount || 0}</div>
             <div>Embedding: {ragStatus.embeddingProvider || "n/a"}</div>
             <button
-              className="mt-3 w-full rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-3 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
               onClick={handleReindex}
               type="button"
               disabled={isReindexing}
@@ -120,12 +120,12 @@ export function AIConversationsPage() {
           {conversationList.map((conversation) => (
             <button
               key={conversation.id}
-              className={selectedConversationId === conversation.id ? "w-full rounded-md border border-brand bg-blue-50 px-4 py-3 text-left" : "w-full rounded-md border border-line px-4 py-3 text-left"}
+              className={selectedConversationId === conversation.id ? "w-full rounded-xl border border-brand bg-brand-50 px-4 py-3 text-left" : "w-full rounded-xl border border-line px-4 py-3 text-left"}
               onClick={() => setSelectedConversationId(conversation.id)}
               type="button"
             >
               <div className="font-semibold text-ink">{conversation.channel}</div>
-              <div className="mt-1 text-xs uppercase tracking-wide text-muted">{conversation.status}</div>
+              <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">{conversation.status}</div>
               <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide text-muted">
                 {conversation.languageDetected ? <span>{conversation.languageDetected}</span> : null}
                 {conversation.lastIntent ? <span>{conversation.lastIntent.replaceAll("_", " ")}</span> : null}
@@ -134,15 +134,15 @@ export function AIConversationsPage() {
               <div className="mt-2 line-clamp-2 text-sm text-muted">{conversation.summary || "No summary yet."}</div>
             </button>
           ))}
-          {!conversationList.length ? <div className="rounded-md border border-dashed border-line bg-surface p-4 text-sm text-muted">No AI conversations yet.</div> : null}
+          {!conversationList.length ? <div className="rounded-xl border border-dashed border-line bg-surface p-4 text-sm text-muted">No AI conversations yet.</div> : null}
         </div>
       </aside>
 
-      <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-line bg-white p-5 shadow-card">
         {detail?.conversation ? (
           <>
             <div className="flex flex-col gap-2 border-b border-line pb-4">
-              <div className="text-sm font-semibold uppercase tracking-wide text-brand">{detail.conversation.channel}</div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">{detail.conversation.channel}</div>
               <div className="text-sm text-muted">Last activity: {detail.conversation.lastMessageAt ? new Date(detail.conversation.lastMessageAt).toLocaleString() : "n/a"}</div>
               <div className="flex flex-wrap gap-2 pt-2 text-xs text-muted">
                 {detail.conversation.languageDetected ? <span className="rounded-full bg-surface px-2 py-1">{detail.conversation.languageDetected}</span> : null}
@@ -155,7 +155,7 @@ export function AIConversationsPage() {
             </div>
             <div className="mt-4 space-y-3">
               {(detail.messages || []).map((message) => (
-                <div key={message.id} className="rounded-md border border-line p-4">
+                <div key={message.id} className="rounded-xl border border-line p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div className="font-semibold capitalize text-ink">{message.sender}</div>
                     <div className="text-xs text-muted">{new Date(message.createdAt).toLocaleString()}</div>
@@ -171,7 +171,7 @@ export function AIConversationsPage() {
                     </div>
                   ) : null}
                   {message.toolCalls?.length ? (
-                    <div className="mt-3 rounded-md bg-surface p-3 text-xs text-muted">
+                    <div className="mt-3 rounded-xl bg-surface p-3 text-xs text-muted">
                       {message.toolCalls.map((toolCall, index) => (
                         <div key={`${message.id}-tool-${index}`}>
                           {Object.entries(toolCall).map(([key, value]) => `${key}: ${String(value)}`).join(" | ")}

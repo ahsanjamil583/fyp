@@ -5,6 +5,7 @@ import { PaymentLifecycleNote, PaymentProofBadge, PaymentStatusBadge } from "../
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getTenantTransactions, updateTenantTransaction } from "../../services/transactionApi.js";
 import { capitalize, formatTransactionType } from "../../utils/transaction.js";
+import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
 
 export function TransactionsPage() {
   const { selectedTenant } = useTenant();
@@ -102,9 +103,9 @@ export function TransactionsPage() {
   if (!selectedTenant) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Transactions</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Transactions</h1>
         <p className="text-sm text-muted">Create a business before managing transactions.</p>
-        <Link className="inline-flex rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/business">
+        <Link className="inline-flex rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/business">
           Create Business
         </Link>
       </section>
@@ -116,16 +117,16 @@ export function TransactionsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line pb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Operations</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Transactions</h1>
+      <div className="border-b border-line-soft pb-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Operations</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Transactions</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
           Review orders, quote requests, booking requests, and inquiries from one queue and move them through their workflow.
         </p>
       </div>
 
-      {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Total" value={summary.totalTransactions || 0} />
@@ -143,7 +144,7 @@ export function TransactionsPage() {
       </div>
 
       <form
-        className="grid gap-3 rounded-md border border-line bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-[1.6fr_1fr_1fr_1fr_auto]"
+        className="grid gap-3 rounded-xl border border-line bg-white p-5 shadow-card md:grid-cols-2 xl:grid-cols-[1.6fr_1fr_1fr_1fr_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           refreshTransactions(search);
@@ -168,7 +169,7 @@ export function TransactionsPage() {
             <option key={value} value={value}>{value}</option>
           ))}
         </select>
-        <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">Search</button>
+        <button className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white">Search</button>
       </form>
 
       {isLoading ? <div className="text-sm text-muted">Loading transactions...</div> : null}
@@ -185,11 +186,11 @@ export function TransactionsPage() {
           const paymentNote = PaymentLifecycleNote({ transaction });
 
           return (
-            <div key={transaction.id} className="rounded-md border border-line bg-white p-5 shadow-sm">
+            <div key={transaction.id} className="rounded-xl border border-line bg-white p-5 shadow-card">
               <div className="flex flex-col gap-4 border-b border-line pb-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-wide text-brand">{formatTransactionType(transaction.transactionType)}</div>
-                  <h2 className="mt-1 text-xl font-semibold text-ink">{transaction.transactionNumber}</h2>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">{formatTransactionType(transaction.transactionType)}</div>
+                  <h2 className="mt-1 text-lg font-bold text-ink">{transaction.transactionNumber}</h2>
                   <div className="mt-2 text-sm text-muted">
                     {transaction.customerSnapshot?.name || "Guest"} / {transaction.customerSnapshot?.phone || "No phone"} / {transaction.source}
                   </div>
@@ -214,7 +215,7 @@ export function TransactionsPage() {
                   <div className="mt-3 space-y-2">
                     {(transaction.items || []).length ? (
                       transaction.items.map((item, index) => (
-                        <div key={`${transaction.id}-${index}`} className="rounded-md border border-line px-3 py-2 text-sm">
+                        <div key={`${transaction.id}-${index}`} className="rounded-xl border border-line px-3 py-2 text-sm">
                           <div className="font-semibold text-ink">{item.name}</div>
                           <div className="mt-1 text-muted">Qty: {item.quantity} / Unit: {item.unitPrice} / Subtotal: {item.subtotal}</div>
                           {item.selectedVariantName || item.selectedOptions ? (
@@ -231,14 +232,14 @@ export function TransactionsPage() {
                         </div>
                       ))
                     ) : (
-                      <div className="rounded-md border border-dashed border-line bg-surface p-3 text-sm text-muted">No items attached.</div>
+                      <div className="rounded-xl border border-dashed border-line bg-surface p-3 text-sm text-muted">No items attached.</div>
                     )}
                   </div>
 
                   {transaction.notes ? (
                     <div className="mt-4">
                       <div className="text-sm font-semibold text-ink">Customer Notes</div>
-                      <div className="mt-2 rounded-md border border-line bg-surface px-3 py-2 text-sm text-muted">{transaction.notes}</div>
+                      <div className="mt-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-muted">{transaction.notes}</div>
                     </div>
                   ) : null}
 
@@ -248,14 +249,14 @@ export function TransactionsPage() {
                         <div className="text-sm font-semibold text-ink">Payment Summary</div>
                         <Link className="text-xs font-semibold text-brand" to="/dashboard/payments">Open payments</Link>
                       </div>
-                      <div className="mt-2 grid gap-2 rounded-md border border-line bg-surface px-3 py-2 text-xs text-muted sm:grid-cols-4">
+                      <div className="mt-2 grid gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-xs text-muted sm:grid-cols-4">
                         <span>Total: {transaction.paymentSummary.total ?? transaction.pricing?.total ?? 0}</span>
                         <span>Paid: {transaction.paymentSummary.paid ?? 0}</span>
                         <span>Pending: {transaction.paymentSummary.pending ?? 0}</span>
                         <span>Balance: {transaction.paymentSummary.balance ?? 0}</span>
                       </div>
                       {paymentNote ? (
-                        <div className="mt-2 rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                        <div className="mt-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
                           {paymentNote}
                         </div>
                       ) : null}
@@ -267,7 +268,7 @@ export function TransactionsPage() {
                       <div className="text-sm font-semibold text-ink">Inventory Movements</div>
                       <div className="mt-2 space-y-2">
                         {transaction.inventoryMovementsDetailed.slice(0, 4).map((entry, index) => (
-                          <div key={`${transaction.id}-inventory-${index}`} className="rounded-md border border-line px-3 py-2 text-xs text-muted">
+                          <div key={`${transaction.id}-inventory-${index}`} className="rounded-xl border border-line px-3 py-2 text-xs text-muted">
                             <span className="font-semibold text-ink">{entry.movementType}</span> {entry.quantity} x {entry.itemName}
                             {entry.variantName ? ` / ${entry.variantName}` : ""}
                           </div>
@@ -281,7 +282,7 @@ export function TransactionsPage() {
                       <div className="text-sm font-semibold text-ink">Status History</div>
                       <div className="mt-2 space-y-2">
                         {transaction.statusHistory.slice().reverse().slice(0, 4).map((entry, index) => (
-                          <div key={`${transaction.id}-history-${index}`} className="rounded-md border border-line px-3 py-2 text-xs text-muted">
+                          <div key={`${transaction.id}-history-${index}`} className="rounded-xl border border-line px-3 py-2 text-xs text-muted">
                             <span className="font-semibold text-ink">{entry.field}</span> {entry.from || "new"} to {entry.to}
                             {entry.note ? ` / ${entry.note}` : ""}
                           </div>
@@ -291,7 +292,7 @@ export function TransactionsPage() {
                   ) : null}
                 </div>
 
-                <div className="space-y-4 rounded-md border border-line bg-surface p-4">
+                <div className="space-y-4 rounded-xl border border-line bg-surface p-4">
                   <div className="text-sm font-semibold text-ink">Workflow Control</div>
                   <Field label="Status">
                     <select className="form-input" value={draft.status || ""} onChange={(event) => updateDraft(transaction.id, "status", event.target.value)}>
@@ -312,7 +313,7 @@ export function TransactionsPage() {
                   </Field>
                   <button
                     type="button"
-                    className="w-full rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={savingId === transaction.id}
                     onClick={() => saveTransaction(transaction.id)}
                   >
@@ -325,7 +326,7 @@ export function TransactionsPage() {
         })}
 
         {!transactions.length && !isLoading ? (
-          <div className="rounded-md border border-dashed border-line bg-surface p-6 text-sm text-muted">No transactions matched your current filters.</div>
+          <div className="rounded-xl border border-dashed border-line bg-surface p-6 text-sm text-muted">No transactions matched your current filters.</div>
         ) : null}
       </div>
     </section>
@@ -333,12 +334,7 @@ export function TransactionsPage() {
 }
 
 function StatCard({ label, value }) {
-  return (
-    <div className="rounded-md border border-line bg-white p-4 shadow-sm">
-      <div className="text-sm text-muted">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-ink">{value}</div>
-    </div>
-  );
+  return <KitStatCard label={label} value={value} />;
 }
 
 function Field({ label, children }) {

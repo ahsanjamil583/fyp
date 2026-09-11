@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { createAdminModule, getAdminModules, updateAdminModule } from "../../services/moduleApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 const emptyModule = {
   code: "",
@@ -133,20 +134,20 @@ export function AdminModulesPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line pb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Capability Catalog</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Modules</h1>
+      <div className="border-b border-line-soft pb-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Capability Catalog</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Modules</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
           Manage the platform-wide module catalog, plan availability, dependencies, and usage-limit definitions that power tenant restrictions.
         </p>
       </div>
 
-      {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 whitespace-pre-wrap">{error}</div> : null}
+      {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 whitespace-pre-wrap">{error}</div> : null}
 
       <div className="grid gap-6 xl:grid-cols-[460px_1fr]">
-        <form className="space-y-4 rounded-md border border-line bg-white p-5 shadow-sm" onSubmit={handleSubmit}>
-          <h2 className="text-lg font-semibold text-ink">{editingCode ? "Edit module" : "Create module"}</h2>
+        <form className="space-y-4 rounded-xl border border-line bg-white p-5 shadow-card" onSubmit={handleSubmit}>
+          <SectionTitle>{editingCode ? "Edit module" : "Create module"}</SectionTitle>
           <Field label="Code">
             <input className="form-input" disabled={Boolean(editingCode)} required value={formValues.code} onChange={(event) => setFormValues((current) => ({ ...current, code: event.target.value }))} />
           </Field>
@@ -183,16 +184,16 @@ export function AdminModulesPage() {
           <Field label="Usage limits JSON">
             <textarea className="form-input min-h-28 font-mono text-xs" value={formValues.usageLimitsText} onChange={(event) => setFormValues((current) => ({ ...current, usageLimitsText: event.target.value }))} />
           </Field>
-          <label className="flex items-center gap-2 rounded-md border border-line px-3 py-2 text-sm text-muted">
+          <label className="flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm text-muted">
             <input type="checkbox" checked={formValues.isActive} onChange={(event) => setFormValues((current) => ({ ...current, isActive: event.target.checked }))} />
             Active module
           </label>
           <div className="flex gap-2">
-            <button className="flex-1 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" disabled={isSaving} type="submit">
+            <button className="flex-1 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" disabled={isSaving} type="submit">
               {isSaving ? "Saving..." : editingCode ? "Update module" : "Create module"}
             </button>
             {editingCode ? (
-              <button className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink" onClick={resetForm} type="button">
+              <button className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink" onClick={resetForm} type="button">
                 Cancel
               </button>
             ) : null}
@@ -202,11 +203,11 @@ export function AdminModulesPage() {
         <div className="space-y-4">
           {isLoading ? <div className="text-sm text-muted">Loading modules...</div> : null}
           {modules.map((module) => (
-            <article key={module.code} className="rounded-md border border-line bg-white p-5 shadow-sm">
+            <article key={module.code} className="rounded-xl border border-line bg-white p-5 shadow-card">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold text-ink">{module.name}</h2>
+                    <SectionTitle>{module.name}</SectionTitle>
                     <span className={module.isActive ? "rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700" : "rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"}>
                       {module.isActive ? "active" : "inactive"}
                     </span>
@@ -218,7 +219,7 @@ export function AdminModulesPage() {
                   </div>
                   <div className="mt-1 text-sm text-muted">Enabled for {module.enabledTenantCount || 0} tenants</div>
                 </div>
-                <button className="rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink" onClick={() => loadForEdit(module)} type="button">
+                <button className="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink" onClick={() => loadForEdit(module)} type="button">
                   Edit
                 </button>
               </div>

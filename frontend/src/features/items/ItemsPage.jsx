@@ -18,6 +18,7 @@ import {
   updateItem,
   uploadItemImage,
 } from "../../services/itemApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 const emptyItemForm = {
   itemType: "product",
@@ -346,9 +347,9 @@ export function ItemsPage() {
   if (!selectedTenant) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Items</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Items</h1>
         <p className="text-sm text-muted">Create a business before adding items.</p>
-        <Link className="inline-flex rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/business">
+        <Link className="inline-flex rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/business">
           Create Business
         </Link>
       </section>
@@ -358,7 +359,7 @@ export function ItemsPage() {
   if (isLoadingModules) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Items</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Items</h1>
         <p className="text-sm text-muted">Loading item module settings...</p>
       </section>
     );
@@ -367,9 +368,9 @@ export function ItemsPage() {
   if (!itemsModuleEnabled) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Items</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Items</h1>
         <p className="text-sm text-muted">Enable the Items module before managing products and services.</p>
-        <Link className="inline-flex rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/modules">
+        <Link className="inline-flex rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/modules">
           Enable Module
         </Link>
       </section>
@@ -378,26 +379,26 @@ export function ItemsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 border-b border-line pb-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-brand">Catalog Engine</p>
-          <h1 className="mt-2 text-3xl font-semibold text-ink">Items and Services</h1>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Catalog Engine</p>
+          <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Items and Services</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
             Manage products, services, packages, variants, durations, bundles, stock, images, and tenant-specific catalog fields.
           </p>
         </div>
-        <Link className="inline-flex rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" to="/dashboard/items/import">
+        <Link className="inline-flex rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white" to="/dashboard/items/import">
           Import Excel
         </Link>
       </div>
 
-      {serverMessage ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{serverMessage}</div> : null}
-      {serverError ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div> : null}
+      {serverMessage ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{serverMessage}</div> : null}
+      {serverError ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div> : null}
 
       <div className="grid gap-6 xl:grid-cols-[470px_1fr]">
         <div className="space-y-5">
-          <form className="space-y-4 rounded-md border border-line bg-white p-5 shadow-sm" onSubmit={submitItem}>
-            <h2 className="text-lg font-semibold text-ink">{editingItem ? "Edit Item" : "Add Item"}</h2>
+          <form className="space-y-4 rounded-xl border border-line bg-white p-5 shadow-card" onSubmit={submitItem}>
+            <SectionTitle>{editingItem ? "Edit Item" : "Add Item"}</SectionTitle>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Type">
                 <select className="form-input" value={form.itemType} onChange={(event) => updateForm("itemType", event.target.value)}>
@@ -474,7 +475,7 @@ export function ItemsPage() {
             </div>
 
             {form.itemType === "service" || form.isBookable ? (
-              <div className="rounded-md border border-line bg-surface p-4">
+              <div className="rounded-xl border border-line bg-surface p-4">
                 <div className="text-sm font-semibold text-ink">Service Duration</div>
                 <div className="mt-3 grid gap-4 md:grid-cols-3">
                   <Field label="Duration (minutes)">
@@ -496,19 +497,19 @@ export function ItemsPage() {
               </div>
             ) : null}
 
-            <div className="rounded-md border border-line bg-surface p-4">
+            <div className="rounded-xl border border-line bg-surface p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold text-ink">Variants and Options</div>
                   <div className="text-xs text-muted">Use `Size:Large, Color:Black` format for option values.</div>
                 </div>
-                <button type="button" className="rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-white" onClick={addVariant}>
+                <button type="button" className="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-white" onClick={addVariant}>
                   Add Variant
                 </button>
               </div>
               <div className="mt-4 space-y-4">
                 {variants.map((variant, index) => (
-                  <div key={index} className="rounded-md border border-line bg-white p-4">
+                  <div key={index} className="rounded-xl border border-line bg-white p-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       <Field label="Variant name">
                         <input className="form-input" value={variant.name} onChange={(event) => updateVariant(index, "name", event.target.value)} />
@@ -535,7 +536,7 @@ export function ItemsPage() {
                     <div className="mt-3 flex gap-3">
                       <Toggle label="Default" checked={variant.isDefault} onChange={(value) => updateVariant(index, "isDefault", value)} />
                       <Toggle label="Active" checked={variant.isActive} onChange={(value) => updateVariant(index, "isActive", value)} />
-                      <button type="button" className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={() => removeVariant(index)}>
+                      <button type="button" className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={() => removeVariant(index)}>
                         Remove
                       </button>
                     </div>
@@ -545,19 +546,19 @@ export function ItemsPage() {
             </div>
 
             {form.itemType === "package" ? (
-              <div className="rounded-md border border-line bg-surface p-4">
+              <div className="rounded-xl border border-line bg-surface p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-ink">Bundle Components</div>
                     <div className="text-xs text-muted">Compose this package from existing products or services.</div>
                   </div>
-                  <button type="button" className="rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-white" onClick={addBundleComponent}>
+                  <button type="button" className="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-white" onClick={addBundleComponent}>
                     Add Component
                   </button>
                 </div>
                 <div className="mt-4 space-y-4">
                   {bundleComponents.map((component, index) => (
-                    <div key={index} className="rounded-md border border-line bg-white p-4">
+                    <div key={index} className="rounded-xl border border-line bg-white p-4">
                       <div className="grid gap-4 md:grid-cols-2">
                         <Field label="Bundle item">
                           <select className="form-input" value={component.itemId} onChange={(event) => updateBundleComponent(index, "itemId", event.target.value)}>
@@ -576,7 +577,7 @@ export function ItemsPage() {
                       </Field>
                       <div className="mt-3 flex gap-3">
                         <Toggle label="Optional" checked={component.isOptional} onChange={(value) => updateBundleComponent(index, "isOptional", value)} />
-                        <button type="button" className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={() => removeBundleComponent(index)}>
+                        <button type="button" className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={() => removeBundleComponent(index)}>
                           Remove
                         </button>
                       </div>
@@ -596,23 +597,23 @@ export function ItemsPage() {
               </div>
             </Field>
             <div className="border-t border-line pt-4">
-              <h3 className="mb-3 text-sm font-semibold text-ink">Custom fields</h3>
+              <SectionTitle className="mb-3 !text-sm">Custom fields</SectionTitle>
               <DynamicForm fields={fields} values={customValues} onChange={setCustomValues} errors={customErrors} />
             </div>
             <div className="flex gap-2">
-              <button className="flex-1 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700" disabled={isSaving}>
+              <button className="flex-1 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700" disabled={isSaving}>
                 {isSaving ? "Saving..." : editingItem ? "Update Item" : "Create Item"}
               </button>
               {editingItem ? (
-                <button type="button" className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={resetForm}>
+                <button type="button" className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={resetForm}>
                   Cancel
                 </button>
               ) : null}
             </div>
           </form>
 
-          <form className="space-y-4 rounded-md border border-line bg-white p-5 shadow-sm" onSubmit={submitCategory}>
-            <h2 className="text-lg font-semibold text-ink">Categories</h2>
+          <form className="space-y-4 rounded-xl border border-line bg-white p-5 shadow-card" onSubmit={submitCategory}>
+            <SectionTitle>Categories</SectionTitle>
             <p className="text-xs leading-5 text-muted">Create categories here before manual item entry. Excel imports now auto-create missing category names.</p>
             <Field label="Category name">
               <input className="form-input" required value={categoryForm.name} onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))} />
@@ -620,16 +621,16 @@ export function ItemsPage() {
             <Field label="Description">
               <input className="form-input" value={categoryForm.description} onChange={(event) => setCategoryForm((current) => ({ ...current, description: event.target.value }))} />
             </Field>
-            <button className="w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">Create Category</button>
+            <button className="w-full rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white">Create Category</button>
             <div className="space-y-2">
               {categories.map((category) => (
-                <div key={category.id} className="flex items-center justify-between rounded-md border border-line px-3 py-2 text-sm">
+                <div key={category.id} className="flex items-center justify-between rounded-xl border border-line px-3 py-2 text-sm">
                   <div>
                     <div className="font-semibold text-ink">{category.name}</div>
                     <div className="text-xs text-muted">{category.isActive ? "Active" : "Disabled"}</div>
                   </div>
                   {category.isActive ? (
-                    <button type="button" className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-ink" onClick={() => disableCategory(category.id)}>
+                    <button type="button" className="rounded-xl border border-line px-2.5 py-1 text-xs font-semibold text-ink" onClick={() => disableCategory(category.id)}>
                       Disable
                     </button>
                   ) : null}
@@ -640,10 +641,10 @@ export function ItemsPage() {
         </div>
 
         <div className="space-y-5">
-          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-line bg-white p-5 shadow-card">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-ink">Catalog Records</h2>
+                <SectionTitle>Catalog Records</SectionTitle>
                 <p className="mt-1 text-sm text-muted">{meta.total || 0} records found.</p>
               </div>
               <div className="grid gap-2 md:grid-cols-5">
@@ -663,7 +664,7 @@ export function ItemsPage() {
                   <option value="inactive">Inactive</option>
                   <option value="archived">Archived</option>
                 </select>
-                <button type="button" className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={() => refreshItems()}>
+                <button type="button" className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={() => refreshItems()}>
                   Search
                 </button>
               </div>
@@ -677,7 +678,7 @@ export function ItemsPage() {
               </select>
             </div>
 
-            <div className="mt-4 overflow-hidden rounded-md border border-line">
+            <div className="mt-4 overflow-hidden rounded-xl border border-line">
               <table className="min-w-full divide-y divide-line text-sm">
                 <thead className="bg-surface">
                   <tr>
@@ -694,9 +695,9 @@ export function ItemsPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           {item.images?.[0]?.url ? (
-                            <img alt="" className="h-10 w-10 rounded-md object-cover" src={resolveUploadUrl(item.images[0].url)} />
+                            <img alt="" className="h-10 w-10 rounded-xl object-cover" src={resolveUploadUrl(item.images[0].url)} />
                           ) : (
-                            <div className="h-10 w-10 rounded-md bg-surface" />
+                            <div className="h-10 w-10 rounded-xl bg-surface" />
                           )}
                           <div>
                             <Link className="font-semibold text-ink hover:text-brand" to={`/dashboard/items/${item.id}`}>{item.name}</Link>
@@ -713,9 +714,9 @@ export function ItemsPage() {
                       </td>
                       <td className="px-4 py-3 capitalize text-muted">{item.status}</td>
                       <td className="px-4 py-3 text-right">
-                        <Link className="mr-2 inline-flex rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface" to={`/dashboard/items/${item.id}`}>View</Link>
-                        <button type="button" className="mr-2 rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => editItem(item)}>Edit</button>
-                        <button type="button" className="rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => archiveItem(item.id)}>Archive</button>
+                        <Link className="mr-2 inline-flex rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface" to={`/dashboard/items/${item.id}`}>View</Link>
+                        <button type="button" className="mr-2 rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => editItem(item)}>Edit</button>
+                        <button type="button" className="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => archiveItem(item.id)}>Archive</button>
                       </td>
                     </tr>
                   ))}
@@ -729,8 +730,8 @@ export function ItemsPage() {
             </div>
           </div>
 
-          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-ink">Custom Field Table View</h2>
+          <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+            <SectionTitle className="mb-4">Custom Field Table View</SectionTitle>
             <DynamicTable fields={fields} rows={tableRows} />
           </div>
         </div>
@@ -750,7 +751,7 @@ function Field({ label, children }) {
 
 function Toggle({ label, checked, onChange }) {
   return (
-    <label className="flex h-[46px] items-center rounded-md border border-line px-3 text-sm font-medium text-ink">
+    <label className="flex h-[46px] items-center rounded-xl border border-line px-3 text-sm font-medium text-ink">
       <input checked={checked} type="checkbox" onChange={(event) => onChange(event.target.checked)} />
       <span className="ml-2">{label}</span>
     </label>

@@ -1,0 +1,1357 @@
+{
+  "timestamp": "2026-09-11T06:07:53.432551+00:00",
+  "baseUrl": "http://127.0.0.1:8000",
+  "auditNotes": [
+    "The transaction-detail GET returning 405 was an audit probe of an unsupported route, not a frontend defect.",
+    "The initial tenant plan summary read settings.plan instead of settings.planCode; its null value is a harness field-selection error. Follow-up confirms planCode=scale.",
+    "Passwords and tokens are not retained. Login updates normal last-login/password-policy state."
+  ],
+  "identity": {
+    "business": {
+      "accountType": "business_owner",
+      "globalRole": "user",
+      "status": "active",
+      "mustResetPassword": false,
+      "isEmailVerified": true
+    },
+    "customer": {
+      "accountType": "customer",
+      "globalRole": "user",
+      "status": "active",
+      "mustResetPassword": false,
+      "isEmailVerified": true
+    },
+    "admin": {
+      "accountType": "business_owner",
+      "globalRole": "platform_admin",
+      "status": "active",
+      "mustResetPassword": true,
+      "isEmailVerified": false
+    }
+  },
+  "tenants": [
+    {
+      "id": "6a4ce14726a6a933019b2b10",
+      "slug": "style",
+      "status": "active",
+      "websiteStatus": "published",
+      "websiteApprovalStatus": "approved",
+      "enabledModuleCodes": [
+        "items",
+        "customers",
+        "website_builder",
+        "customer_portal",
+        "ai_chat",
+        "whatsapp_agent",
+        "analytics",
+        "reports",
+        "notifications",
+        "owner_agent",
+        "payments",
+        "admin"
+      ],
+      "plan": null
+    }
+  ],
+  "publicExposure": [
+    {
+      "slug": "style",
+      "internalFieldsPresent": [
+        "ownerUserId",
+        "websiteApprovalReviewedBy",
+        "websiteApprovalNote",
+        "websiteApprovalCriteria"
+      ],
+      "settingsKeys": [
+        "categoryHints",
+        "currency",
+        "languageMode",
+        "onboarding",
+        "packageAccess",
+        "planCode",
+        "publicVisibility",
+        "timezone"
+      ]
+    }
+  ],
+  "readiness": {
+    "overallStatus": "ready_with_warnings",
+    "totals": {
+      "pass": 10,
+      "warn": 3,
+      "fail": 0
+    },
+    "checks": [
+      {
+        "code": "mongodb",
+        "label": "MongoDB connection",
+        "status": "pass",
+        "message": "MongoDB is reachable."
+      },
+      {
+        "code": "chroma",
+        "label": "Chroma / RAG vector store",
+        "status": "pass",
+        "message": "Chroma status: persistent."
+      },
+      {
+        "code": "jwt_secret",
+        "label": "JWT secret",
+        "status": "warn",
+        "message": "JWT_SECRET_KEY is a known placeholder or too short. Rotate it before deploying."
+      },
+      {
+        "code": "debug_mode",
+        "label": "Debug mode",
+        "status": "pass",
+        "message": "DEBUG=true is acceptable for local development only."
+      },
+      {
+        "code": "uploads",
+        "label": "Upload directories",
+        "status": "pass",
+        "message": "Upload directories are writable."
+      },
+      {
+        "code": "logging",
+        "label": "Log directory",
+        "status": "pass",
+        "message": "Log directory is writable."
+      },
+      {
+        "code": "whatsapp_provider",
+        "label": "WhatsApp provider",
+        "status": "pass",
+        "message": "WhatsApp provider: baileys."
+      },
+      {
+        "code": "whatsapp_readiness",
+        "label": "WhatsApp readiness",
+        "status": "pass",
+        "message": "WhatsApp base setup is ready."
+      },
+      {
+        "code": "whatsapp_connections",
+        "label": "WhatsApp connections",
+        "status": "warn",
+        "message": "1 WhatsApp integration(s) need re-pairing: Naseeb Shopping Mall."
+      },
+      {
+        "code": "sms_provider",
+        "label": "SMS provider",
+        "status": "pass",
+        "message": "SMS provider: mock."
+      },
+      {
+        "code": "otp_settings",
+        "label": "Phone OTP auth",
+        "status": "pass",
+        "message": "OTP enabled with 6-digit codes and 10 minute expiry."
+      },
+      {
+        "code": "rate_limit",
+        "label": "Rate limiting",
+        "status": "pass",
+        "message": "Basic API rate limiting is enabled."
+      },
+      {
+        "code": "demo_seed",
+        "label": "Final demo seed data",
+        "status": "warn",
+        "message": "Demo seed is incomplete: missing paymentSettings, reportSettings, whatsappIntegrations."
+      }
+    ],
+    "runtime": {
+      "appName": "BizxusAI API",
+      "appVersion": "0.32.0",
+      "buildLabel": "phase-32-critical-bug-fixes",
+      "environment": "development",
+      "debug": true,
+      "apiPrefix": "/api/v1"
+    },
+    "services": {
+      "mongodb": {
+        "configured": true,
+        "connected": true
+      },
+      "chroma": {
+        "configured": true,
+        "mode": "persistent",
+        "path": "C:\\Users\\ahsan\\Desktop\\BIZXUSAI\\phase-32\\bizxus-code\\backend\\chroma-data",
+        "host": "localhost",
+        "port": 8001,
+        "connected": true
+      },
+      "uploads": {
+        "path": "C:\\Users\\ahsan\\Desktop\\BIZXUSAI\\phase-32\\bizxus-code\\backend\\uploads",
+        "exists": true,
+        "writable": true
+      },
+      "tempUploads": {
+        "path": "C:\\Users\\ahsan\\Desktop\\BIZXUSAI\\phase-32\\bizxus-code\\backend\\uploads\\temp",
+        "exists": true,
+        "writable": true
+      },
+      "logs": {
+        "path": "C:\\Users\\ahsan\\Desktop\\BIZXUSAI\\phase-32\\bizxus-code\\logs",
+        "exists": true,
+        "writable": true
+      },
+      "demoSeed": {
+        "available": false,
+        "message": "Demo seed is incomplete: missing paymentSettings, reportSettings, whatsappIntegrations.",
+        "counts": {
+          "tenant": 1,
+          "activeItems": 3,
+          "knowledgeDocuments": 1,
+          "paymentSettings": 0,
+          "reportSettings": 0,
+          "reportLogs": 0,
+          "whatsappIntegrations": 0
+        }
+      },
+      "whatsapp": {
+        "ready": true,
+        "status": "ready",
+        "missing": [],
+        "checks": [
+          {
+            "code": "whatsapp_provider",
+            "label": "WhatsApp provider",
+            "status": "pass",
+            "message": "WhatsApp provider: baileys."
+          },
+          {
+            "code": "webhook_verify_token",
+            "label": "Webhook verify token",
+            "status": "pass",
+            "message": "Webhook verify token is configured."
+          },
+          {
+            "code": "backend_public_url",
+            "label": "Backend public URL",
+            "status": "pass",
+            "message": "https://your-ngrok-or-deployed-backend.example.com/api/v1/whatsapp/bridge/inbound"
+          }
+        ],
+        "webhookCallbackUrl": "https://your-ngrok-or-deployed-backend.example.com/api/v1/whatsapp/bridge/inbound",
+        "webhookVerifyToken": "[redacted]"
+      }
+    },
+    "integrations": {
+      "whatsapp": {
+        "provider": "baileys",
+        "backendPublicUrl": "https://your-ngrok-or-deployed-backend.example.com",
+        "webhookCallbackUrl": "https://your-ngrok-or-deployed-backend.example.com/api/v1/whatsapp/bridge/inbound"
+      },
+      "sms": {
+        "provider": "mock",
+        "apiKey": "[redacted]",
+        "httpUrl": "not_set",
+        "senderId": "BizXusAI"
+      },
+      "otp": {
+        "codeLength": 6,
+        "expireMinutes": 10,
+        "maxAttempts": 5,
+        "returnCodeInResponse": false
+      },
+      "ai": {
+        "openaiKey": "not_set",
+        "groqKey": "set",
+        "model": "openai/gpt-oss-20b",
+        "embeddingModel": "text-embedding-3-small"
+      }
+    }
+  },
+  "requests": [
+    {
+      "role": "business",
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "status": 200,
+      "ms": 495,
+      "keys": [
+        "accessToken",
+        "refreshToken",
+        "tokenType",
+        "user"
+      ],
+      "listCounts": {}
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200,
+      "ms": 5,
+      "keys": [
+        "accountType",
+        "email",
+        "fullName",
+        "globalRole",
+        "id",
+        "isEmailVerified",
+        "isPhoneVerified",
+        "mustResetPassword",
+        "phone",
+        "status"
+      ],
+      "listCounts": {}
+    },
+    {
+      "role": "customer",
+      "method": "POST",
+      "path": "/api/v1/customer/auth/login",
+      "status": 200,
+      "ms": 282,
+      "keys": [
+        "accessToken",
+        "refreshToken",
+        "tokenType",
+        "user"
+      ],
+      "listCounts": {}
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/auth/me",
+      "status": 200,
+      "ms": 6,
+      "keys": [
+        "profile",
+        "user"
+      ],
+      "listCounts": {}
+    },
+    {
+      "role": "admin",
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "status": 200,
+      "ms": 292,
+      "keys": [
+        "accessToken",
+        "refreshToken",
+        "tokenType",
+        "user"
+      ],
+      "listCounts": {}
+    },
+    {
+      "role": "admin",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 403,
+      "ms": 5,
+      "error": "password_reset_required"
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/health",
+      "status": 200,
+      "ms": 1433,
+      "keys": [
+        "chroma",
+        "environment",
+        "mongodb",
+        "service"
+      ],
+      "listCounts": {}
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/health/readiness",
+      "status": 200,
+      "ms": 32,
+      "keys": [
+        "checks",
+        "integrations",
+        "overallStatus",
+        "runtime",
+        "services",
+        "totals"
+      ],
+      "listCounts": {
+        "checks": 13
+      }
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 401,
+      "ms": 4,
+      "error": "Authentication required."
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/customer/auth/me",
+      "status": 401,
+      "ms": 3,
+      "error": "Authentication required."
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/tenants/my",
+      "status": 401,
+      "ms": 5,
+      "error": "Authentication required."
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/admin/overview",
+      "status": 401,
+      "ms": 4,
+      "error": "Authentication required."
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/public/business-categories",
+      "status": 200,
+      "ms": 14,
+      "count": 24
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/modules",
+      "status": 200,
+      "ms": 6,
+      "count": 12
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/customer/marketplace",
+      "status": 401,
+      "ms": 3,
+      "error": "Authentication required."
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/whatsapp/bridge/tenants",
+      "status": 401,
+      "ms": 5,
+      "error": "Invalid WhatsApp bridge key."
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/my",
+      "status": 200,
+      "ms": 7,
+      "count": 1
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/admin/overview",
+      "status": 403,
+      "ms": 4,
+      "error": "Platform admin access required."
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10",
+      "status": 200,
+      "ms": 7,
+      "keys": [
+        "address",
+        "businessCategoryId",
+        "contact",
+        "coverImage",
+        "createdAt",
+        "customFields",
+        "description",
+        "enabledModuleCodes",
+        "id",
+        "logo",
+        "name",
+        "ownerUserId",
+        "publishedAt",
+        "settings",
+        "slug",
+        "status",
+        "updatedAt",
+        "websiteApprovalCriteria",
+        "websiteApprovalNote",
+        "websiteApprovalRequestedAt",
+        "websiteApprovalRequestedBy",
+        "websiteApprovalReviewedAt",
+        "websiteApprovalReviewedBy",
+        "websiteApprovalStatus",
+        "websiteSettings",
+        "websiteStatus"
+      ],
+      "listCounts": {
+        "enabledModuleCodes": 12
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/modules",
+      "status": 200,
+      "ms": 11,
+      "keys": [
+        "modules",
+        "plans",
+        "tenant",
+        "tenantPlan"
+      ],
+      "listCounts": {
+        "plans": 3,
+        "modules": 12
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/launch/status",
+      "status": 200,
+      "ms": 32,
+      "keys": [
+        "category",
+        "checks",
+        "counts",
+        "modules",
+        "profiles",
+        "summary",
+        "tenant"
+      ],
+      "listCounts": {
+        "checks": 8
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/items",
+      "status": 200,
+      "ms": 20,
+      "count": 12
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/items/6a4ce65426a6a933019b2b3f",
+      "status": 200,
+      "ms": 13,
+      "keys": [
+        "branchId",
+        "bundleComponents",
+        "categoryId",
+        "costPrice",
+        "createdAt",
+        "currency",
+        "customFields",
+        "description",
+        "id",
+        "images",
+        "isBookable",
+        "isSellable",
+        "isStockTracked",
+        "itemType",
+        "name",
+        "price",
+        "serviceDetails",
+        "sku",
+        "status",
+        "stock",
+        "tags",
+        "tenantId",
+        "unit",
+        "updatedAt",
+        "variants"
+      ],
+      "listCounts": {
+        "images": 1,
+        "variants": 0,
+        "bundleComponents": 0,
+        "tags": 1
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/item-categories",
+      "status": 200,
+      "ms": 15,
+      "count": 0
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/custom-fields",
+      "status": 200,
+      "ms": 12,
+      "count": 0
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/customers",
+      "status": 200,
+      "ms": 17,
+      "count": 2
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/customers/6aa2e6ecc2caffd412ae8264",
+      "status": 200,
+      "ms": 14,
+      "keys": [
+        "address",
+        "branchId",
+        "createdAt",
+        "customFields",
+        "customerProfileId",
+        "customerUserId",
+        "email",
+        "id",
+        "name",
+        "phone",
+        "segments",
+        "stats",
+        "status",
+        "tags",
+        "tenantId",
+        "type",
+        "updatedAt"
+      ],
+      "listCounts": {
+        "tags": 1,
+        "segments": 3
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/customers/insights",
+      "status": 200,
+      "ms": 13,
+      "keys": [
+        "popularTags",
+        "segments",
+        "summary",
+        "topRepeatCustomers"
+      ],
+      "listCounts": {
+        "segments": 3,
+        "topRepeatCustomers": 2,
+        "popularTags": 1
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/transactions",
+      "status": 200,
+      "ms": 51,
+      "count": 10
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/transactions/6aa30ab1d48fbed61a2dffe9",
+      "status": 405,
+      "ms": 4,
+      "error": "Method Not Allowed"
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/notifications",
+      "status": 200,
+      "ms": 51,
+      "count": 20
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/analytics/summary",
+      "status": 200,
+      "ms": 75,
+      "keys": [
+        "categoryGuidance",
+        "conversion",
+        "dashboardSummary",
+        "generatedAt",
+        "lowStockItems",
+        "recentTransactions",
+        "revenue",
+        "summary",
+        "topItems",
+        "trends"
+      ],
+      "listCounts": {
+        "trends": 7,
+        "topItems": 5,
+        "lowStockItems": 0,
+        "recentTransactions": 5
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/payments/settings",
+      "status": 200,
+      "ms": 63,
+      "keys": [
+        "bankAccountNumber",
+        "bankAccountTitle",
+        "bankIban",
+        "bankName",
+        "bankTransferEnabled",
+        "codEnabled",
+        "createdAt",
+        "createdBy",
+        "customerInstructions",
+        "defaultMethod",
+        "easyPaisaAccountTitle",
+        "easyPaisaEnabled",
+        "easyPaisaNumber",
+        "enabledMethods",
+        "id",
+        "jazzCashAccountTitle",
+        "jazzCashEnabled",
+        "jazzCashNumber",
+        "localPaymentsEnabled",
+        "manualEnabled",
+        "paymentsDemoMode",
+        "requireOwnerApproval",
+        "stripeConfigured",
+        "stripeCurrency",
+        "stripeEnabled",
+        "stripePublishableKey",
+        "stripeWebhookConfigured",
+        "tenantId",
+        "updatedAt",
+        "updatedBy"
+      ],
+      "listCounts": {
+        "enabledMethods": 5
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/payments/overview",
+      "status": 200,
+      "ms": 108,
+      "keys": [
+        "outstandingTransactions",
+        "records",
+        "settings",
+        "stripeWebhookEvents",
+        "summary"
+      ],
+      "listCounts": {
+        "records": 5,
+        "outstandingTransactions": 6,
+        "stripeWebhookEvents": 6
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/knowledge-base",
+      "status": 200,
+      "ms": 40,
+      "count": 20
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/knowledge-base/6a4ce1472a152b81bf1b5de8",
+      "status": 200,
+      "ms": 16,
+      "keys": [
+        "document",
+        "tenant"
+      ],
+      "listCounts": {}
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/ai/conversations",
+      "status": 200,
+      "ms": 30,
+      "keys": [
+        "items",
+        "tenant"
+      ],
+      "listCounts": {
+        "items": 35
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/ai/conversations/6aa2e320c2caffd412ae821f",
+      "status": 200,
+      "ms": 84,
+      "keys": [
+        "conversation",
+        "messages",
+        "tenant"
+      ],
+      "listCounts": {
+        "messages": 34
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/ai/rag/status",
+      "status": 200,
+      "ms": 20,
+      "keys": [
+        "rag",
+        "tenant"
+      ],
+      "listCounts": {}
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/agent/tools",
+      "status": 200,
+      "ms": 27,
+      "keys": [
+        "channels",
+        "description",
+        "mode",
+        "tenant",
+        "tools"
+      ],
+      "listCounts": {
+        "tools": 13,
+        "channels": 4
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/owner-agent/history",
+      "status": 200,
+      "ms": 63,
+      "count": 10
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/reports/delivery/settings",
+      "status": 200,
+      "ms": 26,
+      "keys": [
+        "settings",
+        "tenant"
+      ],
+      "listCounts": {}
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/reports/delivery/logs",
+      "status": 200,
+      "ms": 26,
+      "count": 0
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/whatsapp/settings",
+      "status": 200,
+      "ms": 35,
+      "keys": [
+        "settings",
+        "tenant"
+      ],
+      "listCounts": {}
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/whatsapp/conversations",
+      "status": 200,
+      "ms": 35,
+      "count": 2
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/public/businesses/style",
+      "status": 200,
+      "ms": 13,
+      "keys": [
+        "address",
+        "businessCategoryId",
+        "contact",
+        "coverImage",
+        "createdAt",
+        "customFields",
+        "description",
+        "enabledModuleCodes",
+        "id",
+        "logo",
+        "name",
+        "ownerUserId",
+        "paymentOptions",
+        "publishedAt",
+        "settings",
+        "slug",
+        "status",
+        "updatedAt",
+        "websiteApprovalCriteria",
+        "websiteApprovalNote",
+        "websiteApprovalRequestedAt",
+        "websiteApprovalRequestedBy",
+        "websiteApprovalReviewedAt",
+        "websiteApprovalReviewedBy",
+        "websiteApprovalStatus",
+        "websiteSettings",
+        "websiteStatus",
+        "whatsappAgent"
+      ],
+      "listCounts": {
+        "enabledModuleCodes": 12
+      }
+    },
+    {
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/v1/public/businesses/style/items",
+      "status": 200,
+      "ms": 14,
+      "count": 12
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/items",
+      "status": 403,
+      "ms": 6,
+      "error": "Business account required."
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/marketplace",
+      "status": 200,
+      "ms": 38,
+      "count": 9
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/businesses/bonanza",
+      "status": 200,
+      "ms": 14,
+      "keys": [
+        "address",
+        "businessCategoryId",
+        "contact",
+        "coverImage",
+        "createdAt",
+        "customFields",
+        "description",
+        "enabledModuleCodes",
+        "id",
+        "logo",
+        "name",
+        "ownerUserId",
+        "paymentOptions",
+        "settings",
+        "slug",
+        "status",
+        "updatedAt",
+        "websiteSettings",
+        "websiteStatus",
+        "whatsappAgent"
+      ],
+      "listCounts": {
+        "enabledModuleCodes": 11
+      }
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/businesses/bonanza/items",
+      "status": 200,
+      "ms": 15,
+      "count": 7
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/businesses/style",
+      "status": 200,
+      "ms": 13,
+      "keys": [
+        "address",
+        "businessCategoryId",
+        "contact",
+        "coverImage",
+        "createdAt",
+        "customFields",
+        "description",
+        "enabledModuleCodes",
+        "id",
+        "logo",
+        "name",
+        "ownerUserId",
+        "paymentOptions",
+        "publishedAt",
+        "settings",
+        "slug",
+        "status",
+        "updatedAt",
+        "websiteApprovalCriteria",
+        "websiteApprovalNote",
+        "websiteApprovalRequestedAt",
+        "websiteApprovalRequestedBy",
+        "websiteApprovalReviewedAt",
+        "websiteApprovalReviewedBy",
+        "websiteApprovalStatus",
+        "websiteSettings",
+        "websiteStatus",
+        "whatsappAgent"
+      ],
+      "listCounts": {
+        "enabledModuleCodes": 12
+      }
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/businesses/style/items",
+      "status": 200,
+      "ms": 15,
+      "count": 12
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/businesses/naseeb-shopping-mall",
+      "status": 200,
+      "ms": 12,
+      "keys": [
+        "address",
+        "businessCategoryId",
+        "contact",
+        "coverImage",
+        "createdAt",
+        "customFields",
+        "description",
+        "enabledModuleCodes",
+        "id",
+        "logo",
+        "name",
+        "ownerUserId",
+        "paymentOptions",
+        "settings",
+        "slug",
+        "status",
+        "updatedAt",
+        "websiteSettings",
+        "websiteStatus",
+        "whatsappAgent"
+      ],
+      "listCounts": {
+        "enabledModuleCodes": 12
+      }
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/businesses/naseeb-shopping-mall/items",
+      "status": 200,
+      "ms": 11,
+      "count": 2
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/cart",
+      "status": 200,
+      "ms": 10,
+      "count": 0
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/favorites",
+      "status": 200,
+      "ms": 14,
+      "count": 0
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/orders",
+      "status": 200,
+      "ms": 54,
+      "count": 10
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/orders/6aa30ab1d48fbed61a2dffe9",
+      "status": 200,
+      "ms": 17,
+      "keys": [
+        "branchId",
+        "createdAt",
+        "createdBy",
+        "customFields",
+        "customerId",
+        "customerProfileId",
+        "customerSnapshot",
+        "customerUserId",
+        "fulfillment",
+        "id",
+        "internalNotes",
+        "inventoryMovements",
+        "inventoryStatus",
+        "inventoryUpdatedAt",
+        "items",
+        "notes",
+        "paymentInstructions",
+        "paymentPreference",
+        "paymentProofSummary",
+        "paymentRecords",
+        "paymentStatus",
+        "paymentSummary",
+        "pricing",
+        "source",
+        "status",
+        "statusHistory",
+        "tenantId",
+        "transactionNumber",
+        "transactionType",
+        "updatedAt"
+      ],
+      "listCounts": {
+        "items": 1,
+        "statusHistory": 3,
+        "inventoryMovements": 1,
+        "paymentRecords": 1
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/customer/orders/6aa30ab1d48fbed61a2dffe9",
+      "status": 403,
+      "ms": 7,
+      "error": "Customer account required."
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/orders/6aa30a9cd48fbed61a2dffe0",
+      "status": 200,
+      "ms": 23,
+      "keys": [
+        "branchId",
+        "createdAt",
+        "createdBy",
+        "customFields",
+        "customerId",
+        "customerProfileId",
+        "customerSnapshot",
+        "customerUserId",
+        "fulfillment",
+        "id",
+        "internalNotes",
+        "inventoryMovements",
+        "inventoryStatus",
+        "inventoryUpdatedAt",
+        "items",
+        "notes",
+        "paymentInstructions",
+        "paymentPreference",
+        "paymentProofSummary",
+        "paymentRecords",
+        "paymentStatus",
+        "paymentSummary",
+        "pricing",
+        "source",
+        "status",
+        "statusHistory",
+        "tenantId",
+        "transactionNumber",
+        "transactionType",
+        "updatedAt"
+      ],
+      "listCounts": {
+        "items": 1,
+        "statusHistory": 3,
+        "inventoryMovements": 1,
+        "paymentRecords": 1
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/customer/orders/6aa30a9cd48fbed61a2dffe0",
+      "status": 403,
+      "ms": 8,
+      "error": "Customer account required."
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/orders/6aa3085f7072f01e8af11721",
+      "status": 200,
+      "ms": 13,
+      "keys": [
+        "branchId",
+        "createdAt",
+        "createdBy",
+        "customFields",
+        "customerId",
+        "customerProfileId",
+        "customerSnapshot",
+        "customerUserId",
+        "fulfillment",
+        "id",
+        "internalNotes",
+        "inventoryMovements",
+        "inventoryStatus",
+        "inventoryUpdatedAt",
+        "items",
+        "notes",
+        "paymentInstructions",
+        "paymentPreference",
+        "paymentProofSummary",
+        "paymentRecords",
+        "paymentStatus",
+        "paymentSummary",
+        "pricing",
+        "source",
+        "status",
+        "statusHistory",
+        "tenantId",
+        "transactionNumber",
+        "transactionType",
+        "updatedAt"
+      ],
+      "listCounts": {
+        "items": 1,
+        "statusHistory": 3,
+        "inventoryMovements": 1,
+        "paymentRecords": 1
+      }
+    },
+    {
+      "role": "business",
+      "method": "GET",
+      "path": "/api/v1/customer/orders/6aa3085f7072f01e8af11721",
+      "status": 403,
+      "ms": 7,
+      "error": "Customer account required."
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/transactions",
+      "status": 200,
+      "ms": 38,
+      "count": 10
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/customer/notifications",
+      "status": 200,
+      "ms": 68,
+      "count": 15
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/tenants/my",
+      "status": 403,
+      "ms": 7,
+      "error": "Business account required."
+    },
+    {
+      "role": "customer",
+      "method": "GET",
+      "path": "/api/v1/admin/overview",
+      "status": 403,
+      "ms": 9,
+      "error": "Platform admin access required."
+    },
+    {
+      "role": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/overview",
+      "status": 403,
+      "ms": 6,
+      "error": "password_reset_required"
+    },
+    {
+      "role": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/reports",
+      "status": 403,
+      "ms": 8,
+      "error": "password_reset_required"
+    },
+    {
+      "role": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/payments",
+      "status": 403,
+      "ms": 6,
+      "error": "password_reset_required"
+    },
+    {
+      "role": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/users",
+      "status": 403,
+      "ms": 6,
+      "error": "password_reset_required"
+    },
+    {
+      "role": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/tenants",
+      "status": 403,
+      "ms": 8,
+      "error": "password_reset_required"
+    },
+    {
+      "role": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/modules",
+      "status": 403,
+      "ms": 6,
+      "error": "password_reset_required"
+    },
+    {
+      "role": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/business-categories",
+      "status": 403,
+      "ms": 9,
+      "error": "password_reset_required"
+    }
+  ]
+}

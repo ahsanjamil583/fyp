@@ -26,8 +26,8 @@ export function WhatsAppAgentCta({ agent, className = "", compact = false, theme
   const label = compact ? "WhatsApp" : "Message Business on WhatsApp";
   const style = themeColor ? { backgroundColor: themeColor } : undefined;
   const defaultClasses = themeColor
-    ? "inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-    : "inline-flex items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700";
+    ? "inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold text-white shadow-card transition hover:opacity-90"
+    : "inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-card transition hover:bg-emerald-700";
 
   return (
     <a className={`${defaultClasses} ${className}`} href={href} rel="noreferrer" target="_blank" style={style}>

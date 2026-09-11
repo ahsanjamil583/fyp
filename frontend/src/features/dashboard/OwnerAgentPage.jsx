@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getOwnerAgentHistory, getOwnerAgentInsights, sendOwnerAgentMessage } from "../../services/ownerAgentApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 const quickPrompts = [
   "Summarize today's business performance",
@@ -112,22 +113,22 @@ export function OwnerAgentPage() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Phase 26</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Owner AI Assistant</h1>
+      <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Phase 26</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Owner AI Assistant</h1>
         <p className="mt-3 max-w-4xl text-sm leading-6 text-muted">
           Ask business questions like “What sold the most today?”, “Which items are low stock?”, “Show pending orders”, “Summarize customer chats”, or “Create promotion ideas”. The assistant reads analytics, transactions, stock, payments, notifications, reports, and conversations.
         </p>
       </div>
 
-      {notice ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</div> : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {notice ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       {isLoading ? <div className="text-sm text-muted">Loading assistant insights...</div> : null}
 
       {insights ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {(insights.cards || []).map((card) => (
-            <div key={card.label} className="rounded-md border border-line bg-white p-4 shadow-sm">
+            <div key={card.label} className="rounded-xl border border-line bg-white p-4 shadow-card">
               <div className="text-sm text-muted">{card.label}</div>
               <div className="mt-2 text-2xl font-semibold text-ink">{card.value}</div>
               <div className="mt-1 text-xs text-muted">{card.hint}</div>
@@ -138,21 +139,21 @@ export function OwnerAgentPage() {
 
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="space-y-6">
-          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-ink">Recommended actions</h2>
+          <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+            <SectionTitle>Recommended actions</SectionTitle>
             <div className="mt-3 space-y-2">
               {(insights?.actions || []).length ? (
                 insights.actions.map((action) => (
-                  <div key={action} className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-muted">{action}</div>
+                  <div key={action} className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-muted">{action}</div>
                 ))
               ) : (
-                <div className="rounded-md border border-dashed border-line bg-surface p-4 text-sm text-muted">No urgent action detected yet.</div>
+                <div className="rounded-xl border border-dashed border-line bg-surface p-4 text-sm text-muted">No urgent action detected yet.</div>
               )}
             </div>
           </div>
 
-          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-ink">Quick prompts</h2>
+          <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+            <SectionTitle>Quick prompts</SectionTitle>
             <div className="mt-3 flex flex-wrap gap-2">
               {quickPrompts.map((prompt) => (
                 <button key={prompt} type="button" onClick={() => setMessageText(prompt)} className="rounded-full border border-line px-3 py-2 text-xs font-semibold text-ink transition hover:bg-surface">
@@ -162,8 +163,8 @@ export function OwnerAgentPage() {
             </div>
           </div>
 
-          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-ink">Top and low-stock context</h2>
+          <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+            <SectionTitle>Top and low-stock context</SectionTitle>
             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
               <ContextList title="Top items" items={insights?.topItems || []} empty="No top items yet." />
               <ContextList title="Low stock" items={insights?.lowStockItems || []} empty="No low-stock items." stock />
@@ -171,37 +172,37 @@ export function OwnerAgentPage() {
           </div>
         </div>
 
-        <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-line bg-white p-5 shadow-card">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-ink">Assistant chat</h2>
+              <SectionTitle>Assistant chat</SectionTitle>
               <p className="mt-1 text-sm text-muted">Conversation is saved separately from customer chats.</p>
             </div>
-            <button type="button" onClick={() => loadWorkspace().catch(() => {})} className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface">Refresh</button>
+            <button type="button" onClick={() => loadWorkspace().catch(() => {})} className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface">Refresh</button>
           </div>
 
-          <div className="mt-4 max-h-[520px] space-y-3 overflow-auto rounded-md border border-line bg-surface p-3">
+          <div className="mt-4 max-h-[520px] space-y-3 overflow-auto rounded-xl border border-line bg-surface p-3">
             {visibleHistory.length ? (
               visibleHistory.map((message) => (
-                <div key={message.id || message._id || `${message.createdAt}-${message.sender}`} className={message.sender === "owner" ? "ml-auto max-w-[85%] rounded-lg bg-brand px-4 py-3 text-sm text-white" : "mr-auto max-w-[90%] rounded-lg bg-white px-4 py-3 text-sm text-ink shadow-sm"}>
+                <div key={message.id || message._id || `${message.createdAt}-${message.sender}`} className={message.sender === "owner" ? "ml-auto max-w-[85%] rounded-xl bg-brand px-4 py-3 text-sm text-white" : "mr-auto max-w-[90%] rounded-xl bg-white px-4 py-3 text-sm text-ink shadow-card"}>
                   <div className="whitespace-pre-line leading-6">{message.messageText}</div>
                   <div className={message.sender === "owner" ? "mt-2 text-xs text-white/75" : "mt-2 text-xs text-muted"}>{message.sender} {formatDate(message.createdAt)}</div>
                 </div>
               ))
             ) : (
-              <div className="rounded-md border border-dashed border-line bg-white p-5 text-sm text-muted">Ask the owner assistant a business question to start.</div>
+              <div className="rounded-xl border border-dashed border-line bg-white p-5 text-sm text-muted">Ask the owner assistant a business question to start.</div>
             )}
           </div>
 
           <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-            <textarea className="min-h-24 w-full rounded-md border border-line px-3 py-2 text-sm" value={messageText} onChange={(event) => setMessageText(event.target.value)} placeholder="Ask: Which items are low stock?" />
-            <button type="submit" disabled={isSending || !messageText.trim()} className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+            <textarea className="min-h-24 w-full rounded-xl border border-line px-3 py-2 text-sm" value={messageText} onChange={(event) => setMessageText(event.target.value)} placeholder="Ask: Which items are low stock?" />
+            <button type="submit" disabled={isSending || !messageText.trim()} className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
               {isSending ? "Thinking..." : "Ask assistant"}
             </button>
           </form>
 
           {lastContext?.toolCalls?.length ? (
-            <div className="mt-4 rounded-md bg-surface p-3 text-xs text-muted">
+            <div className="mt-4 rounded-xl bg-surface p-3 text-xs text-muted">
               Last tool: {lastContext.toolCalls.map((tool) => tool.tool).join(", ")}
             </div>
           ) : null}
@@ -213,8 +214,8 @@ export function OwnerAgentPage() {
 
 function ContextList({ title, items, empty, stock = false }) {
   return (
-    <div className="rounded-md border border-line p-3">
-      <div className="text-sm font-semibold text-ink">{title}</div>
+    <div className="rounded-xl border border-line p-3">
+      <SectionTitle className="!text-sm">{title}</SectionTitle>
       <div className="mt-2 space-y-2">
         {items.length ? items.slice(0, 5).map((item) => (
           <div key={item.id || item.itemId || item.name} className="text-sm text-muted">

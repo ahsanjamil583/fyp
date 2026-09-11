@@ -1,3 +1,28 @@
+import {
+  Activity,
+  BarChart3,
+  Bell,
+  Bot,
+  Boxes,
+  Building2,
+  ClipboardCheck,
+  CreditCard,
+  Crown,
+  FileText,
+  Globe,
+  LayoutDashboard,
+  ListChecks,
+  LogOut,
+  MessageCircle,
+  MessageSquare,
+  Receipt,
+  Rocket,
+  SendHorizonal,
+  Settings2,
+  Sparkles,
+  SquareStack,
+  Users,
+} from "lucide-react";
 import { Shell } from "./Shell.jsx";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -8,34 +33,34 @@ import { useTenant } from "../../context/TenantContext.jsx";
 import { logoutBusiness } from "../../services/authApi.js";
 
 const navItems = [
-  { to: "/dashboard", label: "Overview", end: true },
-  { to: "/dashboard/business", label: "Business" },
-  { to: "/dashboard/launch-wizard", label: "Launch Wizard" },
-  { to: "/dashboard/modules", label: "Modules" },
-  { to: "/dashboard/custom-fields", label: "Custom Fields" },
-  { to: "/dashboard/transactions", label: "Transactions" },
-  { to: "/dashboard/customers", label: "Customers", moduleCode: "customers" },
-  { to: "/dashboard/items", label: "Items", moduleCode: "items" },
-  { to: "/dashboard/public-website", label: "Website", moduleCode: "website_builder" },
-  { to: "/dashboard/analytics", label: "Analytics", moduleCode: "analytics" },
-  { to: "/dashboard/ai-conversations", label: "AI Chat", moduleCode: "ai_chat" },
-  { to: "/dashboard/knowledge-base", label: "Knowledge Base", moduleCode: "ai_chat" },
-  { to: "/dashboard/agent-tools", label: "Agent Tools", moduleCode: "ai_chat" },
-  { to: "/dashboard/owner-agent", label: "Owner AI Assistant", moduleCode: "owner_agent" },
-  { to: "/dashboard/whatsapp-agent", label: "WhatsApp Agent", moduleCode: "whatsapp_agent" },
-  { to: "/dashboard/payments", label: "Payments", moduleCode: "payments" },
-  { to: "/dashboard/reports", label: "Reports", moduleCode: "reports" },
-  { to: "/dashboard/notifications", label: "Notifications", moduleCode: "notifications" },
-  { to: "/dashboard/deployment-readiness", label: "Deployment Readiness" },
-  { to: "/dashboard/final-qa", label: "Final QA" },
-  { to: "/dashboard/submission-center", label: "Submission Center" },
+  { to: "/dashboard", label: "Overview", end: true, icon: LayoutDashboard },
+  { to: "/dashboard/business", label: "Business", icon: Building2 },
+  { to: "/dashboard/launch-wizard", label: "Launch Wizard", icon: Rocket },
+  { to: "/dashboard/modules", label: "Modules", icon: SquareStack },
+  { to: "/dashboard/custom-fields", label: "Custom Fields", icon: Settings2 },
+  { to: "/dashboard/transactions", label: "Transactions", icon: Receipt },
+  { to: "/dashboard/customers", label: "Customers", moduleCode: "customers", icon: Users },
+  { to: "/dashboard/items", label: "Items", moduleCode: "items", icon: Boxes },
+  { to: "/dashboard/public-website", label: "Website", moduleCode: "website_builder", icon: Globe },
+  { to: "/dashboard/analytics", label: "Analytics", moduleCode: "analytics", icon: BarChart3 },
+  { to: "/dashboard/ai-conversations", label: "AI Chat", moduleCode: "ai_chat", icon: MessageSquare },
+  { to: "/dashboard/knowledge-base", label: "Knowledge Base", moduleCode: "ai_chat", icon: FileText },
+  { to: "/dashboard/agent-tools", label: "Agent Tools", moduleCode: "ai_chat", icon: Sparkles },
+  { to: "/dashboard/owner-agent", label: "Owner AI Assistant", moduleCode: "owner_agent", icon: Bot },
+  { to: "/dashboard/whatsapp-agent", label: "WhatsApp Agent", moduleCode: "whatsapp_agent", icon: MessageCircle },
+  { to: "/dashboard/payments", label: "Payments", moduleCode: "payments", icon: CreditCard },
+  { to: "/dashboard/reports", label: "Reports", moduleCode: "reports", icon: ClipboardCheck },
+  { to: "/dashboard/notifications", label: "Notifications", moduleCode: "notifications", icon: Bell },
+  { to: "/dashboard/deployment-readiness", label: "Deployment Readiness", icon: Activity },
+  { to: "/dashboard/final-qa", label: "Final QA", icon: ListChecks },
+  { to: "/dashboard/submission-center", label: "Submission Center", icon: SendHorizonal },
 ];
 
 export function DashboardLayout() {
   const navigate = useNavigate();
   const { clearSession, refreshSession, user } = useAuth();
   const { tenants, selectedTenant, selectTenant, refreshTenants } = useTenant();
-  const { enabledModules, tenantPlan, refreshTenantModules } = useModules();
+  const { enabledModules, tenantModules, tenantPlan, refreshTenantModules } = useModules();
 
   useEffect(() => {
     refreshTenants().catch(() => {});
@@ -71,13 +96,21 @@ export function DashboardLayout() {
     refreshTenantModules(selectedTenant?.id).catch(() => {});
   }, [selectedTenant?.id, selectedTenant?.updatedAt, refreshTenantModules]);
 
-  const visibleNav = navItems.filter((item) => !item.moduleCode || enabledModules.includes(item.moduleCode));
+  const accessibleModules = tenantModules.length
+    ? tenantModules
+        .filter((module) => module.tenantStatus === "enabled" && module.planAccess?.isIncluded !== false)
+        .map((module) => module.code)
+    : enabledModules;
+  const visibleNav = navItems.filter((item) => !item.moduleCode || accessibleModules.includes(item.moduleCode));
 
+  // Rendered inside the dark rail, so these controls are tinted rather than white.
   const asideExtra = (
-    <div className="space-y-2">
-      <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Selected Business</label>
+    <div className="space-y-2 px-1">
+      <label className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-sidebar-muted">
+        Selected Business
+      </label>
       <select
-        className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+        className="w-full rounded-rail border border-white/10 bg-sidebar-card px-3 py-2 text-sm font-medium text-white outline-none transition focus:border-purple-glow [&>option]:text-ink"
         value={selectedTenant?.id || ""}
         onChange={(event) => selectTenant(tenants.find((tenant) => tenant.id === event.target.value) || null)}
       >
@@ -89,11 +122,13 @@ export function DashboardLayout() {
         ))}
       </select>
       {selectedTenant ? (
-        <div className="rounded-md bg-surface p-3 text-xs text-muted">
-          <div className="font-semibold text-ink">{selectedTenant.slug}</div>
-          <div className="mt-1 capitalize">{selectedTenant.status} / {selectedTenant.websiteStatus}</div>
-          <div className="mt-2 rounded-md bg-white px-2 py-1 font-semibold text-brand">
-            Current Plan: {tenantPlan?.displayName || "Basic Free"}
+        <div className="rounded-rail bg-sidebar-card p-3 text-xs text-sidebar-muted">
+          <div className="font-semibold text-white">{selectedTenant.slug}</div>
+          <div className="mt-1 capitalize">
+            {selectedTenant.status} / {selectedTenant.websiteStatus}
+          </div>
+          <div className="mt-2 inline-flex rounded-full bg-sidebar-active px-2.5 py-1 text-[11px] font-bold text-white">
+            {tenantPlan?.displayName || "Basic Free"}
           </div>
         </div>
       ) : null}
@@ -111,34 +146,56 @@ export function DashboardLayout() {
   }
 
   const asideFooter = (
-    <div className="space-y-3">
-      <div className="rounded-md bg-surface p-3 text-xs text-muted">
-        <div className="font-semibold text-ink">{user?.fullName || "Signed in"}</div>
-        <div className="mt-1 break-all">{user?.email}</div>
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 rounded-rail bg-sidebar-card px-3 py-2.5">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-sidebar-active text-sm font-bold text-white">
+          {(user?.fullName || "U").charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold text-white">{user?.fullName || "Signed in"}</div>
+          <div className="truncate text-[11px] text-sidebar-muted">{user?.email}</div>
+        </div>
       </div>
       <button
         type="button"
         onClick={handleLogout}
-        className="w-full rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink transition hover:bg-surface"
+        className="flex w-full items-center gap-3 rounded-rail px-3.5 py-2.5 text-sm font-semibold text-sidebar-text transition hover:bg-sidebar-hover hover:text-white"
       >
+        <LogOut size={18} className="shrink-0" />
         Logout
       </button>
     </div>
   );
 
   const headerActions = (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 sm:gap-3">
       {selectedTenant ? (
-        <div className="hidden rounded-md bg-surface px-3 py-2 text-sm font-semibold text-ink sm:block">
-          Current Plan: {tenantPlan?.displayName || "Basic Free"}
-        </div>
+        <span className="hidden items-center gap-1.5 rounded-full bg-brand-100 px-3.5 py-1.5 text-xs font-bold text-brand xl:inline-flex">
+          <Crown size={13} strokeWidth={2.4} />
+          {tenantPlan?.displayName || "Basic Free"}
+        </span>
       ) : null}
+
+      <span className="hidden h-8 w-px bg-line sm:block" />
+
+      <div className="flex items-center gap-2.5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-sidebar-active text-sm font-bold text-white">
+          {(user?.fullName || "U").charAt(0).toUpperCase()}
+        </span>
+        <div className="hidden min-w-0 leading-tight sm:block">
+          <div className="truncate text-sm font-bold text-ink">{user?.fullName || "Signed in"}</div>
+          <div className="truncate text-[11px] font-medium text-subtle">Business Owner</div>
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={handleLogout}
-        className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink transition hover:bg-surface"
+        title="Log out"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-line bg-white text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+        aria-label="Log out"
       >
-        Logout
+        <LogOut size={16} />
       </button>
     </div>
   );

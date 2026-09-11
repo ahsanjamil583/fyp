@@ -12,6 +12,7 @@ from app.services.payment_service import (
     normalize_customer_payment_preference,
     refund_transaction_payment,
     serialize_customer_payment_options,
+    _method_customer_details,
 )
 from app.services.transaction_service import update_transaction
 
@@ -19,8 +20,11 @@ from app.services.transaction_service import update_transaction
 class Phase25StockPaymentsTests(unittest.IsolatedAsyncioTestCase):
     async def test_payment_foundation_normalizes_local_method_and_status_aliases(self):
         self.assertEqual(_normalize_method("bank_transfer"), "manual_bank")
-        self.assertEqual(_normalize_method("JazzCash"), "jazzcash_mock")
-        self.assertEqual(_normalize_method("easypaisa"), "easypaisa_mock")
+        # "jazzcash"/"easypaisa" now name the redirect gateways; the *_mock codes remain
+        # valid for the owner-verified manual flow and for historical records.
+        self.assertEqual(_normalize_method("JazzCash"), "jazzcash")
+        self.assertEqual(_normalize_method("easypaisa"), "easypaisa")
+        self.assertEqual(_normalize_method("jazzcash_mock"), "jazzcash_mock")
         self.assertEqual(_normalize_record_status("completed"), "paid")
         self.assertEqual(_normalize_record_status("pending"), "pending_verification")
         self.assertEqual(_normalize_record_status("failed"), "rejected")
@@ -63,10 +67,18 @@ class Phase25StockPaymentsTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertTrue(options["enabled"])
-        self.assertEqual(options["defaultMethod"], "jazzcash_mock")
-        jazzcash = next(method for method in options["methods"] if method["code"] == "jazzcash_mock")
-        self.assertEqual(jazzcash["accountNumber"], "03000000000")
-        self.assertTrue(jazzcash["requiresOwnerApproval"])
+        # With the gateway available this tenant is offered the redirect flow, and its
+        # saved "jazzcash_mock" default carries over to it rather than dropping to COD.
+        self.assertEqual(options["defaultMethod"], "jazzcash")
+        jazzcash = next(method for method in options["methods"] if method["code"] == "jazzcash")
+        self.assertTrue(jazzcash["isOnline"])
+        self.assertFalse(jazzcash["requiresOwnerApproval"])
+
+        manual = _method_customer_details(
+            {"jazzCashNumber": "03000000000", "jazzCashAccountTitle": "BizXus Wallet"}, "jazzcash_mock"
+        )
+        self.assertEqual(manual["accountNumber"], "03000000000")
+        self.assertTrue(manual["requiresOwnerApproval"])
 
     async def test_customer_payment_preference_rejects_disabled_method(self):
         options = {
@@ -127,7 +139,7 @@ class Phase25StockPaymentsTests(unittest.IsolatedAsyncioTestCase):
             items=SimpleNamespace(find_one=AsyncMock(return_value=item), update_one=AsyncMock()),
             transactions=SimpleNamespace(
                 update_one=AsyncMock(),
-                find_one=AsyncMock(return_value={**transaction, "inventoryStatus": "released"}),
+                find_one=AsyncMock(side_effect=[transaction, {**transaction, "inventoryStatus": "released"}]),
             ),
             inventory_movements=SimpleNamespace(
                 insert_one=AsyncMock(return_value=SimpleNamespace(inserted_id=ObjectId()))
@@ -139,7 +151,8 @@ class Phase25StockPaymentsTests(unittest.IsolatedAsyncioTestCase):
 
         fake_db.items.update_one.assert_awaited_once()
         update_doc = fake_db.items.update_one.await_args.args[1]
-        self.assertEqual(update_doc["$set"]["variants.0.stockQuantity"], 7.0)
+        self.assertEqual(update_doc["$inc"]["variants.0.stockQuantity"], 2.0)
+        self.assertNotIn("variants.0.reservedQuantity", update_doc["$inc"])
         self.assertEqual(updated["inventoryStatus"], "released")
 
     async def test_apply_transaction_inventory_transition_restores_on_rejected(self):

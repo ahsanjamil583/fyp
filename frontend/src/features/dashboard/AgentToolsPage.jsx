@@ -3,10 +3,11 @@ import { useEffect, useState } from "react";
 import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getAgentTools, previewAgentRun } from "../../services/agentApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 function ToolEventCard({ event }) {
   return (
-    <div className="rounded-md border border-line bg-surface p-3 text-sm">
+    <div className="rounded-xl border border-line bg-surface p-3 text-sm">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="font-semibold text-ink">{event.agent} / {event.tool}</div>
@@ -91,27 +92,27 @@ export function AgentToolsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Phase 23</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Real Agent Tool Layer</h1>
+      <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Phase 23</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Real Agent Tool Layer</h1>
         <p className="mt-3 max-w-4xl text-sm leading-6 text-muted">
           This layer separates the assistant into clear agents and tools: language detection, safety, catalog search, intent classification, RAG retrieval, draft order planning, response generation, and localization. Customer Portal, Public Chat, and WhatsApp now use the same orchestrated brain.
         </p>
       </div>
 
-      {notice ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</div> : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {notice ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       {isLoading ? <div className="text-sm text-muted">Loading tool catalog...</div> : null}
 
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-        <div className="space-y-4 rounded-md border border-line bg-white p-5 shadow-sm">
+        <div className="space-y-4 rounded-xl border border-line bg-white p-5 shadow-card">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Available tools</h2>
+            <SectionTitle>Available tools</SectionTitle>
             <p className="mt-1 text-sm text-muted">These tools run in sequence through the orchestrator.</p>
           </div>
           <div className="space-y-3">
             {(catalog?.tools || []).map((tool) => (
-              <div key={`${tool.agent}-${tool.tool}`} className="rounded-md border border-line p-3">
+              <div key={`${tool.agent}-${tool.tool}`} className="rounded-xl border border-line p-3">
                 <div className="text-sm font-semibold text-ink">{tool.agent}</div>
                 <div className="mt-1 text-sm font-medium text-brand">{tool.tool}</div>
                 <p className="mt-2 text-sm leading-5 text-muted">{tool.purpose}</p>
@@ -121,14 +122,14 @@ export function AgentToolsPage() {
         </div>
 
         <div className="space-y-5">
-          <form onSubmit={handlePreview} className="space-y-4 rounded-md border border-line bg-white p-5 shadow-sm">
+          <form onSubmit={handlePreview} className="space-y-4 rounded-xl border border-line bg-white p-5 shadow-card">
             <div>
-              <h2 className="text-lg font-semibold text-ink">Preview agent run</h2>
+              <SectionTitle>Preview agent run</SectionTitle>
               <p className="mt-1 text-sm text-muted">Test the brain without saving a conversation or creating a real order.</p>
             </div>
             <label className="text-sm font-medium text-ink">
               Channel
-              <select className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" value={channel} onChange={(event) => setChannel(event.target.value)}>
+              <select className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm" value={channel} onChange={(event) => setChannel(event.target.value)}>
                 <option value="owner_preview">Owner Preview</option>
                 <option value="customer_portal">Customer Portal</option>
                 <option value="website">Public Website</option>
@@ -137,34 +138,34 @@ export function AgentToolsPage() {
             </label>
             <label className="text-sm font-medium text-ink">
               Customer message
-              <textarea className="mt-1 min-h-28 w-full rounded-md border border-line px-3 py-2 text-sm" value={messageText} onChange={(event) => setMessageText(event.target.value)} placeholder="Example: black hoodie chahiye, order kar do" />
+              <textarea className="mt-1 min-h-28 w-full rounded-xl border border-line px-3 py-2 text-sm" value={messageText} onChange={(event) => setMessageText(event.target.value)} placeholder="Example: black hoodie chahiye, order kar do" />
             </label>
-            <button type="submit" disabled={isPreviewing || !messageText.trim()} className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+            <button type="submit" disabled={isPreviewing || !messageText.trim()} className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
               {isPreviewing ? "Running agent..." : "Run preview"}
             </button>
           </form>
 
           {preview ? (
             <div className="space-y-5">
-              <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-                <h2 className="text-lg font-semibold text-ink">Agent reply</h2>
+              <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+                <SectionTitle>Agent reply</SectionTitle>
                 <p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted">{preview.reply}</p>
                 <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  <div className="rounded-md bg-surface p-3 text-sm"><span className="font-semibold text-ink">Intent:</span> {preview.meta?.intent}</div>
-                  <div className="rounded-md bg-surface p-3 text-sm"><span className="font-semibold text-ink">Source:</span> {preview.meta?.responseSource}</div>
-                  <div className="rounded-md bg-surface p-3 text-sm"><span className="font-semibold text-ink">Language:</span> {preview.meta?.languageMode}</div>
+                  <div className="rounded-xl bg-surface p-3 text-sm"><span className="font-semibold text-ink">Intent:</span> {preview.meta?.intent}</div>
+                  <div className="rounded-xl bg-surface p-3 text-sm"><span className="font-semibold text-ink">Source:</span> {preview.meta?.responseSource}</div>
+                  <div className="rounded-xl bg-surface p-3 text-sm"><span className="font-semibold text-ink">Language:</span> {preview.meta?.languageMode}</div>
                 </div>
               </div>
 
               {preview.draftOrder?.items?.length ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-5 shadow-sm">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-card">
                   <h2 className="text-lg font-semibold text-amber-900">Draft order prepared</h2>
                   <pre className="mt-3 max-h-64 overflow-auto rounded bg-white p-3 text-xs text-amber-900">{JSON.stringify(preview.draftOrder, null, 2)}</pre>
                 </div>
               ) : null}
 
-              <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-                <h2 className="text-lg font-semibold text-ink">Tool trace</h2>
+              <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+                <SectionTitle>Tool trace</SectionTitle>
                 <div className="mt-4 space-y-3">
                   {(preview.toolCalls || []).map((event, index) => (
                     <ToolEventCard key={`${event.tool}-${index}`} event={event} />
@@ -173,11 +174,11 @@ export function AgentToolsPage() {
               </div>
 
               {preview.ragSources?.length ? (
-                <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-                  <h2 className="text-lg font-semibold text-ink">RAG sources</h2>
+                <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+                  <SectionTitle>RAG sources</SectionTitle>
                   <div className="mt-4 space-y-3">
                     {preview.ragSources.map((source, index) => (
-                      <div key={`${source.documentId}-${index}`} className="rounded-md border border-line p-3 text-sm">
+                      <div key={`${source.documentId}-${index}`} className="rounded-xl border border-line p-3 text-sm">
                         <div className="font-semibold text-ink">{source.title || "Knowledge"}</div>
                         <div className="mt-1 text-xs text-muted">{source.sourceType} / confidence {source.confidence}</div>
                         <p className="mt-2 text-muted">{source.excerpt}</p>

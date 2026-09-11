@@ -5,8 +5,8 @@ from app.core.security import get_authenticated_user, get_current_customer_user
 from app.schemas.auth_schema import LoginRequest, PasswordChangeRequest, RefreshTokenRequest
 from app.schemas.customer_auth_schema import CustomerProfileUpdateRequest, CustomerRegisterRequest
 from app.schemas.otp_schema import (
-    PhoneCustomerRegisterRequest,
-    PhoneOtpLoginRequest,
+    EmailOtpRequest,
+    EmailPasswordResetRequest,
     PhoneOtpRequest,
     PhoneOtpVerifyRequest,
     PhonePasswordResetRequest,
@@ -14,13 +14,13 @@ from app.schemas.otp_schema import (
 from app.services.auth_service import (
     change_password,
     login_user,
-    login_user_with_phone_otp,
     refresh_auth_token,
+    reset_password_with_email_otp,
     reset_password_with_phone_otp,
     user_public,
 )
 from app.services.customer_auth_service import get_customer_profile, register_customer, update_customer_profile
-from app.services.otp_service import mark_user_phone_verified, request_phone_otp, verify_phone_otp
+from app.services.otp_service import mark_user_phone_verified, request_email_otp, request_phone_otp, verify_phone_otp
 
 router = APIRouter(prefix="/customer/auth", tags=["customer-auth"])
 
@@ -31,32 +31,10 @@ async def register(payload: CustomerRegisterRequest):
     return success_response("Customer registered successfully.", data)
 
 
-@router.post("/register/phone")
-async def register_with_phone_otp(payload: PhoneCustomerRegisterRequest):
-    otp = await verify_phone_otp(
-        phone=payload.phone,
-        code=payload.code,
-        account_type="customer",
-        purpose="register",
-        consume=True,
-    )
-    data = await register_customer(payload)
-    await mark_user_phone_verified(data["user"]["id"], otp["phone"])
-    data["user"]["isPhoneVerified"] = True
-    data["otp"] = otp
-    return success_response("Customer registered and phone verified successfully.", data)
-
-
 @router.post("/login")
 async def login(payload: LoginRequest):
     data = await login_user(payload.email, payload.password, expected_account_type="customer")
     return success_response("Logged in successfully.", data)
-
-
-@router.post("/login/phone")
-async def login_with_phone_otp(payload: PhoneOtpLoginRequest):
-    data = await login_user_with_phone_otp(payload.phone, payload.code, expected_account_type="customer")
-    return success_response("Logged in with phone OTP successfully.", data)
 
 
 @router.post("/otp/request")
@@ -97,6 +75,27 @@ async def request_phone_password_reset(payload: PhoneOtpRequest):
 async def reset_phone_password(payload: PhonePasswordResetRequest):
     data = await reset_password_with_phone_otp(
         payload.phone,
+        payload.code,
+        payload.newPassword,
+        expected_account_type="customer",
+    )
+    return success_response("Password reset successfully.", data)
+
+
+@router.post("/password/email/request")
+async def request_email_password_reset(payload: EmailOtpRequest):
+    data = await request_email_otp(
+        email=payload.email,
+        account_type="customer",
+        purpose="password_reset",
+    )
+    return success_response("Password reset code sent successfully.", data)
+
+
+@router.post("/password/email/reset")
+async def reset_email_password(payload: EmailPasswordResetRequest):
+    data = await reset_password_with_email_otp(
+        payload.email,
         payload.code,
         payload.newPassword,
         expected_account_type="customer",

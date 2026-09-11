@@ -88,9 +88,9 @@ export function PublicBusinessPage() {
         <HighlightSection highlights={siteModel.highlights} theme={siteModel.theme} />
 
         <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[30px] border border-black/5 bg-white/92 p-6 shadow-sm">
+          <div className="rounded-[30px] border border-black/5 bg-white/92 p-6 shadow-card">
             <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: siteModel.theme.accent }}>Overview</div>
-            <h2 className="mt-3 text-3xl font-semibold text-ink">A better category-based public website</h2>
+            <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-ink">A better category-based public website</h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
               This homepage now focuses on clarity, trust, and conversion. Customers can discover the business here, then move into dedicated pages for {siteModel.catalogLabel.toLowerCase()}, contact, and direct requests.
             </p>
@@ -103,7 +103,7 @@ export function PublicBusinessPage() {
               </Link>
             </div>
           </div>
-          <div className="rounded-[30px] border border-black/5 bg-white/92 p-6 shadow-sm">
+          <div className="rounded-[30px] border border-black/5 bg-white/92 p-6 shadow-card">
             <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: siteModel.theme.accent }}>Next Actions</div>
             <div className="mt-4 space-y-3">
               {[

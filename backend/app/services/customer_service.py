@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import re
 
 from bson import ObjectId
 from fastapi import HTTPException, status
@@ -167,6 +168,7 @@ async def list_customers(
     if tag_filter:
         query["tags"] = {"$regex": f"^{tag_filter}$", "$options": "i"}
     if search:
+        search = re.escape(search[:200])
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"phone": {"$regex": search, "$options": "i"}},

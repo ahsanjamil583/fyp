@@ -3,7 +3,11 @@ from __future__ import annotations
 import logging
 import re
 import secrets
+import hashlib
+import hmac
+import time
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 from bson import ObjectId
 from fastapi import HTTPException, status
@@ -50,8 +54,6 @@ def build_whatsapp_deep_link(phone: str | None, text: str = "") -> str:
         return ""
     url = f"https://wa.me/{digits}"
     if text:
-        from urllib.parse import quote
-
         url = f"{url}?text={quote(text)}"
     return url
 
@@ -93,13 +95,57 @@ def serialize_whatsapp_settings(settings_doc: dict | None, tenant: dict | None =
     return data
 
 
+DEFAULT_BRIDGE_PUBLIC_URL = "http://localhost:3005"
+
+
+def build_bridge_pairing_url(tenant_id: str, bridge_token: str = "") -> str:
+    """Link a business owner straight to their own QR page on the bridge.
+
+    Owners cannot be asked to find the bridge address themselves, and a shared root URL
+    would show them every other tenant on the same bridge, so the dashboard links to the
+    per-tenant pairing route.
+    """
+    base = (settings.whatsapp_bridge_public_url or DEFAULT_BRIDGE_PUBLIC_URL).rstrip("/")
+    tenant_id = str(tenant_id or "").strip()
+    if not tenant_id:
+        return base
+    url = f"{base}/pair/{quote(tenant_id, safe='')}"
+    if bridge_token:
+        expires = int(time.time()) + 600
+        signature = hmac.new(bridge_token.encode(), f"pair:{tenant_id}:{expires}".encode(), hashlib.sha256).hexdigest()
+        url += f"?expires={expires}&grant={signature}"
+    return url
+
+
+def bridge_is_online(integration: dict | None) -> bool:
+    doc = integration or {}
+    if not doc.get("isConnected") or doc.get("bridgeStatus") != "ready":
+        return False
+    seen = doc.get("bridgeLastSeenAt")
+    if isinstance(seen, str):
+        try:
+            seen = datetime.fromisoformat(seen.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if not isinstance(seen, datetime):
+        return False
+    age = (datetime.now(timezone.utc) - seen.replace(tzinfo=seen.tzinfo or timezone.utc)).total_seconds()
+    return 0 <= age <= 90
+
+
 def _serialize_owner_whatsapp_settings(settings_doc: dict | None, tenant: dict | None = None) -> dict:
     data = serialize_whatsapp_settings(settings_doc, tenant)
+    tenant_id = data.get("tenantId") or str((tenant or {}).get("_id", ""))
+    data["bridgeBaseUrl"] = (settings.whatsapp_bridge_public_url or DEFAULT_BRIDGE_PUBLIC_URL).rstrip("/")
+    data["bridgePairingUrl"] = build_bridge_pairing_url(tenant_id, (settings_doc or {}).get("bridgeToken", ""))
     data["bridgeToken"] = (settings_doc or {}).get("bridgeToken", "")
     data["bridgeStatus"] = (settings_doc or {}).get("bridgeStatus", "")
     data["bridgeConnectedNumber"] = (settings_doc or {}).get("bridgeConnectedNumber", "")
     data["bridgeLastSeenAt"] = (settings_doc or {}).get("bridgeLastSeenAt")
     data["bridgeLastError"] = (settings_doc or {}).get("bridgeLastError", "")
+    data["bridgeOnline"] = bridge_is_online(settings_doc)
+    if data.get("provider") == "baileys":
+        data["connectionStatus"] = "connected" if data["bridgeOnline"] else "awaiting_bridge" if data.get("isConnected") else "not_configured"
     return data
 
 
@@ -121,7 +167,7 @@ async def get_customer_facing_whatsapp_agent(tenant: dict) -> dict:
         "configured": bool(integration or normalized_number),
         "status": (integration or {}).get("status", "contact_only" if normalized_number else "not_configured"),
         "provider": (integration or {}).get("provider", settings.whatsapp_provider),
-        "agentReady": bool(integration and module_ready and agent_enabled and auto_reply_enabled),
+        "agentReady": bool(integration and module_ready and agent_enabled and auto_reply_enabled and (integration.get("provider") == "mock" or bridge_is_online(integration))),
         "displayName": (integration or {}).get("displayName") or tenant.get("name", ""),
         "businessWhatsAppNumber": business_number,
         "normalizedBusinessWhatsAppNumber": normalized_number,
@@ -509,6 +555,56 @@ async def send_owner_whatsapp_test(tenant_id: str, payload: WhatsAppOutboundRequ
     except WhatsAppSendError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unable to send WhatsApp test: {exc}") from exc
     return {"tenant": serialize_document(tenant), "log": serialize_document(log)}
+
+
+async def list_bridge_tenants(bridge_key: str) -> dict:
+    """Tell the bridge which businesses it should connect.
+
+    The bridge used to be told this by hand in its own .env, so a business that had just
+    been approved could not pair until someone edited that file and restarted the
+    process: the owner's pairing link opened a page that did not know them. The bridge
+    now asks the API instead, and a business appears as soon as its owner saves WhatsApp
+    settings.
+
+    The response carries per-tenant bridge tokens, so it is gated on a shared operator
+    key rather than a user session, and stays disabled until that key is configured.
+    """
+    configured_key = settings.whatsapp_bridge_admin_key
+    if not configured_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Tenant discovery is disabled. Set WHATSAPP_BRIDGE_ADMIN_KEY on the API to enable it.",
+        )
+    if not secrets.compare_digest(str(bridge_key or ""), configured_key):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid WhatsApp bridge key.")
+
+    db = get_database()
+    tenants: list[dict] = []
+    cursor = db.whatsapp_integrations.find(
+        {"provider": "baileys", "isConnected": True, "bridgeToken": {"$nin": [None, ""]}}
+    )
+    async for integration in cursor:
+        tenant_oid = integration.get("tenantId")
+        if not tenant_oid:
+            continue
+        tenant = await db.tenants.find_one({"_id": tenant_oid, "status": {"$ne": "suspended"}})
+        if not tenant:
+            continue
+        # The module gate is the admin's approval, so a business the admin has not
+        # approved for the WhatsApp agent never reaches the bridge.
+        enabled_module = await db.tenant_modules.find_one(
+            {"tenantId": tenant_oid, "moduleCode": "whatsapp_agent", "status": "enabled"}
+        )
+        if not enabled_module:
+            continue
+        tenants.append(
+            {
+                "tenantId": str(tenant_oid),
+                "bridgeToken": integration.get("bridgeToken", ""),
+                "label": integration.get("displayName") or tenant.get("name") or str(tenant_oid),
+            }
+        )
+    return {"tenants": tenants}
 
 
 async def process_bridge_status(payload: WhatsAppBridgeStatusRequest, bridge_token: str) -> dict:

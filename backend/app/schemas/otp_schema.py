@@ -13,11 +13,6 @@ class PhoneOtpVerifyRequest(BaseModel):
     purpose: str = Field(default="login", pattern="^(login|register|verify_phone|password_reset)$")
 
 
-class PhoneOtpLoginRequest(BaseModel):
-    phone: str = Field(min_length=7, max_length=30)
-    code: str = Field(min_length=4, max_length=12)
-
-
 class PhonePasswordResetRequest(BaseModel):
     phone: str = Field(min_length=7, max_length=30)
     code: str = Field(min_length=4, max_length=12)
@@ -48,10 +43,3 @@ class EmailPasswordResetRequest(BaseModel):
     code: str = Field(min_length=6, max_length=6)
     newPassword: str = Field(min_length=6, max_length=128)
 
-
-class PhoneCustomerRegisterRequest(BaseModel):
-    fullName: str = Field(min_length=2, max_length=120)
-    phone: str = Field(min_length=7, max_length=30)
-    code: str = Field(min_length=4, max_length=12)
-    password: str = Field(min_length=6, max_length=128)
-    email: EmailStr | None = None

@@ -79,6 +79,8 @@ def describe_password_problem(password: str, *identity_parts: str | None) -> str
         return f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
     if len(value) > MAX_PASSWORD_LENGTH:
         return f"Password must be {MAX_PASSWORD_LENGTH} characters or fewer."
+    if len(value.encode("utf-8")) > 72:
+        return "Password must be 72 UTF-8 bytes or fewer. Use a shorter password."
     if value.strip() != value:
         return "Password cannot start or end with a space."
     if value.lower() in COMMON_PASSWORDS:

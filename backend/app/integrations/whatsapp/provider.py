@@ -29,6 +29,7 @@ async def send_whatsapp_text(
     db = get_database()
     normalized_provider = _normalize_provider(provider)
     now = datetime.now(timezone.utc)
+    direct_reply = (raw_context or {}).get("source") == "whatsapp_agent_auto_reply"
     log = {
         "tenantId": tenant_id,
         "conversationId": conversation_id,
@@ -36,13 +37,13 @@ async def send_whatsapp_text(
         "direction": "outbound",
         "toPhone": to_phone,
         "messageText": message_text,
-        "deliveryStatus": "returned_to_bridge" if normalized_provider == "baileys" else "mock_sent",
+        "deliveryStatus": ("returned_to_bridge" if direct_reply else "queued") if normalized_provider == "baileys" else "mock_sent",
         "providerMessageId": f"{normalized_provider}-{int(now.timestamp())}",
         "providerResponse": {
             "mock": normalized_provider == "mock",
             "bridge": normalized_provider == "baileys",
             "note": (
-                "Reply was returned to the Baileys bridge for real WhatsApp delivery."
+                ("Reply was returned to the bridge." if direct_reply else "Queued for the connected WhatsApp bridge.")
                 if normalized_provider == "baileys"
                 else "Message was logged locally instead of sent to WhatsApp."
             ),

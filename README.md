@@ -172,6 +172,7 @@ docs/phase-28-launch-wizard.md
 docs/phase-29-phone-otp-onboarding.md
 docs/phase-30-final-qa-demo-polish.md
 docs/phase-31-submission-center.md
+docs/payment-gateways.md
 ```
 
 ## Safety Note
@@ -227,12 +228,26 @@ copy .env.example .env
 npm run dev
 ```
 
-Open <http://localhost:3005> and scan the QR from **WhatsApp → Linked devices**.
+Then, in the dashboard, open **WhatsApp Agent → Open WhatsApp connection page**. That
+button links to this bridge's per-business pairing page
+(`http://localhost:3005/pair/<tenantId>`), where the owner scans the QR from
+**WhatsApp → Linked devices**. Set `WHATSAPP_BRIDGE_PUBLIC_URL` in `backend/.env` when
+the bridge does not run on `localhost:3005`.
 
 ### Connecting more than one business
 
 One bridge process serves every tenant. Each business is a separate linked device with
-its own credentials, so list them together:
+its own credentials.
+
+Set `BIZXUS_BRIDGE_KEY` in `whatsapp-bridge/.env` to the same value as
+`WHATSAPP_BRIDGE_ADMIN_KEY` in `backend/.env`, and the bridge asks the API which
+businesses to connect: a business appears as soon as its owner saves WhatsApp settings,
+with no edit to this file and no restart. An owner who clicks their pairing link before
+the next refresh still gets a QR, because the bridge re-checks on a miss. The key hands
+out per-tenant bridge tokens, so keep it private; leave it empty and the discovery
+endpoint stays disabled.
+
+Businesses can also be listed by hand, which still works and takes precedence:
 
 ```bash
 BIZXUS_API_BASE_URL=http://127.0.0.1:8000/api/v1
@@ -256,5 +271,6 @@ Businesses that need re-pairing also surface in the deployment readiness report 
 
 ### If WhatsApp logs the device out
 
-Delete that tenant's folder under `whatsapp-bridge/.baileys_auth/`, restart the bridge,
-and scan the QR again.
+Nothing to do by hand. The bridge clears the unusable credentials and shows a fresh QR
+on the same pairing page. **Get a new QR code** on that page forces the same reset, and
+is also how a business moves the agent to a different WhatsApp number.

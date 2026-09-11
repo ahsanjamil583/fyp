@@ -16,6 +16,7 @@ from app.services.tenant_service import (
     _normalize_contact,
     _normalize_website_settings,
     _validate_plan_change,
+    build_business_formation_criteria,
 )
 
 PAID_PLAN_LABELS = {"growth": "AI Ordering", "scale": "Full Agent"}
@@ -149,6 +150,8 @@ async def list_admin_tenants() -> list[dict]:
         item["enabledModuleCount"] = module_count_map.get(str(tenant["_id"]), len(tenant.get("enabledModuleCodes", [])))
         item["upgradeRequests"] = _tenant_upgrade_requests(tenant)
         item["pendingUpgradeCount"] = len([request for request in item["upgradeRequests"] if request["status"] == "pending_approval"])
+        if tenant.get("websiteApprovalStatus") == "pending" or tenant.get("websiteStatus") == "pending_review":
+            item["websiteApprovalCriteria"] = await build_business_formation_criteria(tenant)
         rows.append(item)
     return rows
 
@@ -233,6 +236,57 @@ async def decide_admin_package_upgrade(tenant_id: str, plan_code: str, payload, 
         }
     )
 
+    refreshed = await list_admin_tenants()
+    return next((item for item in refreshed if item["id"] == tenant_id), serialize_document(await db.tenants.find_one({"_id": tenant_oid})))
+
+
+async def decide_admin_website_request(tenant_id: str, payload, current_user: dict) -> dict:
+    db = get_database()
+    tenant_oid = parse_object_id(tenant_id, "tenantId")
+    tenant = await db.tenants.find_one({"_id": tenant_oid})
+    if not tenant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found.")
+
+    now = datetime.now(timezone.utc)
+    decision_status = payload.status
+    note = (payload.note or "").strip()
+    criteria = await build_business_formation_criteria(tenant)
+    if decision_status == "approved" and not criteria["isComplete"]:
+        missing_labels = ", ".join(check["label"] for check in criteria["missing"])
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": f"Cannot approve until these requirements are complete: {missing_labels}.",
+                "criteria": criteria,
+            },
+        )
+
+    update = {
+        "websiteApprovalStatus": decision_status,
+        "websiteApprovalReviewedAt": now,
+        "websiteApprovalReviewedBy": current_user.get("_id"),
+        "websiteApprovalNote": note,
+        "websiteApprovalCriteria": criteria,
+        "updatedAt": now,
+    }
+    if decision_status == "approved":
+        update.update({"status": "active", "websiteStatus": "published", "publishedAt": now})
+        settings = dict(tenant.get("settings") or {})
+        settings["publicVisibility"] = True
+        update["settings"] = settings
+    else:
+        update["websiteStatus"] = "rejected"
+
+    await db.tenants.update_one({"_id": tenant_oid}, {"$set": update})
+    await db.audit_logs.insert_one(
+        {
+            "action": "tenant_website_request_decided",
+            "actorUserId": current_user.get("_id"),
+            "tenantId": tenant_oid,
+            "metadata": {"status": decision_status, "note": note, "criteriaComplete": criteria["isComplete"]},
+            "createdAt": now,
+        }
+    )
     refreshed = await list_admin_tenants()
     return next((item for item in refreshed if item["id"] == tenant_id), serialize_document(await db.tenants.find_one({"_id": tenant_oid})))
 

@@ -5,18 +5,8 @@ export async function registerCustomer(payload) {
   return response.data.data;
 }
 
-export async function registerCustomerWithPhone(payload) {
-  const response = await apiClient.post("/customer/auth/register/phone", payload);
-  return response.data.data;
-}
-
 export async function loginCustomer(payload) {
   const response = await apiClient.post("/customer/auth/login", payload);
-  return response.data.data;
-}
-
-export async function loginCustomerWithPhone(payload) {
-  const response = await apiClient.post("/customer/auth/login/phone", payload);
   return response.data.data;
 }
 
@@ -30,13 +20,13 @@ export async function verifyCustomerOtp(payload) {
   return response.data.data;
 }
 
-export async function requestCustomerPasswordResetOtp(payload) {
-  const response = await apiClient.post("/customer/auth/password/phone/request", payload);
+export async function requestCustomerEmailPasswordResetOtp(payload) {
+  const response = await apiClient.post("/customer/auth/password/email/request", payload);
   return response.data.data;
 }
 
-export async function resetCustomerPasswordWithOtp(payload) {
-  const response = await apiClient.post("/customer/auth/password/phone/reset", payload);
+export async function resetCustomerPasswordWithEmailOtp(payload) {
+  const response = await apiClient.post("/customer/auth/password/email/reset", payload);
   return response.data.data;
 }
 

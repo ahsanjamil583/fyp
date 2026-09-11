@@ -1,3 +1,5 @@
+import { getDefaultPaymentMethod, getSelectedPaymentMethod } from "./paymentMethods.js";
+
 function methodSummary(method = {}) {
   const rows = [
     ["Account title", method.accountTitle],
@@ -6,19 +8,6 @@ function methodSummary(method = {}) {
     ["IBAN", method.iban],
   ].filter(([, value]) => value);
   return rows;
-}
-
-export function getDefaultPaymentMethod(options = {}) {
-  const methods = options.methods || [];
-  if (!methods.length) return "";
-  return options.defaultMethod && methods.some((method) => method.code === options.defaultMethod)
-    ? options.defaultMethod
-    : methods[0].code;
-}
-
-export function getSelectedPaymentMethod(options = {}, selectedCode = "") {
-  const methods = options.methods || [];
-  return methods.find((method) => method.code === selectedCode) || methods[0] || null;
 }
 
 export function CustomerPaymentInstructions({ options = {}, selectedMethod = "", onChange, compact = false }) {
@@ -37,10 +26,10 @@ export function CustomerPaymentInstructions({ options = {}, selectedMethod = "",
   const rows = methodSummary(selected);
 
   return (
-    <div className={compact ? "rounded-2xl border border-blue-100 bg-blue-50/60 p-3" : "rounded-3xl border border-blue-100 bg-blue-50/60 p-4"}>
+    <div className={compact ? "rounded-2xl border border-brand-100 bg-brand-50/60 p-3" : "rounded-3xl border border-brand-100 bg-brand-50/60 p-4"}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-blue-700">Payment</div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-brand-700">Payment</div>
           <h3 className={compact ? "mt-1 text-sm font-bold text-slate-950" : "mt-1 text-lg font-bold text-slate-950"}>Choose how you want to pay</h3>
           <p className="mt-1 text-xs leading-5 text-slate-600">
             {selected?.description || "Select a payment method. The owner verifies manual payments before marking them paid."}
@@ -58,7 +47,7 @@ export function CustomerPaymentInstructions({ options = {}, selectedMethod = "",
             type="button"
             className={
               selectedCode === method.code
-                ? "rounded-2xl border border-blue-300 bg-white px-3 py-3 text-left text-sm font-bold text-blue-800 shadow-sm"
+                ? "rounded-2xl border border-brand-300 bg-white px-3 py-3 text-left text-sm font-bold text-brand-800 shadow-card"
                 : "rounded-2xl border border-slate-200 bg-white/70 px-3 py-3 text-left text-sm font-semibold text-slate-700"
             }
             onClick={() => onChange?.(method.code)}
@@ -87,9 +76,21 @@ export function CustomerPaymentInstructions({ options = {}, selectedMethod = "",
               Send the payment reference to the business. Your payment will show as unpaid until the owner verifies it.
             </p>
           ) : selected.isOnline ? (
-            <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800">
-              You can pay online through Stripe Checkout. For FYP testing, use card {selected.testCard || "4242 4242 4242 4242"} with any future expiry and CVC.
-            </p>
+            <div className="mt-3 space-y-2">
+              <p className="rounded-xl bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-800">
+                You will be taken to the {selected.label} payment page and returned here once the payment is done.
+              </p>
+              {selected.code === "stripe_test" && selected.mode !== "live" ? (
+                <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-700">
+                  Test mode: use card {selected.testCard || "4242 4242 4242 4242"} with any future expiry and any CVC.
+                </p>
+              ) : null}
+              {selected.simulated ? (
+                <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                  Simulated gateway: no real money moves. Replace it with live {selected.label} credentials before launch.
+                </p>
+              ) : null}
+            </div>
           ) : (
             <p className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">
               Cash will be collected by the business. No online payment is needed right now.

@@ -146,188 +146,167 @@ async def _notify_low_stock_if_needed(tenant_id: ObjectId, item: dict[str, Any])
         return
 
 
-async def reserve_transaction_stock(transaction: dict[str, Any], actor_user_id: ObjectId | None = None) -> dict[str, Any]:
-    """Reserve stock for order lines. Services/non-stock items are skipped."""
+async def _adjust_stock(db, tenant_id, item_id, variant_index, quantity, operation):
+    """Compare-and-swap stock so concurrent orders cannot overwrite each other."""
+    for _ in range(8):
+        item = await db.items.find_one({"_id": item_id, "tenantId": tenant_id})
+        if not item:
+            raise HTTPException(status_code=409, detail="An ordered item no longer exists.")
+        if variant_index is None:
+            stock = item.get("stock") or {}
+            quantity_key, reserved_key = "stock.quantity", "stock.reservedQuantity"
+            quantity_field = "quantity"
+        else:
+            variants = item.get("variants") or []
+            if variant_index >= len(variants):
+                raise HTTPException(status_code=409, detail="An ordered variant no longer exists.")
+            stock = variants[variant_index]
+            quantity_key = f"variants.{variant_index}.stockQuantity"
+            reserved_key = f"variants.{variant_index}.reservedQuantity"
+            quantity_field = "stockQuantity"
+        available = float(stock.get(quantity_field, 0) or 0)
+        reserved = float(stock.get("reservedQuantity", 0) or 0)
+        if operation == "reserve" and (
+            item.get("status") == "archived" or available - reserved < quantity
+        ):
+            raise HTTPException(status_code=409, detail=f"Not enough stock for {item.get('name', 'item')}.")
+        if operation in {"release", "deduct"} and reserved < quantity:
+            raise HTTPException(status_code=409, detail="Inventory reservation needs reconciliation.")
+        if operation == "deduct" and available < quantity:
+            raise HTTPException(status_code=409, detail="Inventory quantity needs reconciliation.")
+        increments = {
+            "reserve": {reserved_key: quantity},
+            "release": {reserved_key: -quantity},
+            "deduct": {reserved_key: -quantity, quantity_key: -quantity},
+            "return": {quantity_key: quantity},
+        }[operation]
+        query = {
+            "_id": item_id, "tenantId": tenant_id,
+            quantity_key: stock[quantity_field] if quantity_field in stock else {"$exists": False},
+            reserved_key: stock["reservedQuantity"] if "reservedQuantity" in stock else {"$exists": False},
+        }
+        if operation == "reserve":
+            query["status"] = {"$ne": "archived"}
+        result = await db.items.update_one(query, {
+            "$inc": increments, "$set": {"updatedAt": datetime.now(timezone.utc)},
+        })
+        if result.matched_count:
+            return increments
+    raise HTTPException(status_code=409, detail="Stock changed during this request. Please retry.")
+
+
+async def _change_transaction_stock(transaction, operation, actor_user_id=None):
     if transaction.get("transactionType") != "order":
         return transaction
-    if transaction.get("inventoryStatus") in {"reserved", "deducted"}:
-        return transaction
-
     db = get_database()
-    tenant_id = transaction["tenantId"]
-    now = datetime.now(timezone.utc)
-    movements: list[dict[str, Any]] = []
-    reservable_lines = []
+    query = {"_id": transaction["_id"], "tenantId": transaction["tenantId"]}
+    current = await db.transactions.find_one(query)
+    if not current:
+        raise HTTPException(status_code=404, detail="Transaction not found.")
+    previous_status = current.get("inventoryStatus")
+    if current.get("inventoryOperation"):
+        raise HTTPException(status_code=409, detail="Inventory update in progress or awaiting reconciliation.")
+    if operation == "reserve" and previous_status in {"reserved", "deducted", "not_required"}:
+        return current
+    if operation == "restore" and previous_status not in {"reserved", "deducted"}:
+        return current
+    if operation == "deduct" and previous_status in {"deducted", "not_required"}:
+        return current
+    if operation == "deduct" and previous_status != "reserved":
+        current = await _change_transaction_stock(current, "reserve", actor_user_id)
+        if current.get("inventoryStatus") == "not_required":
+            return current
+        previous_status = current.get("inventoryStatus")
 
-    for line in transaction.get("items") or []:
-        quantity = _line_quantity(line)
-        item = await db.items.find_one({"_id": _line_item_id(line), "tenantId": tenant_id, "status": {"$ne": "archived"}})
-        if not item or not _requires_stock(item, line):
-            continue
-        variant_index = _get_variant_index(item, line)
-        if variant_index is not None:
-            variant = item.get("variants", [])[variant_index]
-            available = _available_variant_quantity(variant)
-        else:
-            available = _available_item_quantity(item)
-        if available < quantity:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Not enough stock for {item.get('name', line.get('name', 'item'))}. Available: {available:g}, requested: {quantity:g}.",
-            )
-        reservable_lines.append((line, item, variant_index, quantity))
-
-    if not reservable_lines:
-        await db.transactions.update_one(
-            {"_id": transaction["_id"]},
-            {"$set": {"inventoryStatus": "not_required", "inventoryUpdatedAt": now, "updatedAt": now}},
-        )
-        updated = await db.transactions.find_one({"_id": transaction["_id"]})
-        return updated or transaction
-
-    for line, item, variant_index, quantity in reservable_lines:
-        if variant_index is not None:
-            await db.items.update_one(
-                {"_id": item["_id"], "tenantId": tenant_id},
-                {"$inc": {f"variants.{variant_index}.reservedQuantity": quantity}, "$set": {"updatedAt": now}},
-            )
-        else:
-            await db.items.update_one(
-                {"_id": item["_id"], "tenantId": tenant_id},
-                {"$inc": {"stock.reservedQuantity": quantity}, "$set": {"updatedAt": now}},
-            )
-        movement = await _create_movement(tenant_id, transaction, line, "reserve", quantity, item, variant_index, actor_user_id)
-        movements.append(movement)
-
-    await db.transactions.update_one(
-        {"_id": transaction["_id"]},
-        {
-            "$set": {"inventoryStatus": "reserved", "inventoryUpdatedAt": now, "updatedAt": now},
-            "$push": {"inventoryMovements": {"$each": movements}},
-        },
+    # A persisted claim also prevents two workers from processing the same order.
+    # A process crash deliberately leaves the claim for reconciliation, not replay.
+    claim = await db.transactions.update_one(
+        {**query, "inventoryStatus": previous_status, "inventoryOperation": {"$exists": False}},
+        {"$set": {"inventoryOperation": operation, "inventoryUpdatedAt": datetime.now(timezone.utc)}},
     )
-    updated = await db.transactions.find_one({"_id": transaction["_id"]})
-    return updated or transaction
+    if not claim.matched_count:
+        raise HTTPException(status_code=409, detail="This order is being updated. Please reload.")
+    applied = []
+    movement_ids = []
+    try:
+        lines = {}
+        for line in current.get("items") or []:
+            item_id = _line_item_id(line)
+            item = await db.items.find_one({"_id": item_id, "tenantId": current["tenantId"]})
+            if not item:
+                raise HTTPException(status_code=409, detail="An ordered item no longer exists.")
+            if not _requires_stock(item, line):
+                continue
+            variant_index = _get_variant_index(item, line)
+            key = (item_id, variant_index)
+            if key not in lines:
+                lines[key] = [line, item, 0.0]
+            lines[key][2] += _line_quantity(line)
+
+        stock_operation = (
+            "return" if previous_status == "deducted" else "release"
+        ) if operation == "restore" else operation
+        movements = []
+        for (item_id, variant_index), (line, item, quantity) in lines.items():
+            increments = await _adjust_stock(
+                db, current["tenantId"], item_id, variant_index, quantity, stock_operation,
+            )
+            applied.append((item_id, increments))
+            movement = await _create_movement(
+                current["tenantId"], current, line,
+                "release" if operation == "restore" else operation,
+                quantity, item, variant_index, actor_user_id,
+            )
+            movement_ids.append(movement["_id"])
+            movements.append(movement)
+        next_status = (
+            "not_required" if not lines else
+            {"reserve": "reserved", "restore": "released", "deduct": "deducted"}[operation]
+        )
+        now = datetime.now(timezone.utc)
+        await db.transactions.update_one(query, {
+            "$set": {"inventoryStatus": next_status, "inventoryUpdatedAt": now, "updatedAt": now},
+            "$unset": {"inventoryOperation": ""},
+            "$push": {"inventoryMovements": {"$each": movements}},
+        })
+    except Exception:
+        # Undo only this request's deltas; never restore stale absolute quantities.
+        try:
+            for item_id, increments in reversed(applied):
+                result = await db.items.update_one(
+                    {"_id": item_id, "tenantId": current["tenantId"]},
+                    {"$inc": {key: -value for key, value in increments.items()}},
+                )
+                if not result.matched_count:
+                    raise RuntimeError("Inventory rollback item missing")
+            if movement_ids:
+                await db.inventory_movements.delete_many({"_id": {"$in": movement_ids}})
+            await db.transactions.update_one(query, {"$unset": {"inventoryOperation": ""}})
+        except Exception:
+            await db.transactions.update_one(query, {"$set": {"inventoryOperation": "reconciliation_required"}})
+        raise
+    if operation == "deduct":
+        for item_id, _ in applied:
+            item = await db.items.find_one({"_id": item_id, "tenantId": current["tenantId"]})
+            if item:
+                await _notify_low_stock_if_needed(current["tenantId"], item)
+    return await db.transactions.find_one(query) or current
 
 
-async def release_transaction_stock(transaction: dict[str, Any], actor_user_id: ObjectId | None = None) -> dict[str, Any]:
+async def reserve_transaction_stock(transaction, actor_user_id=None):
+    return await _change_transaction_stock(transaction, "reserve", actor_user_id)
+
+
+async def release_transaction_stock(transaction, actor_user_id=None):
     return await restore_transaction_stock(transaction, actor_user_id)
 
 
-async def restore_transaction_stock(transaction: dict[str, Any], actor_user_id: ObjectId | None = None) -> dict[str, Any]:
-    if transaction.get("transactionType") != "order" or transaction.get("inventoryStatus") not in {"reserved", "deducted"}:
-        return transaction
-
-    db = get_database()
-    tenant_id = transaction["tenantId"]
-    now = datetime.now(timezone.utc)
-    movements: list[dict[str, Any]] = []
-    restore_from_deducted = transaction.get("inventoryStatus") == "deducted"
-
-    for line in transaction.get("items") or []:
-        quantity = _line_quantity(line)
-        item = await db.items.find_one({"_id": _line_item_id(line), "tenantId": tenant_id, "status": {"$ne": "archived"}})
-        if not item or not _requires_stock(item, line):
-            continue
-        variant_index = _get_variant_index(item, line)
-        if variant_index is not None:
-            variant = item.get("variants", [])[variant_index]
-            reserved = float(variant.get("reservedQuantity", 0) or 0)
-            stock_quantity = float(variant.get("stockQuantity", 0) or 0)
-            update_doc = {
-                "$set": {"updatedAt": now},
-            }
-            if restore_from_deducted:
-                update_doc["$set"][f"variants.{variant_index}.stockQuantity"] = stock_quantity + quantity
-            if reserved > 0:
-                update_doc["$set"][f"variants.{variant_index}.reservedQuantity"] = max(0.0, reserved - quantity)
-            await db.items.update_one({"_id": item["_id"], "tenantId": tenant_id}, update_doc)
-        else:
-            stock = item.get("stock") or {}
-            reserved = float(stock.get("reservedQuantity", 0) or 0)
-            stock_quantity = float(stock.get("quantity", 0) or 0)
-            update_doc = {
-                "$set": {"updatedAt": now},
-            }
-            if restore_from_deducted:
-                update_doc["$set"]["stock.quantity"] = stock_quantity + quantity
-            if reserved > 0:
-                update_doc["$set"]["stock.reservedQuantity"] = max(0.0, reserved - quantity)
-            await db.items.update_one({"_id": item["_id"], "tenantId": tenant_id}, update_doc)
-        movement = await _create_movement(tenant_id, transaction, line, "release", quantity, item, variant_index, actor_user_id)
-        movements.append(movement)
-
-    await db.transactions.update_one(
-        {"_id": transaction["_id"]},
-        {
-            "$set": {"inventoryStatus": "released", "inventoryUpdatedAt": now, "updatedAt": now},
-            "$push": {"inventoryMovements": {"$each": movements}},
-        },
-    )
-    updated = await db.transactions.find_one({"_id": transaction["_id"]})
-    return updated or transaction
+async def restore_transaction_stock(transaction, actor_user_id=None):
+    return await _change_transaction_stock(transaction, "restore", actor_user_id)
 
 
-async def deduct_transaction_stock(transaction: dict[str, Any], actor_user_id: ObjectId | None = None) -> dict[str, Any]:
-    if transaction.get("transactionType") != "order" or transaction.get("inventoryStatus") == "deducted":
-        return transaction
-    if transaction.get("inventoryStatus") not in {"reserved", "not_required"}:
-        transaction = await reserve_transaction_stock(transaction, actor_user_id)
-
-    if transaction.get("inventoryStatus") == "not_required":
-        return transaction
-
-    db = get_database()
-    tenant_id = transaction["tenantId"]
-    now = datetime.now(timezone.utc)
-    movements: list[dict[str, Any]] = []
-    touched_item_ids: set[ObjectId] = set()
-
-    for line in transaction.get("items") or []:
-        quantity = _line_quantity(line)
-        item = await db.items.find_one({"_id": _line_item_id(line), "tenantId": tenant_id, "status": {"$ne": "archived"}})
-        if not item or not _requires_stock(item, line):
-            continue
-        variant_index = _get_variant_index(item, line)
-        if variant_index is not None:
-            variant = item.get("variants", [])[variant_index]
-            current_qty = float(variant.get("stockQuantity", 0) or 0)
-            reserved = float(variant.get("reservedQuantity", 0) or 0)
-            await db.items.update_one(
-                {"_id": item["_id"], "tenantId": tenant_id},
-                {
-                    "$set": {
-                        f"variants.{variant_index}.stockQuantity": max(0.0, current_qty - quantity),
-                        f"variants.{variant_index}.reservedQuantity": max(0.0, reserved - quantity),
-                        "updatedAt": now,
-                    }
-                },
-            )
-        else:
-            stock = item.get("stock") or {}
-            current_qty = float(stock.get("quantity", 0) or 0)
-            reserved = float(stock.get("reservedQuantity", 0) or 0)
-            await db.items.update_one(
-                {"_id": item["_id"], "tenantId": tenant_id},
-                {"$set": {"stock.quantity": max(0.0, current_qty - quantity), "stock.reservedQuantity": max(0.0, reserved - quantity), "updatedAt": now}},
-            )
-        touched_item_ids.add(item["_id"])
-        movement = await _create_movement(tenant_id, transaction, line, "deduct", quantity, item, variant_index, actor_user_id)
-        movements.append(movement)
-
-    await db.transactions.update_one(
-        {"_id": transaction["_id"]},
-        {
-            "$set": {"inventoryStatus": "deducted", "inventoryUpdatedAt": now, "updatedAt": now},
-            "$push": {"inventoryMovements": {"$each": movements}},
-        },
-    )
-    for item_id in touched_item_ids:
-        latest_item = await db.items.find_one({"_id": item_id, "tenantId": tenant_id})
-        if latest_item:
-            await _notify_low_stock_if_needed(tenant_id, latest_item)
-    updated = await db.transactions.find_one({"_id": transaction["_id"]})
-    return updated or transaction
+async def deduct_transaction_stock(transaction, actor_user_id=None):
+    return await _change_transaction_stock(transaction, "deduct", actor_user_id)
 
 
 async def apply_transaction_inventory_transition(previous: dict[str, Any], updated: dict[str, Any], actor_user_id: ObjectId | None = None) -> dict[str, Any]:

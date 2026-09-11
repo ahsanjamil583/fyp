@@ -83,8 +83,10 @@ def customer_stock_snapshot(snapshot: dict[str, Any] | None) -> dict[str, Any]:
     data = dict(snapshot)
     available = data.pop("availableQuantity", None)
     data.pop("reservedQuantity", None)
+    data.pop("remainingAfter", None)
     if data.get("tracked"):
-        data["status"] = coarse_stock_status(float(available or 0), 0)
+        data["status"] = coarse_stock_status(float(available), 0) if available is not None else data.get("status", STOCK_IN if data.get("available", True) else STOCK_OUT)
+        data["message"] = "In stock" if data.get("available", True) else "Not enough stock for the requested quantity."
     else:
         data["status"] = STOCK_UNTRACKED
     return data

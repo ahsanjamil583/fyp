@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 
 import { PaymentStatusBadge } from "../../components/payments/PaymentStatusBadge.jsx";
 import { getAdminPayments } from "../../services/adminApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
 
 export function AdminPaymentsPage() {
   const [data, setData] = useState({ summary: {}, records: [], stripeWebhookEvents: [] });
@@ -27,15 +29,15 @@ export function AdminPaymentsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line pb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Platform Payments</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Payment Monitor</h1>
+      <div className="border-b border-line-soft pb-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Platform Payments</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Payment Monitor</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
           Review Stripe test payments, local payment records, and webhook delivery status across all tenants.
         </p>
       </div>
 
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       {isLoading ? <div className="text-sm text-muted">Loading payment monitor...</div> : null}
 
       <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
@@ -47,11 +49,11 @@ export function AdminPaymentsPage() {
         <StatCard label="Webhook failures" value={summary.failedWebhookEvents || 0} danger={summary.failedWebhookEvents > 0} />
       </div>
 
-      <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-ink">Recent Payment Records</h2>
+      <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+        <SectionTitle>Recent Payment Records</SectionTitle>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full divide-y divide-line text-sm">
-            <thead className="bg-surface text-left text-xs uppercase tracking-wide text-muted">
+            <thead className="bg-surface text-left text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">
               <tr>
                 <th className="px-3 py-2">Tenant</th>
                 <th className="px-3 py-2">Transaction</th>
@@ -83,11 +85,11 @@ export function AdminPaymentsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-ink">Stripe Webhook Events</h2>
+      <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+        <SectionTitle>Stripe Webhook Events</SectionTitle>
         <div className="mt-4 space-y-3">
           {(data.stripeWebhookEvents || []).map((event) => (
-            <div key={event.id} className="rounded-md border border-line bg-surface p-3 text-sm">
+            <div key={event.id} className="rounded-xl border border-line bg-surface p-3 text-sm">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <div className="font-semibold text-ink">{event.eventType || "stripe event"}</div>
@@ -100,7 +102,7 @@ export function AdminPaymentsPage() {
               </div>
             </div>
           ))}
-          {!(data.stripeWebhookEvents || []).length && !isLoading ? <div className="rounded-md border border-dashed border-line bg-surface p-4 text-sm text-muted">No Stripe webhook events yet.</div> : null}
+          {!(data.stripeWebhookEvents || []).length && !isLoading ? <div className="rounded-xl border border-dashed border-line bg-surface p-4 text-sm text-muted">No Stripe webhook events yet.</div> : null}
         </div>
       </div>
     </section>
@@ -108,12 +110,7 @@ export function AdminPaymentsPage() {
 }
 
 function StatCard({ label, value, danger = false }) {
-  return (
-    <div className={danger ? "rounded-md border border-red-100 bg-red-50 p-4 shadow-sm" : "rounded-md border border-line bg-white p-4 shadow-sm"}>
-      <div className={danger ? "text-sm text-red-700" : "text-sm text-muted"}>{label}</div>
-      <div className={danger ? "mt-2 text-2xl font-semibold text-red-800" : "mt-2 text-2xl font-semibold text-ink"}>{value}</div>
-    </div>
-  );
+  return <KitStatCard label={label} value={value} tone={danger ? "red" : undefined} />;
 }
 
 function formatMoney(value) {

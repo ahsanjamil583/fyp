@@ -109,18 +109,18 @@ export function NotificationsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 border-b border-line pb-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-brand">Notifications</p>
-          <h1 className="mt-2 text-3xl font-semibold text-ink">Business Alerts</h1>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Notifications</p>
+          <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Business Alerts</h1>
           <p className="mt-3 text-sm text-muted">{meta.unread || 0} unread alerts for {selectedTenant.name}.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink" onClick={handleMarkAllRead} type="button">
+          <button className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink" onClick={handleMarkAllRead} type="button">
             Mark all as read
           </button>
           <button
-            className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isRefreshingStock}
             onClick={handleRefreshStockAlerts}
             type="button"
@@ -130,10 +130,10 @@ export function NotificationsPage() {
         </div>
       </div>
 
-      {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
 
-      <div className="grid gap-3 rounded-md border border-line bg-white p-5 shadow-sm md:grid-cols-3">
+      <div className="grid gap-3 rounded-xl border border-line bg-white p-5 shadow-card md:grid-cols-3">
         <select className="form-input" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
           <option value="">All alert types</option>
           {(filters.types || []).map((value) => (
@@ -146,7 +146,7 @@ export function NotificationsPage() {
             <option key={value} value={value}>{value}</option>
           ))}
         </select>
-        <div className="rounded-md bg-surface px-4 py-3 text-sm text-muted">
+        <div className="rounded-xl bg-surface px-4 py-3 text-sm text-muted">
           Hook-ready alerts include `webhook`, `WhatsApp`, and `SMS` preview payloads.
         </div>
       </div>
@@ -155,15 +155,15 @@ export function NotificationsPage() {
 
       <div className="space-y-3">
         {notifications.map((notification) => (
-          <div key={notification.id} className={notification.status === "unread" ? "rounded-md border border-amber-200 bg-amber-50 p-4 shadow-sm" : "rounded-md border border-line bg-white p-4 shadow-sm"}>
+          <div key={notification.id} className={notification.status === "unread" ? "rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-card" : "rounded-xl border border-line bg-white p-4 shadow-card"}>
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-muted">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">
                   <span className="rounded-full bg-white px-2 py-1 font-semibold text-ink">{notification.type?.replaceAll("_", " ")}</span>
                   <span className="rounded-full bg-white px-2 py-1">{notification.priority}</span>
                   <span>{new Date(notification.createdAt).toLocaleString()}</span>
                 </div>
-                <div className="text-lg font-semibold text-ink">{notification.title}</div>
+                <div className="text-base font-bold text-ink">{notification.title}</div>
                 <div className="text-sm leading-6 text-muted">{notification.message}</div>
                 {notification.metadata?.transactionNumber ? (
                   <div className="text-xs text-muted">Transaction: {notification.metadata.transactionNumber}</div>
@@ -174,13 +174,13 @@ export function NotificationsPage() {
               </div>
               <div className="min-w-0 xl:w-[360px]">
                 {notification.status === "unread" ? (
-                  <button className="mb-3 rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink" onClick={() => handleMarkRead(notification.id)} type="button">
+                  <button className="mb-3 rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink" onClick={() => handleMarkRead(notification.id)} type="button">
                     Mark as read
                   </button>
                 ) : (
-                  <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Read</div>
+                  <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">Read</div>
                 )}
-                <div className="rounded-md border border-line bg-surface p-3 text-xs text-muted">
+                <div className="rounded-xl border border-line bg-surface p-3 text-xs text-muted">
                   <div className="font-semibold text-ink">Hook Preview</div>
                   <div className="mt-2">Webhook event: {notification.hookPreview?.webhookEvent?.event || "n/a"}</div>
                   <div>WhatsApp template: {notification.hookPreview?.whatsapp?.template || "n/a"}</div>
@@ -191,7 +191,7 @@ export function NotificationsPage() {
           </div>
         ))}
         {!notifications.length && !isLoading ? (
-          <div className="rounded-md border border-dashed border-line bg-surface p-6 text-sm text-muted">No business alerts matched your filters.</div>
+          <div className="rounded-xl border border-dashed border-line bg-surface p-6 text-sm text-muted">No business alerts matched your filters.</div>
         ) : null}
       </div>
     </section>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getAdminOverview } from "../../services/adminApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 function planLabel(planCode) {
   return { starter: "Basic", growth: "AI Ordering", scale: "Full Agent" }[planCode] || "Basic";
@@ -46,35 +47,35 @@ export function AdminOverviewPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line pb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Platform Control</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Admin Overview</h1>
+      <div className="border-b border-line-soft pb-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Platform Control</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Admin Overview</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
           Review live SaaS health across users, tenants, plans, categories, and modules before making operational changes.
         </p>
       </div>
 
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       {isLoading ? <div className="text-sm text-muted">Loading platform overview...</div> : null}
 
       {overview ? (
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {cards.map((card) => (
-              <article key={card.label} className="rounded-md border border-line bg-surface p-5">
+              <article key={card.label} className="rounded-xl border border-line bg-surface p-5">
                 <div className="text-sm font-medium text-muted">{card.label}</div>
-                <div className="mt-3 text-3xl font-semibold text-ink">{card.value}</div>
+                <div className="mt-3 text-2xl font-extrabold tracking-tight text-ink">{card.value}</div>
                 <div className="mt-2 text-sm text-muted">{card.detail}</div>
               </article>
             ))}
           </div>
 
           <div className="grid gap-4 xl:grid-cols-3">
-            <article className="rounded-md border border-line bg-white p-5 shadow-sm xl:col-span-1">
-              <h2 className="text-lg font-semibold text-ink">Plan Mix</h2>
+            <article className="rounded-xl border border-line bg-white p-5 shadow-card xl:col-span-1">
+              <SectionTitle>Plan Mix</SectionTitle>
               <div className="mt-4 space-y-3">
                 {Object.entries(overview.planBreakdown || {}).map(([planCode, count]) => (
-                  <div key={planCode} className="flex items-center justify-between rounded-md bg-surface px-3 py-2 text-sm">
+                  <div key={planCode} className="flex items-center justify-between rounded-xl bg-surface px-3 py-2 text-sm">
                     <span className="font-medium text-ink">{planLabel(planCode)}</span>
                     <span className="text-muted">{count}</span>
                   </div>
@@ -82,11 +83,11 @@ export function AdminOverviewPage() {
               </div>
             </article>
 
-            <article className="rounded-md border border-line bg-white p-5 shadow-sm xl:col-span-1">
-              <h2 className="text-lg font-semibold text-ink">Top Categories</h2>
+            <article className="rounded-xl border border-line bg-white p-5 shadow-card xl:col-span-1">
+              <SectionTitle>Top Categories</SectionTitle>
               <div className="mt-4 space-y-3">
                 {(overview.topCategories || []).map((category) => (
-                  <div key={category.id} className="flex items-center justify-between rounded-md bg-surface px-3 py-2 text-sm">
+                  <div key={category.id} className="flex items-center justify-between rounded-xl bg-surface px-3 py-2 text-sm">
                     <span className="font-medium text-ink">{category.name}</span>
                     <span className="text-muted">{category.count} tenants</span>
                   </div>
@@ -95,11 +96,11 @@ export function AdminOverviewPage() {
               </div>
             </article>
 
-            <article className="rounded-md border border-line bg-white p-5 shadow-sm xl:col-span-1">
-              <h2 className="text-lg font-semibold text-ink">Top Modules</h2>
+            <article className="rounded-xl border border-line bg-white p-5 shadow-card xl:col-span-1">
+              <SectionTitle>Top Modules</SectionTitle>
               <div className="mt-4 space-y-3">
                 {(overview.topModules || []).map((module) => (
-                  <div key={module.code} className="flex items-center justify-between rounded-md bg-surface px-3 py-2 text-sm">
+                  <div key={module.code} className="flex items-center justify-between rounded-xl bg-surface px-3 py-2 text-sm">
                     <span className="font-medium text-ink">{module.code}</span>
                     <span className="text-muted">{module.count} enabled</span>
                   </div>
@@ -110,14 +111,14 @@ export function AdminOverviewPage() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
-            <article className="rounded-md border border-line bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-ink">Recent Users</h2>
+            <article className="rounded-xl border border-line bg-white p-5 shadow-card">
+              <SectionTitle>Recent Users</SectionTitle>
               <div className="mt-4 space-y-3">
                 {(overview.recentUsers || []).map((user) => (
-                  <div key={user.id} className="rounded-md border border-line p-3">
+                  <div key={user.id} className="rounded-xl border border-line p-3">
                     <div className="font-semibold text-ink">{user.fullName}</div>
                     <div className="mt-1 text-sm text-muted">{user.email}</div>
-                    <div className="mt-2 text-xs uppercase tracking-wide text-muted">
+                    <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">
                       {user.globalRole} / {user.status}
                     </div>
                   </div>
@@ -125,16 +126,16 @@ export function AdminOverviewPage() {
               </div>
             </article>
 
-            <article className="rounded-md border border-line bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-ink">Recent Tenants</h2>
+            <article className="rounded-xl border border-line bg-white p-5 shadow-card">
+              <SectionTitle>Recent Tenants</SectionTitle>
               <div className="mt-4 space-y-3">
                 {(overview.recentTenants || []).map((tenant) => (
-                  <div key={tenant.id} className="rounded-md border border-line p-3">
+                  <div key={tenant.id} className="rounded-xl border border-line p-3">
                     <div className="font-semibold text-ink">{tenant.name}</div>
                     <div className="mt-1 text-sm text-muted">
                       {tenant.owner?.fullName || "No owner"} / {planLabel(tenant.settings?.planCode)}
                     </div>
-                    <div className="mt-2 text-xs uppercase tracking-wide text-muted">
+                    <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">
                       {tenant.status} / {tenant.websiteStatus}
                     </div>
                   </div>

@@ -132,7 +132,7 @@ export function CustomerBusinessChatPage() {
   if (error && !business) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">AI chat unavailable</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">AI chat unavailable</h1>
         <p className="text-sm text-muted">{error}</p>
       </section>
     );

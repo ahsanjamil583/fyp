@@ -1,3 +1,4 @@
+import { Boxes, CreditCard, FileText, LayoutDashboard, LogOut, SquareStack, Tags, Users } from "lucide-react";
 import { Shell } from "./Shell.jsx";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -6,13 +7,13 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { logoutBusiness } from "../../services/authApi.js";
 
 const navItems = [
-  { to: "/admin", label: "Overview", end: true },
-  { to: "/admin/users", label: "Users" },
-  { to: "/admin/tenants", label: "Tenants" },
-  { to: "/admin/business-categories", label: "Categories" },
-  { to: "/admin/modules", label: "Modules" },
-  { to: "/admin/payments", label: "Payments" },
-  { to: "/admin/reports", label: "Reports" },
+  { to: "/admin", label: "Overview", end: true, icon: LayoutDashboard },
+  { to: "/admin/users", label: "Users", icon: Users },
+  { to: "/admin/tenants", label: "Tenants", icon: Boxes },
+  { to: "/admin/business-categories", label: "Categories", icon: Tags },
+  { to: "/admin/modules", label: "Modules", icon: SquareStack },
+  { to: "/admin/payments", label: "Payments", icon: CreditCard },
+  { to: "/admin/reports", label: "Reports", icon: FileText },
 ];
 
 export function AdminLayout() {
@@ -43,16 +44,22 @@ export function AdminLayout() {
   }
 
   const asideFooter = (
-    <div className="space-y-3">
-      <div className="rounded-md bg-surface p-3 text-xs text-muted">
-        <div className="font-semibold text-ink">{user?.fullName || "Admin"}</div>
-        <div className="mt-1 break-all">{user?.email}</div>
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 rounded-rail bg-sidebar-card px-3 py-2.5">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-sidebar-active text-sm font-bold text-white">
+          {(user?.fullName || "A").charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold text-white">{user?.fullName || "Signed in"}</div>
+          <div className="truncate text-[11px] text-sidebar-muted">{user?.email}</div>
+        </div>
       </div>
       <button
         type="button"
         onClick={handleLogout}
-        className="w-full rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink transition hover:bg-surface"
+        className="flex w-full items-center gap-3 rounded-rail px-3.5 py-2.5 text-sm font-semibold text-sidebar-text transition hover:bg-sidebar-hover hover:text-white"
       >
+        <LogOut size={18} className="shrink-0" />
         Logout
       </button>
     </div>
@@ -62,7 +69,7 @@ export function AdminLayout() {
     <button
       type="button"
       onClick={handleLogout}
-      className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink transition hover:bg-surface"
+      className="ui-btn-secondary !rounded-full !py-2"
     >
       Logout
     </button>

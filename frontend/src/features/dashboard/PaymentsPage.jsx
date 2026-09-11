@@ -6,6 +6,8 @@ import { PaymentProofBadge, PaymentStatusBadge } from "../../components/payments
 import { useTenant } from "../../context/TenantContext.jsx";
 import { decidePaymentRecord, getOwnerPaymentReceiptHtml, getPaymentOverview, recordTransactionPayment, refundTransactionPayment, syncStripePaymentRecord, updatePaymentSettings } from "../../services/paymentApi.js";
 import { capitalize } from "../../utils/transaction.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
 
 const defaultSettings = {
   codEnabled: true,
@@ -237,9 +239,9 @@ export function PaymentsPage() {
   if (!selectedTenant) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Payments</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Payments</h1>
         <p className="text-sm text-muted">Create a business before configuring payments.</p>
-        <Link className="inline-flex rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/business">
+        <Link className="inline-flex rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/business">
           Create Business
         </Link>
       </section>
@@ -248,16 +250,16 @@ export function PaymentsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line pb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Phase 25</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Payments</h1>
+      <div className="border-b border-line-soft pb-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Phase 25</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Payments</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-muted">
           Configure COD, manual, JazzCash, EasyPaisa, and bank transfer instructions. Record verified payments and refunds against orders.
         </p>
       </div>
 
-      {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
 
       <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
         <StatCard label="Received" value={formatMoney(summary.received || 0)} />
@@ -269,13 +271,13 @@ export function PaymentsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-line bg-white p-5 shadow-card">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-ink">Stripe Test Payment Status</h2>
+              <SectionTitle>Stripe Test Payment Status</SectionTitle>
               <p className="mt-1 text-sm leading-6 text-muted">Use Stripe test cards for online payment demos. Local COD/manual methods still work independently.</p>
             </div>
-            <span className={settings.stripeEnabled ? "w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700" : "w-fit rounded-full bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600"}>
+            <span className={settings.stripeEnabled ? "w-fit rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-700" : "w-fit rounded-full bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600"}>
               {settings.stripeEnabled ? "Enabled" : "Disabled"}
             </span>
           </div>
@@ -284,15 +286,15 @@ export function PaymentsPage() {
             <StatusRow label="Webhook secret" ready={settings.stripeWebhookConfigured} readyText="Configured" missingText="Optional locally, required in production" />
             <StatusRow label="Currency" ready value={settings.stripeCurrency || "PKR"} />
           </div>
-          <div className="mt-4 rounded-md border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-800">
+          <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50 p-3 text-xs leading-5 text-brand-800">
             Test card: 4242 4242 4242 4242, any future expiry, any CVC. Webhook URL: /api/v1/payments/stripe/webhook.
           </div>
         </div>
-        <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-ink">Recent Stripe Webhooks</h2>
+        <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+          <SectionTitle>Recent Stripe Webhooks</SectionTitle>
           <div className="mt-4 space-y-2">
             {stripeWebhookEvents.map((event) => (
-              <div key={event.id} className="rounded-md border border-line bg-surface p-3 text-sm">
+              <div key={event.id} className="rounded-xl border border-line bg-surface p-3 text-sm">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="font-semibold text-ink">{event.eventType || "Stripe event"}</div>
@@ -305,17 +307,17 @@ export function PaymentsPage() {
                 </div>
               </div>
             ))}
-            {!stripeWebhookEvents.length ? <div className="rounded-md border border-dashed border-line bg-surface p-4 text-sm text-muted">No Stripe webhook events received yet.</div> : null}
+            {!stripeWebhookEvents.length ? <div className="rounded-xl border border-dashed border-line bg-surface p-4 text-sm text-muted">No Stripe webhook events received yet.</div> : null}
           </div>
         </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <form className="space-y-4 rounded-md border border-line bg-white p-5 shadow-sm" onSubmit={saveSettings}>
+        <form className="space-y-4 rounded-xl border border-line bg-white p-5 shadow-card" onSubmit={saveSettings}>
           <div>
-            <h2 className="text-lg font-semibold text-ink">Payment Settings</h2>
+            <SectionTitle>Payment Settings</SectionTitle>
             <p className="mt-1 text-sm text-muted">These settings are used by the order workflow and customer-facing payment instructions. COD/manual work without wallet numbers. JazzCash/EasyPaisa numbers are needed only when those wallet methods are enabled.</p>
-            <div className="mt-3 rounded-md border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-800">
+            <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50 p-3 text-xs leading-5 text-brand-800">
               Demo note: this phase records and verifies payments inside BizXusAI. It does not move real money unless you later connect real gateway credentials.
             </div>
           </div>
@@ -375,14 +377,14 @@ export function PaymentsPage() {
             <div className="mb-2 text-sm font-semibold text-ink">Customer preview</div>
             <CustomerPaymentInstructions compact options={buildOwnerPaymentPreview(settings)} selectedMethod={settings.defaultMethod || "cod"} onChange={(value) => updateSetting("defaultMethod", value)} />
           </div>
-          <button className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" disabled={savingSettings}>
+          <button className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" disabled={savingSettings}>
             {savingSettings ? "Saving..." : "Save Payment Settings"}
           </button>
         </form>
 
-        <div className="space-y-4 rounded-md border border-line bg-white p-5 shadow-sm">
+        <div className="space-y-4 rounded-xl border border-line bg-white p-5 shadow-card">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Outstanding Transactions</h2>
+            <SectionTitle>Outstanding Transactions</SectionTitle>
             <p className="mt-1 text-sm text-muted">Approve customer-submitted proofs, or record COD/manual payments after checking them.</p>
           </div>
           {isLoading ? <div className="text-sm text-muted">Loading payments...</div> : null}
@@ -391,13 +393,13 @@ export function PaymentsPage() {
               const draft = drafts[transaction.id] || {};
               const balance = transaction.paymentSummary?.balance ?? transaction.pricing?.total ?? 0;
               return (
-                <div key={transaction.id} className="rounded-md border border-line bg-surface p-4">
+                <div key={transaction.id} className="rounded-xl border border-line bg-surface p-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <div className="font-semibold text-ink">{transaction.transactionNumber}</div>
                       <div className="mt-1 text-xs text-muted">{transaction.customerSnapshot?.name || "Guest"} / {transaction.customerSnapshot?.phone || "No phone"}</div>
                       {transaction.paymentPreference?.methodLabel ? (
-                        <div className="mt-2 w-fit rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
+                        <div className="mt-2 w-fit rounded-full bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-700">
                           Customer chose {transaction.paymentPreference.methodLabel}
                         </div>
                       ) : null}
@@ -439,7 +441,7 @@ export function PaymentsPage() {
                   </div>
                   <button
                     type="button"
-                    className="mt-3 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    className="mt-3 rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                     disabled={savingPaymentId === transaction.id}
                     onClick={() => submitPayment(transaction.id)}
                   >
@@ -448,16 +450,16 @@ export function PaymentsPage() {
                 </div>
               );
             })}
-            {!outstanding.length && !isLoading ? <div className="rounded-md border border-dashed border-line p-4 text-sm text-muted">No outstanding payment transactions.</div> : null}
+            {!outstanding.length && !isLoading ? <div className="rounded-xl border border-dashed border-line p-4 text-sm text-muted">No outstanding payment transactions.</div> : null}
           </div>
         </div>
       </div>
 
-      <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-ink">Recent Payment Records</h2>
+      <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+        <SectionTitle>Recent Payment Records</SectionTitle>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full divide-y divide-line text-sm">
-            <thead className="bg-surface text-left text-xs uppercase tracking-wide text-muted">
+            <thead className="bg-surface text-left text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">
               <tr>
                 <th className="px-3 py-2">Transaction</th>
                 <th className="px-3 py-2">Customer</th>
@@ -486,7 +488,7 @@ export function PaymentsPage() {
                         <div>{record.referenceNumber || "No reference"}</div>
                         {record.provider === "stripe" ? (
                           <>
-                            <div className="text-xs font-semibold text-blue-700">Stripe session: {record.providerSessionId || "Not captured"}</div>
+                            <div className="text-xs font-semibold text-brand-700">Stripe session: {record.providerSessionId || "Not captured"}</div>
                             {record.lastProviderSyncStatus ? <div className="text-xs text-muted">Last sync: {record.lastProviderSyncStatus}</div> : null}
                           </>
                         ) : null}
@@ -495,10 +497,10 @@ export function PaymentsPage() {
                             View screenshot
                           </a>
                         ) : null}
-                        {record.submittedBy === "customer" ? <div className="text-xs font-semibold text-blue-700">Submitted by customer</div> : null}
+                        {record.submittedBy === "customer" ? <div className="text-xs font-semibold text-brand-700">Submitted by customer</div> : null}
                         <button
                           type="button"
-                          className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink disabled:opacity-60"
+                          className="rounded-xl border border-line px-2.5 py-1.5 text-xs font-semibold text-ink disabled:opacity-60"
                           disabled={savingPaymentId === `receipt-${record.id}`}
                           onClick={() => openReceipt(record.id)}
                         >
@@ -510,7 +512,7 @@ export function PaymentsPage() {
                       {isPendingStripe ? (
                         <div className="min-w-44">
                           <button
-                            className="rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                            className="rounded-xl bg-brand-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
                             disabled={savingPaymentId === `stripe-sync-${record.id}`}
                             onClick={() => syncStripeRecord(record.id)}
                           >
@@ -527,10 +529,10 @@ export function PaymentsPage() {
                             onChange={(event) => updateDecisionDraft(record.id, event.target.value)}
                           />
                           <div className="grid grid-cols-2 gap-2">
-                            <button className="rounded-md bg-green-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60" disabled={savingPaymentId === `decision-${record.id}-approve`} onClick={() => submitDecision(record.id, "approve")}>
+                            <button className="rounded-xl bg-green-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60" disabled={savingPaymentId === `decision-${record.id}-approve`} onClick={() => submitDecision(record.id, "approve")}>
                               Approve
                             </button>
-                            <button className="rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-60" disabled={savingPaymentId === `decision-${record.id}-reject`} onClick={() => submitDecision(record.id, "reject")}>
+                            <button className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-60" disabled={savingPaymentId === `decision-${record.id}-reject`} onClick={() => submitDecision(record.id, "reject")}>
                               Reject
                             </button>
                           </div>
@@ -539,7 +541,7 @@ export function PaymentsPage() {
                         <div className="flex flex-col gap-2 min-w-52">
                           <input className="form-input" type="number" min="1" value={refundDraft.amount ?? record.amount} onChange={(event) => updateRefundDraft(record.transactionId, "amount", event.target.value)} />
                           <input className="form-input" placeholder="Refund reference" value={refundDraft.referenceNumber || ""} onChange={(event) => updateRefundDraft(record.transactionId, "referenceNumber", event.target.value)} />
-                          <button className="rounded-md border border-line px-3 py-2 text-xs font-semibold text-ink" disabled={savingPaymentId === `refund-${record.transactionId}`} onClick={() => submitRefund(record.transactionId)}>
+                          <button className="rounded-xl border border-line px-3 py-2 text-xs font-semibold text-ink" disabled={savingPaymentId === `refund-${record.transactionId}`} onClick={() => submitRefund(record.transactionId)}>
                             {savingPaymentId === `refund-${record.transactionId}` ? "Saving..." : "Record Refund"}
                           </button>
                         </div>
@@ -562,12 +564,7 @@ export function PaymentsPage() {
 }
 
 function StatCard({ label, value }) {
-  return (
-    <div className="rounded-md border border-line bg-white p-4 shadow-sm">
-      <div className="text-sm text-muted">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-ink">{value}</div>
-    </div>
-  );
+  return <KitStatCard label={label} value={value} />;
 }
 
 function Field({ label, children }) {
@@ -581,7 +578,7 @@ function Field({ label, children }) {
 
 function Toggle({ label, checked, onChange }) {
   return (
-    <label className="flex items-center justify-between rounded-md border border-line px-3 py-2 text-sm text-ink">
+    <label className="flex items-center justify-between rounded-xl border border-line px-3 py-2 text-sm text-ink">
       <span>{label}</span>
       <input type="checkbox" checked={Boolean(checked)} onChange={(event) => onChange(event.target.checked)} />
     </label>
@@ -590,7 +587,7 @@ function Toggle({ label, checked, onChange }) {
 
 function StatusRow({ label, ready, readyText = "Ready", missingText = "Needs setup", value = "" }) {
   return (
-    <div className="flex items-center justify-between rounded-md border border-line px-3 py-2">
+    <div className="flex items-center justify-between rounded-xl border border-line px-3 py-2">
       <span className="font-medium text-ink">{label}</span>
       <span className={ready ? "rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700" : "rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700"}>
         {value || (ready ? readyText : missingText)}
@@ -683,6 +680,6 @@ function formatMoney(value) {
 function resolveUploadUrl(url) {
   if (!url) return "";
   if (url.startsWith("http")) return url;
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1";
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "/api/v1";
   return `${apiBase.replace("/api/v1", "")}${url}`;
 }

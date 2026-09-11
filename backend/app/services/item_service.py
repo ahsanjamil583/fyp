@@ -383,6 +383,7 @@ async def list_items(
     if category_id:
         query["categoryId"] = parse_object_id(category_id, "categoryId")
     if search:
+        search = re.escape(search[:200])
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"description": {"$regex": search, "$options": "i"}},

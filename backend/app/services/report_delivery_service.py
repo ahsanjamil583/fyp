@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from bson import ObjectId
 from fastapi import HTTPException, status
+from pymongo.errors import DuplicateKeyError
 
 from app.core.config import settings
 from app.core.module_guard import ensure_tenant_module_enabled
@@ -61,13 +63,17 @@ async def get_report_delivery_settings(tenant_id: str, user: dict) -> dict:
     db = get_database()
     tenant_oid, tenant = await _get_delivery_access(tenant_id, user)
     settings_doc = await db.report_delivery_settings.find_one({"tenantId": tenant_oid})
-    return {"tenant": serialize_document(tenant), "settings": _serialize_settings(settings_doc, tenant)}
+    return {"tenant": serialize_document(tenant), "settings": {**_serialize_settings(settings_doc, tenant), "schedulerActive": settings.report_scheduler_enabled}}
 
 
 async def update_report_delivery_settings(tenant_id: str, payload: ReportDeliverySettingsRequest, user: dict) -> dict:
     db = get_database()
     tenant_oid, tenant = await _get_delivery_access(tenant_id, user)
     now = datetime.now(timezone.utc)
+    try:
+        ZoneInfo(payload.timezone.strip() or "Asia/Karachi")
+    except (ZoneInfoNotFoundError, ValueError):
+        raise HTTPException(status_code=422, detail="Invalid report timezone.")
     update_doc = {
         "tenantId": tenant_oid,
         "enabled": payload.enabled,
@@ -89,7 +95,7 @@ async def update_report_delivery_settings(tenant_id: str, payload: ReportDeliver
         upsert=True,
     )
     settings_doc = await db.report_delivery_settings.find_one({"tenantId": tenant_oid})
-    return {"tenant": serialize_document(tenant), "settings": _serialize_settings(settings_doc, tenant)}
+    return {"tenant": serialize_document(tenant), "settings": {**_serialize_settings(settings_doc, tenant), "schedulerActive": settings.report_scheduler_enabled}}
 
 
 def _normalize_delivery_time(value: str) -> str:
@@ -211,6 +217,8 @@ async def deliver_daily_summary(tenant_id: str, payload: ReportDeliveryRequest, 
         status_value = "partial_failed" if any(log.get("deliveryStatus") in {"sent", "mock_sent", "dry_run"} for log in logs) else "failed"
     elif all(log.get("deliveryStatus") in {"skipped"} for log in logs):
         status_value = "skipped"
+    elif any(log.get("deliveryStatus") in {"queued", "sending"} for log in logs):
+        status_value = "queued"
 
     await db.report_delivery_settings.update_one(
         {"tenantId": tenant_oid},
@@ -360,4 +368,20 @@ async def run_scheduled_report_delivery(tenant_id: str, payload: ScheduledReport
         channels.append("sms")
     if not channels:
         return {"deliveryStatus": "skipped", "reason": "No delivery channel is enabled.", "logs": []}
-    return await deliver_daily_summary(tenant_id, ReportDeliveryRequest(summaryDate=payload.summaryDate, channels=channels, dryRun=payload.dryRun), user)
+    zone = ZoneInfo(delivery_settings.get("timezone") or "Asia/Karachi")
+    date_key = payload.summaryDate or datetime.now(zone).strftime("%Y-%m-%d")
+    run_key = f"{tenant_oid}:{date_key}"
+    if not payload.dryRun:
+        try:
+            await db.report_delivery_runs.insert_one({"_id": run_key, "tenantId": tenant_oid, "summaryDate": date_key, "status": "sending", "createdAt": datetime.now(timezone.utc)})
+        except DuplicateKeyError:
+            return {"deliveryStatus": "already_processed", "reason": "This day's automatic report was already attempted. Check delivery logs before retrying manually.", "logs": []}
+    try:
+        result = await deliver_daily_summary(tenant_id, ReportDeliveryRequest(summaryDate=date_key, channels=channels, dryRun=payload.dryRun), user)
+    except Exception:
+        if not payload.dryRun:
+            await db.report_delivery_runs.update_one({"_id": run_key}, {"$set": {"status": "failed"}})
+        raise
+    if not payload.dryRun:
+        await db.report_delivery_runs.update_one({"_id": run_key}, {"$set": {"status": result["deliveryStatus"], "finishedAt": datetime.now(timezone.utc)}})
+    return result

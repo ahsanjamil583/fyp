@@ -1,11 +1,14 @@
+import { ProductImage } from "../../components/common/ProductImage.jsx";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { CustomerPaymentInstructions, getDefaultPaymentMethod } from "../../components/payments/CustomerPaymentInstructions.jsx";
+import { CustomerPaymentInstructions } from "../../components/payments/CustomerPaymentInstructions.jsx";
+import { getDefaultPaymentMethod } from "../../components/payments/paymentMethods.js";
 import { WhatsAppAgentCta, WhatsAppAgentInfo } from "../../components/whatsapp/WhatsAppAgentCta.jsx";
 import { createPublicStripeCheckout, createPublicTransaction, getPublicBusiness, getPublicItem, resolveUploadUrl } from "../../services/publicWebsiteApi.js";
 import { capitalize, formatTransactionLabel, formatTransactionSuccess, transactionTypeOptions } from "../../utils/transaction.js";
 import { buildPublicSiteModel, inferItemTransactionType, PublicLoadingState, PublicUnavailableState, PublicWebsiteFrame } from "./publicWebsiteShared.jsx";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 export function PublicItemPage() {
   const { tenantSlug, itemId } = useParams();
@@ -79,7 +82,7 @@ export function PublicItemPage() {
               Back to {siteModel.catalogLabel}
             </Link>
             {item.images?.[0]?.url ? (
-              <img alt="" className="mt-5 h-80 w-full rounded-[28px] object-cover shadow-sm" src={resolveUploadUrl(item.images[0].url)} />
+              <ProductImage alt="" className="mt-5 h-80 w-full rounded-[28px] object-cover shadow-card" src={resolveUploadUrl(item.images[0].url)} />
             ) : (
               <div className="mt-5 h-80 rounded-[28px]" style={{ background: `linear-gradient(135deg, ${siteModel.theme.accent}18, ${siteModel.theme.secondary}12)` }} />
             )}
@@ -94,10 +97,10 @@ export function PublicItemPage() {
               </div>
             ) : null}
           </div>
-          <form className="h-fit space-y-3 rounded-[28px] border border-black/5 bg-white/92 p-5 shadow-sm" onSubmit={submit}>
-            <h2 className="text-lg font-semibold text-ink">{capitalize(formatTransactionLabel(activeRequestType))} this item</h2>
-            {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-            {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+          <form className="h-fit space-y-3 rounded-[28px] border border-black/5 bg-white/92 p-5 shadow-card" onSubmit={submit}>
+            <SectionTitle>{capitalize(formatTransactionLabel(activeRequestType))} this item</SectionTitle>
+            {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+            {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
             <input className="form-input" required placeholder="Your name" value={form.customerName} onChange={(event) => setForm((current) => ({ ...current, customerName: event.target.value }))} />
             <input className="form-input" required placeholder="Phone" value={form.customerPhone} onChange={(event) => setForm((current) => ({ ...current, customerPhone: event.target.value }))} />
             <input className="form-input" placeholder="Email" value={form.customerEmail} onChange={(event) => setForm((current) => ({ ...current, customerEmail: event.target.value }))} />
@@ -114,7 +117,7 @@ export function PublicItemPage() {
               onChange={(value) => setForm((current) => ({ ...current, paymentMethod: value }))}
             />
             <textarea className="form-input min-h-24" placeholder="Notes" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
-            <button className="w-full rounded-md px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: siteModel.theme.accent }}>
+            <button className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: siteModel.theme.accent }}>
               Submit {capitalize(formatTransactionLabel(activeRequestType))}
             </button>
             <WhatsAppAgentCta

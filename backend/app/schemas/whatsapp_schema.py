@@ -49,3 +49,7 @@ class WhatsAppBridgeStatusRequest(BaseModel):
     status: str = Field(default="unknown", max_length=80)
     connectedNumber: str = Field(default="", max_length=32)
     lastError: str = Field(default="", max_length=500)
+
+
+class WhatsAppDeliveryAck(BaseModel):
+    deliveryStatus: str = Field(pattern="^(sent|failed)$")

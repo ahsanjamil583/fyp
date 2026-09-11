@@ -6,6 +6,7 @@ import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getCustomFields } from "../../services/customFieldApi.js";
 import { getItem, resolveUploadUrl, uploadItemImage } from "../../services/itemApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 export function ItemDetailPage() {
   const { itemId } = useParams();
@@ -57,7 +58,7 @@ export function ItemDetailPage() {
   if (!selectedTenant || isLoadingModules || isLoading) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Item Detail</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Item Detail</h1>
         <p className="text-sm text-muted">Loading item details...</p>
       </section>
     );
@@ -66,7 +67,7 @@ export function ItemDetailPage() {
   if (!itemsModuleEnabled) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Item Detail</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Item Detail</h1>
         <p className="text-sm text-muted">Enable the Items module before viewing item records.</p>
       </section>
     );
@@ -76,28 +77,28 @@ export function ItemDetailPage() {
     return (
       <section className="space-y-4">
         <Link className="text-sm font-semibold text-brand" to="/dashboard/items">Back to items</Link>
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
       </section>
     );
   }
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 border-b border-line pb-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <Link className="text-sm font-semibold text-brand" to="/dashboard/items">Back to items</Link>
-          <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-brand">Item Detail</p>
-          <h1 className="mt-2 text-3xl font-semibold text-ink">{item.name}</h1>
+          <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Item Detail</p>
+          <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">{item.name}</h1>
           <p className="mt-2 text-sm capitalize text-muted">{item.itemType?.replace("_", " ")} / {item.status}</p>
         </div>
-        <label className="inline-flex cursor-pointer rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">
+        <label className="inline-flex cursor-pointer rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white">
           Upload Image
           <input className="hidden" accept="image/*" type="file" onChange={handleImageUpload} />
         </label>
       </div>
 
-      {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <div className="space-y-5">
@@ -134,7 +135,7 @@ export function ItemDetailPage() {
             {item.images?.length ? (
               <div className="grid gap-3 sm:grid-cols-3">
                 {item.images.map((image) => (
-                  <img key={image.fileId} alt="" className="h-32 w-full rounded-md object-cover" src={resolveUploadUrl(image.url)} />
+                  <img key={image.fileId} alt="" className="h-32 w-full rounded-xl object-cover" src={resolveUploadUrl(image.url)} />
                 ))}
               </div>
             ) : (
@@ -148,7 +149,7 @@ export function ItemDetailPage() {
             <Card title="Variants">
               <div className="space-y-3">
                 {item.variants.map((variant) => (
-                  <div key={`${variant.name}-${variant.sku}`} className="rounded-md border border-line px-4 py-3">
+                  <div key={`${variant.name}-${variant.sku}`} className="rounded-xl border border-line px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="font-semibold text-ink">{variant.name}</div>
@@ -173,7 +174,7 @@ export function ItemDetailPage() {
             <Card title="Bundle Components">
               <div className="space-y-3">
                 {item.bundleComponents.map((component, index) => (
-                  <div key={`${component.itemId}-${index}`} className="rounded-md border border-line px-4 py-3 text-sm text-muted">
+                  <div key={`${component.itemId}-${index}`} className="rounded-xl border border-line px-4 py-3 text-sm text-muted">
                     <div className="font-semibold text-ink">{component.itemName || component.itemId}</div>
                     <div className="capitalize">{component.itemType?.replaceAll("_", " ") || "-"}</div>
                     <div>Quantity: {component.quantity}</div>
@@ -192,8 +193,8 @@ export function ItemDetailPage() {
 
 function Card({ title, children }) {
   return (
-    <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-lg font-semibold text-ink">{title}</h2>
+    <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+      <SectionTitle className="mb-4">{title}</SectionTitle>
       <div className="space-y-3">{children}</div>
     </div>
   );
@@ -201,7 +202,7 @@ function Card({ title, children }) {
 
 function InfoRow({ label, value }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-line pb-3 last:border-b-0 last:pb-0">
+    <div className="flex items-start justify-between gap-4 border-b border-line-soft pb-3 last:border-b-0 last:pb-0">
       <span className="text-sm text-muted">{label}</span>
       <span className="text-right text-sm font-semibold text-ink">{value}</span>
     </div>

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import HTMLResponse
 
 from app.core.responses import success_response
+from app.core.private_uploads import customer_payment_result
 from app.core.security import get_current_customer_user
 from app.schemas.customer_portal_schema import CartItemCreateRequest, CartItemUpdateRequest, CustomerChatMessageRequest, CustomerDraftConfirmRequest, CustomerOrderCreateRequest, FavoriteItemRequest
 from app.services.customer_notification_service import list_customer_notifications, mark_all_customer_notifications_read, mark_customer_notification_read
@@ -28,8 +29,8 @@ from app.services.customer_portal_service import (
     update_cart_item,
 )
 from app.services.payment_service import submit_customer_payment_proof
-from app.services.payment_service import create_customer_stripe_checkout_session, get_customer_payment_receipt_html, sync_customer_stripe_checkout_session
-from app.schemas.payment_schema import StripeCheckoutSessionRequest, StripePaymentSyncRequest
+from app.services.payment_service import create_customer_stripe_checkout_session, create_gateway_checkout, get_customer_payment_receipt_html, sync_customer_stripe_checkout_session
+from app.schemas.payment_schema import GatewayCheckoutRequest, StripeCheckoutSessionRequest, StripePaymentSyncRequest
 
 router = APIRouter(prefix="/customer", tags=["customer-portal"])
 
@@ -167,19 +168,25 @@ async def submit_payment_proof(
     current_user: dict = Depends(get_current_customer_user),
 ):
     data = await submit_customer_payment_proof(orderId, amount, method, referenceNumber, notes, current_user, proofFile)
-    return success_response("Payment proof submitted successfully.", data)
+    return success_response("Payment proof submitted successfully.", customer_payment_result(data))
+
+
+@router.post("/transactions/{orderId}/gateway-checkout")
+async def start_gateway_checkout(orderId: str, payload: GatewayCheckoutRequest, current_user: dict = Depends(get_current_customer_user)):
+    data = await create_gateway_checkout(orderId, payload.provider.strip().lower(), current_user)
+    return success_response(f"{data['label']} checkout started successfully.", customer_payment_result(data))
 
 
 @router.post("/transactions/{orderId}/stripe-checkout")
 async def create_stripe_checkout(orderId: str, payload: StripeCheckoutSessionRequest, current_user: dict = Depends(get_current_customer_user)):
     data = await create_customer_stripe_checkout_session(orderId, current_user, payload.successUrl, payload.cancelUrl)
-    return success_response("Stripe checkout session created successfully.", data)
+    return success_response("Stripe checkout session created successfully.", customer_payment_result(data))
 
 
 @router.post("/transactions/{orderId}/stripe-checkout/sync")
 async def sync_stripe_checkout(orderId: str, payload: StripePaymentSyncRequest, current_user: dict = Depends(get_current_customer_user)):
     data = await sync_customer_stripe_checkout_session(orderId, payload.sessionId, current_user)
-    return success_response("Stripe checkout synced successfully.", data)
+    return success_response("Stripe checkout synced successfully.", customer_payment_result(data))
 
 
 @router.get("/transactions/{orderId}/payments/{paymentRecordId}/receipt", response_class=HTMLResponse)

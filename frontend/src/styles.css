@@ -8,23 +8,77 @@
   font-family:
     "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  color: #162033;
-  background: #eef3f9;
+
+  /* Main Brand */
+  --primary: #6d28d9;
+  --primary-bright: #7c3aed;
+  --primary-hover: #5b21b6;
+  --primary-light: #f3e8ff;
+  --primary-soft: #ede9fe;
+
+  /* Sidebar */
+  --sidebar-top: #11152f;
+  --sidebar-bottom: #0b1530;
+  --sidebar-card: #1c2345;
+  --sidebar-active-start: #6541d8;
+  --sidebar-active-end: #742df2;
+  --sidebar-text: #d8ddf2;
+  --sidebar-muted: #929ab8;
+
+  /* Main Dashboard */
+  --page-bg: #f8faff;
+  --surface: #ffffff;
+  --surface-soft: #f8f9fd;
+  --surface-purple: #faf8ff;
+
+  /* Typography */
+  --text-primary: #101633;
+  --text-secondary: #52638d;
+  --text-muted: #8490ae;
+  --text-white: #ffffff;
+
+  /* Borders */
+  --border: #e5e9f3;
+  --border-soft: #eef1f7;
+
+  /* Purple / AI */
+  --purple: #6c20f6;
+  --purple-light: #eee7ff;
+  --purple-glow: #a477ff;
+
+  /* Blue */
+  --blue: #1677ff;
+  --blue-light: #eaf3ff;
+
+  /* Green / Success */
+  --green: #10b968;
+  --green-dark: #059653;
+  --green-light: #e6f9f0;
+
+  /* Orange / Warning */
+  --orange: #ff9800;
+  --orange-light: #fff3df;
+
+  /* Red */
+  --danger: #ef4444;
+  --danger-light: #feecec;
+
+  color: var(--text-primary);
+  background: var(--page-bg);
 }
 
 html {
   min-height: 100%;
-  background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 24%),
-    linear-gradient(180deg, #f7fbff 0%, #eef3f9 48%, #e9eef5 100%);
+  /* Flat, clean page background — no gradient wash, per the scheme. */
+  background: var(--page-bg);
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: transparent;
-  color: #162033;
+  background: var(--page-bg);
+  color: var(--text-primary);
 }
 
 #root {
@@ -38,44 +92,134 @@ textarea {
   font: inherit;
 }
 
+/* ---------------------------------------------------------------- forms -- */
+
 .auth-input {
   width: 100%;
   min-width: 0;
   border: 0;
   padding: 0.75rem 0;
-  color: #172033;
+  color: var(--text-primary);
   outline: none;
+  background: transparent;
 }
 
 .auth-input::placeholder {
-  color: #98a2b3;
+  color: var(--text-muted);
 }
 
 .form-input {
   width: 100%;
-  border-radius: 1rem;
-  border: 1px solid #d6dfeb;
-  background: rgba(255, 255, 255, 0.94);
-  padding: 0.875rem 1rem;
-  color: #172033;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0.7rem 0.95rem;
+  color: var(--text-primary);
   outline: none;
   transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease,
-    background-color 0.2s ease;
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.form-input::placeholder {
+  color: var(--text-muted);
 }
 
 .form-input:focus {
-  border-color: #2563eb;
-  box-shadow:
-    0 0 0 4px rgba(37, 99, 235, 0.12),
-    0 12px 32px rgba(37, 99, 235, 0.1);
-  background: #ffffff;
-  transform: translateY(-1px);
+  border-color: var(--primary-bright);
+  box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.14);
+}
+
+:where(a, button, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--primary-bright);
+  outline-offset: 2px;
 }
 
 ::selection {
-  background: rgba(37, 99, 235, 0.18);
-  color: #162033;
+  background: var(--primary-soft);
+  color: var(--text-primary);
+}
+
+/* ------------------------------------------------------- reusable parts -- */
+
+@layer components {
+  /* Dashboard card: near-pure white, 1px border, very subtle shadow. */
+  .ui-card {
+    @apply rounded-card border border-line bg-white shadow-card;
+  }
+
+  /* Primary call to action. */
+  .ui-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-cta px-4 py-2.5
+      text-sm font-semibold text-white shadow-nav-active transition
+      hover:brightness-110 disabled:opacity-60 disabled:hover:brightness-100;
+  }
+
+  .ui-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-line
+      bg-white px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-surface;
+  }
+
+  /* Status pills. */
+  .ui-pill {
+    @apply inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .ui-pill-active {
+    @apply ui-pill bg-green-50 text-green-600;
+  }
+
+  .ui-pill-paused {
+    @apply ui-pill bg-orange-100 text-orange-600;
+  }
+
+  .ui-pill-new {
+    @apply ui-pill bg-purple-100 text-purple-600;
+  }
+
+  /* The dark AI assistant panel. */
+  .ui-ai-card {
+    @apply rounded-card bg-ai-card p-5 text-white shadow-lift;
+  }
+}
+
+/* Main CTAs carry the brand gradient. Scoped to buttons and links on purpose: `bg-brand`
+   is also used for non-interactive marks (status dots, chart bars), which stay flat. */
+button.bg-brand,
+button.bg-primary,
+a.bg-brand,
+a.bg-primary,
+.bg-cta {
+  background-image: linear-gradient(90deg, var(--primary), var(--primary-bright));
+}
+
+button.bg-brand:hover,
+button.bg-primary:hover,
+a.bg-brand:hover,
+a.bg-primary:hover {
+  filter: brightness(1.08);
+}
+
+button.bg-brand:disabled,
+button.bg-primary:disabled {
+  filter: none;
+}
+
+/* The dark rail keeps its own scrollbar so it does not show a bright default track. */
+.rail-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(216, 221, 242, 0.22) transparent;
+}
+
+.rail-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.rail-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgba(216, 221, 242, 0.22);
+}
+
+.rail-scroll::-webkit-scrollbar-track {
+  background: transparent;
 }

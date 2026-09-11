@@ -1,9 +1,10 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from app.core.private_uploads import ProtectedUploads
 
 from app.api.v1.router import api_router
 from app.core.config import settings, warn_about_insecure_settings
@@ -14,6 +15,7 @@ from app.db.mongodb import close_mongo_connection, connect_to_mongo
 from app.db.seeders.seed_business_categories import seed_business_categories
 from app.db.seeders.seed_admin import seed_default_admin
 from app.db.seeders.seed_modules import seed_modules
+from app.services.report_scheduler import report_scheduler_loop
 
 
 @asynccontextmanager
@@ -25,8 +27,15 @@ async def lifespan(app: FastAPI):
     await seed_default_admin()
     await seed_modules()
     await seed_business_categories()
-    yield
-    await close_mongo_connection()
+    scheduler = asyncio.create_task(report_scheduler_loop()) if settings.report_scheduler_enabled else None
+    try:
+        yield
+    finally:
+        if scheduler:
+            scheduler.cancel()
+            with suppress(asyncio.CancelledError):
+                await scheduler
+        await close_mongo_connection()
 
 
 def create_app() -> FastAPI:
@@ -34,7 +43,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title=settings.app_name,
-        debug=settings.debug,
+        debug=False,
         version=settings.app_version,
         lifespan=lifespan,
     )
@@ -56,7 +65,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.mount("/uploads", StaticFiles(directory=settings.local_upload_dir), name="uploads")
+    app.mount("/uploads", ProtectedUploads(directory=settings.local_upload_dir), name="uploads")
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     return app
 

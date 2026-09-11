@@ -2,11 +2,11 @@ export function DynamicTable({ fields, rows }) {
   const visibleFields = fields.filter((field) => field.isActive && field.showInTable).sort((a, b) => a.order - b.order);
 
   if (!visibleFields.length) {
-    return <div className="rounded-md border border-dashed border-line bg-surface p-4 text-sm text-muted">No active table fields yet.</div>;
+    return <div className="rounded-xl border border-dashed border-line bg-surface p-4 text-sm text-muted">No active table fields yet.</div>;
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border border-line">
+    <div className="overflow-x-auto rounded-xl border border-line">
       <table className="min-w-[520px] divide-y divide-line text-sm">
         <thead className="bg-surface">
           <tr>

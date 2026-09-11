@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
+import re
 
 from bson import ObjectId
 from fastapi import HTTPException, status
 
 from app.core.item_views import customer_item_view
+from app.core.public_views import public_business_view, customer_order_view
 from app.core.object_ids import parse_object_id, serialize_document
 from app.db.mongodb import get_database
 from app.services.ai_chat_service import clear_customer_conversation_draft
@@ -49,10 +51,11 @@ async def list_marketplace_businesses(search: str = "", city: str = "", category
         "enabledModuleCodes": "customer_portal",
     }
     if city:
-        query["address.city"] = {"$regex": city, "$options": "i"}
+        query["address.city"] = {"$regex": re.escape(city[:200]), "$options": "i"}
     if category_id:
         query["businessCategoryId"] = parse_object_id(category_id, "businessCategoryId")
     if search:
+        search = re.escape(search[:200])
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"description": {"$regex": search, "$options": "i"}},
@@ -63,7 +66,7 @@ async def list_marketplace_businesses(search: str = "", city: str = "", category
     cursor = db.tenants.find(query).sort("createdAt", -1).skip((page - 1) * limit).limit(limit)
     items = []
     async for tenant in cursor:
-        serialized = serialize_document(tenant)
+        serialized = public_business_view(tenant)
         serialized["whatsappAgent"] = await get_customer_facing_whatsapp_agent(tenant)
         items.append(serialized)
     return {
@@ -79,7 +82,7 @@ async def list_marketplace_businesses(search: str = "", city: str = "", category
 
 async def get_marketplace_business(slug: str) -> dict:
     tenant = await _get_marketplace_tenant_or_404(slug)
-    serialized = serialize_document(tenant)
+    serialized = public_business_view(tenant)
     serialized["paymentOptions"] = await get_customer_payment_options_for_tenant(tenant["_id"])
     serialized["whatsappAgent"] = await get_customer_facing_whatsapp_agent(tenant)
     return serialized
@@ -98,6 +101,7 @@ async def list_marketplace_items(slug: str, search: str = "", item_type: str | N
     if item_type:
         query["itemType"] = item_type
     if search:
+        search = re.escape(search[:200])
         query["$and"] = [
             {"$or": query.pop("$or")},
             {
@@ -168,7 +172,7 @@ async def get_customer_cart(current_user: dict) -> list[dict]:
             async for item in db.items.find({"_id": {"$in": item_ids}})
         } if item_ids else {}
         serialized = serialize_document(cart)
-        serialized["tenant"] = serialize_document(tenant) if tenant else None
+        serialized["tenant"] = public_business_view(tenant) if tenant else None
         transaction_custom_fields = await _list_custom_fields_for_tenant_oid(cart["tenantId"], "transactions", "transaction")
         category_hints = ((tenant or {}).get("settings") or {}).get("categoryHints") or {}
         fulfillment_rules = category_hints.get("fulfillment") or {}
@@ -213,7 +217,7 @@ async def list_customer_favorites(current_user: dict) -> list[dict]:
         if not tenant or not item:
             continue
         serialized = serialize_document(favorite)
-        serialized["tenant"] = serialize_document(tenant)
+        serialized["tenant"] = public_business_view(tenant)
         serialized["item"] = customer_item_view(item)
         favorites.append(serialized)
     return favorites
@@ -509,7 +513,7 @@ async def create_customer_transaction(payload, current_user: dict) -> dict:
         getattr(payload, "paymentMethod", None),
     )
     await db.carts.update_one({"_id": cart["_id"]}, {"$set": {"status": "checked_out", "updatedAt": datetime.now(timezone.utc)}})
-    return serialize_document(transaction)
+    return customer_order_view(transaction)
 
 
 async def confirm_customer_draft_order(slug: str, payload, current_user: dict) -> dict:
@@ -528,7 +532,7 @@ async def confirm_customer_draft_order(slug: str, payload, current_user: dict) -
         getattr(payload, "paymentMethod", None),
     )
     await clear_customer_conversation_draft(slug, payload.conversationId, current_user, transaction)
-    return serialize_document(transaction)
+    return customer_order_view(transaction)
 
 
 async def list_customer_transactions(current_user: dict, page: int = 1, limit: int = 20) -> dict:
@@ -544,7 +548,7 @@ async def list_customer_transactions(current_user: dict, page: int = 1, limit: i
     )
     items = []
     async for order in cursor:
-        serialized = serialize_document(order)
+        serialized = customer_order_view(order)
         serialized["paymentProofSummary"] = await summarize_payment_records_for_transaction(order)
         items.append(serialized)
     return {
@@ -564,7 +568,7 @@ async def get_customer_transaction(order_id: str, current_user: dict) -> dict:
     order = await db.transactions.find_one({"_id": order_oid, "customerUserId": current_user["_id"]})
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found.")
-    serialized = serialize_document(order)
+    serialized = customer_order_view(order)
     serialized["paymentInstructions"] = order.get("paymentInstructions") or await get_customer_payment_options_for_tenant(order["tenantId"])
     serialized["paymentRecords"] = await list_customer_payment_records_for_transaction(order)
     serialized["paymentProofSummary"] = await summarize_payment_records_for_transaction(order)

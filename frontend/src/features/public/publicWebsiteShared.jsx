@@ -1,8 +1,10 @@
+import { ProductImage } from "../../components/common/ProductImage.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { BrandLogo } from "../../components/common/BrandLogo.jsx";
-import { CustomerPaymentInstructions, getDefaultPaymentMethod } from "../../components/payments/CustomerPaymentInstructions.jsx";
+import { CustomerPaymentInstructions } from "../../components/payments/CustomerPaymentInstructions.jsx";
+import { getDefaultPaymentMethod } from "../../components/payments/paymentMethods.js";
 import { WhatsAppAgentCta } from "../../components/whatsapp/WhatsAppAgentCta.jsx";
 import { createPublicStripeCheckout, createPublicTransaction, getPublicBusiness, getPublicItems, resolveUploadUrl } from "../../services/publicWebsiteApi.js";
 import { capitalize, formatTransactionLabel, formatTransactionSuccess, transactionTypeOptions } from "../../utils/transaction.js";
@@ -113,7 +115,7 @@ export function PublicWebsiteFrame({ business, siteModel, currentPage, children 
           <div className="flex items-center gap-4">
             <BrandLogo
               showWordmark={false}
-              imageClassName="h-14 w-14 rounded-2xl border border-white/80 bg-white p-1.5 object-contain shadow-sm"
+              imageClassName="h-14 w-14 rounded-2xl border border-white/80 bg-white p-1.5 object-contain shadow-card"
             />
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">BizXus public site</div>
@@ -129,7 +131,7 @@ export function PublicWebsiteFrame({ business, siteModel, currentPage, children 
                 key={item.id}
                 className={
                   item.id === currentPage
-                    ? "rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white shadow-sm"
+                    ? "rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white shadow-card"
                     : "rounded-full border border-black/10 bg-white/75 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-black/20 hover:text-ink"
                 }
                 to={item.to}
@@ -168,7 +170,7 @@ export function PublicLoadingState({ label = "Loading published website..." }) {
 export function PublicUnavailableState({ title, error }) {
   return (
     <section className="space-y-4 p-6">
-      <h1 className="text-3xl font-semibold text-ink">{title}</h1>
+      <h1 className="text-2xl font-extrabold tracking-tight text-ink">{title}</h1>
       <p className="text-sm text-muted">{error}</p>
     </section>
   );
@@ -211,7 +213,7 @@ export function HeroSection({ business, hero, primaryCtaLabel, primaryCtaLink, s
           ) : null}
         </div>
         <div className="grid gap-4">
-          <div className="rounded-[28px] border border-black/5 bg-white/90 p-6 shadow-sm">
+          <div className="rounded-[28px] border border-black/5 bg-white/90 p-6 shadow-card">
             <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: theme.accent }}>About</div>
             <div className="mt-4 text-2xl font-semibold text-ink">{business.name}</div>
             <p className="mt-3 text-sm leading-6 text-slate-600">
@@ -220,7 +222,7 @@ export function HeroSection({ business, hero, primaryCtaLabel, primaryCtaLink, s
                 : "Present your best items, bundles, and offers in a layout that feels curated rather than generic."}
             </p>
           </div>
-          <div className="rounded-[28px] border border-black/5 p-6 text-white shadow-sm" style={{ backgroundColor: theme.secondary }}>
+          <div className="rounded-[28px] border border-black/5 p-6 text-white shadow-card" style={{ backgroundColor: theme.secondary }}>
             <div className="text-sm uppercase tracking-[0.2em] text-white/70">Public Access</div>
             <div className="mt-4 text-3xl font-semibold">{business.websiteStatus === "published" ? "Live now" : "Preview mode"}</div>
             <div className="mt-3 text-sm leading-6 text-white/80">
@@ -238,7 +240,7 @@ export function HighlightSection({ highlights, theme }) {
     <section>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {highlights.slice(0, 5).map((item) => (
-          <div key={item.label} className="rounded-[24px] border border-black/5 bg-white/85 p-5 shadow-sm">
+          <div key={item.label} className="rounded-[24px] border border-black/5 bg-white/85 p-5 shadow-card">
             <div className="text-sm text-slate-500">{item.label}</div>
             <div className="mt-3 text-2xl font-semibold text-ink" style={{ color: theme.secondary }}>{item.value}</div>
           </div>
@@ -254,11 +256,11 @@ export function CatalogSection({ items, meta, search, searchItems, setSearch, te
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: theme.accent }}>Browse</div>
-          <h2 className="mt-2 text-3xl font-semibold text-ink">{title}</h2>
+          <h2 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">{title}</h2>
           <p className="mt-2 text-sm text-slate-600">{meta.total || 0} public offers available.</p>
         </div>
         {showSearch ? (
-          <form className="flex gap-2 rounded-full border border-black/10 bg-white/90 p-2 shadow-sm" onSubmit={searchItems}>
+          <form className="flex gap-2 rounded-full border border-black/10 bg-white/90 p-2 shadow-card" onSubmit={searchItems}>
             <input className="form-input min-w-64 border-0 bg-transparent shadow-none" placeholder="Search items" value={search} onChange={(event) => setSearch(event.target.value)} />
             <button className="rounded-full px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: theme.accent }}>Search</button>
           </form>
@@ -266,13 +268,13 @@ export function CatalogSection({ items, meta, search, searchItems, setSearch, te
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
-          <Link key={item.id} className="group rounded-[28px] border border-black/5 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md" to={`/businesses/${tenantSlug}/items/${item.id}`}>
+          <Link key={item.id} className="group rounded-[28px] border border-black/5 bg-white/90 p-4 shadow-card transition hover:-translate-y-1 hover:shadow-md" to={`/businesses/${tenantSlug}/items/${item.id}`}>
             {item.images?.[0]?.url ? (
-              <img alt="" className="mb-4 h-48 w-full rounded-[20px] object-cover" src={resolveUploadUrl(item.images[0].url)} />
+              <ProductImage alt="" className="mb-4 h-48 w-full rounded-[20px] object-cover" src={resolveUploadUrl(item.images[0].url)} />
             ) : (
               <div className="mb-4 h-48 rounded-[20px]" style={{ background: `linear-gradient(135deg, ${theme.accent}18, ${theme.secondary}12)` }} />
             )}
-            <div className="text-lg font-semibold text-ink">{item.name}</div>
+            <div className="text-base font-bold text-ink">{item.name}</div>
             <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">{item.description || "No description added."}</p>
             <div className="mt-4 flex items-center justify-between">
               <div className="text-sm font-semibold" style={{ color: theme.secondary }}>{item.currency} {item.price}</div>
@@ -291,17 +293,17 @@ export function ServiceSection({ items, tenantSlug, theme }) {
     <section className="space-y-5">
       <div>
         <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: theme.accent }}>Services</div>
-        <h2 className="mt-2 text-3xl font-semibold text-ink">Service-focused offers</h2>
+        <h2 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Service-focused offers</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
           Highlight duration, delivery mode, and booking-friendly offers for consultative or appointment-based businesses.
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {items.slice(0, 6).map((item) => (
-          <Link key={item.id} className="rounded-[28px] border border-black/5 bg-white/90 p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md" to={`/businesses/${tenantSlug}/items/${item.id}`}>
+          <Link key={item.id} className="rounded-[28px] border border-black/5 bg-white/90 p-5 shadow-card transition hover:-translate-y-1 hover:shadow-md" to={`/businesses/${tenantSlug}/items/${item.id}`}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-xl font-semibold text-ink">{item.name}</div>
+                <div className="text-lg font-bold text-ink">{item.name}</div>
                 <div className="mt-2 text-sm text-slate-600">{item.description || "Service details available on the detail page."}</div>
               </div>
               <div className="rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ backgroundColor: theme.secondary }}>
@@ -335,12 +337,12 @@ export function TestimonialsSection({ testimonials, theme }) {
     <section className="space-y-5">
       <div>
         <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: theme.accent }}>Social proof</div>
-        <h2 className="mt-2 text-3xl font-semibold text-ink">What customers say</h2>
+        <h2 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">What customers say</h2>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
         {testimonials.map((item, index) => (
-          <div key={`testimonial-${index}`} className="rounded-[24px] border border-black/5 bg-white/90 p-5 shadow-sm">
-            <div className="text-base leading-7 text-slate-700">"{item.quote}"</div>
+          <div key={`testimonial-${index}`} className="rounded-[24px] border border-black/5 bg-white/90 p-5 shadow-card">
+            <div className="text-base leading-7 text-slate-700">&quot;{item.quote}&quot;</div>
             <div className="mt-4 font-semibold text-ink">{item.name || "Customer"}</div>
             <div className="mt-1 text-sm text-slate-500">{item.role || "Verified feedback"}</div>
           </div>
@@ -356,12 +358,12 @@ export function FaqSection({ faq, theme }) {
     <section className="space-y-5">
       <div>
         <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: theme.accent }}>FAQ</div>
-        <h2 className="mt-2 text-3xl font-semibold text-ink">Questions customers ask before deciding</h2>
+        <h2 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Questions customers ask before deciding</h2>
       </div>
       <div className="space-y-3">
         {faq.map((item, index) => (
-          <div key={`faq-${index}`} className="rounded-[24px] border border-black/5 bg-white/90 p-5 shadow-sm">
-            <div className="text-lg font-semibold text-ink">{item.question}</div>
+          <div key={`faq-${index}`} className="rounded-[24px] border border-black/5 bg-white/90 p-5 shadow-card">
+            <div className="text-base font-bold text-ink">{item.question}</div>
             <div className="mt-3 text-sm leading-6 text-slate-600">{item.answer}</div>
           </div>
         ))}
@@ -374,11 +376,11 @@ export function ContactSection({ business, theme }) {
   const whatsappAgent = business.whatsappAgent || {};
   const whatsappValue = whatsappAgent.businessWhatsAppNumber || business.contact?.whatsapp || "Not shared yet";
   return (
-    <section className="rounded-[32px] border border-black/5 bg-white/90 p-6 shadow-sm">
+    <section className="rounded-[32px] border border-black/5 bg-white/90 p-6 shadow-card">
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
           <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: theme.accent }}>Contact</div>
-          <h2 className="mt-2 text-3xl font-semibold text-ink">Reach the business directly</h2>
+          <h2 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Reach the business directly</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             Keep contact details easy to find for customers who prefer a quick call, WhatsApp message, or direct email before purchasing.
           </p>
@@ -460,18 +462,18 @@ export function PublicTransactionSection({ tenantSlug, business = {}, items, the
   }
 
   return (
-    <section id="public-transaction-form" className="rounded-[32px] border border-black/5 bg-white/92 p-6 shadow-sm">
+    <section id="public-transaction-form" className="rounded-[32px] border border-black/5 bg-white/92 p-6 shadow-card">
       <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
         <div>
           <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: theme.accent }}>Take action</div>
-          <h2 className="mt-3 text-3xl font-semibold text-ink">{headline || `Submit ${capitalize(formatTransactionLabel(activeRequestType))}`}</h2>
+          <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-ink">{headline || `Submit ${capitalize(formatTransactionLabel(activeRequestType))}`}</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             {description || "Use one public form for direct orders, quote requests, booking requests, or general inquiries depending on what this business offers."}
           </p>
         </div>
         <form className="grid gap-3" onSubmit={submitOrder}>
-          {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-          {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+          {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+          {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
           <div className="grid gap-3 md:grid-cols-2">
             <input className="form-input" required placeholder="Your name / Apna naam" value={order.customerName} onChange={(event) => setOrder((current) => ({ ...current, customerName: event.target.value }))} />
             <input className="form-input" required placeholder="03001234567" value={order.customerPhone} onChange={(event) => setOrder((current) => ({ ...current, customerPhone: event.target.value }))} />

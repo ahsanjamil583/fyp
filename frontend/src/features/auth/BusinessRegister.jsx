@@ -152,9 +152,9 @@ export function BusinessRegister() {
     <div className="grid min-h-screen bg-surface lg:grid-cols-[1fr_520px]">
       <AuthHero />
       <section className="flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md rounded-md border border-line bg-white p-7 shadow-soft">
+        <div className="w-full max-w-md rounded-xl border border-line bg-white p-7 shadow-soft">
           <div className="mb-7">
-            <div className="mb-4 grid h-11 w-11 place-items-center rounded-md bg-brand/10 text-brand">
+            <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-brand/10 text-brand">
               <Building2 size={22} />
             </div>
             <h2 className="text-2xl font-semibold text-ink">Create Business Account</h2>
@@ -163,9 +163,9 @@ export function BusinessRegister() {
             </p>
           </div>
 
-          {serverError ? <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div> : null}
+          {serverError ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div> : null}
           {statusMessage ? (
-            <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+            <div className="mb-4 rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800">
               {statusMessage}
               {otpInfo?.debugCode ? <div className="mt-1 font-semibold">Demo OTP: {otpInfo.debugCode}</div> : null}
               {otpInfo?.demoNote ? <div className="mt-1 text-xs">{otpInfo.demoNote}</div> : null}
@@ -180,7 +180,7 @@ export function BusinessRegister() {
                 <Field icon={<Mail size={17} />} label="Email" error={form.formState.errors.email?.message}>
                   <input {...form.register("email")} className="auth-input" placeholder="you@company.com" />
                 </Field>
-                <button type="button" onClick={sendCode} disabled={isSendingOtp} className="w-full rounded-md bg-brand px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
+                <button type="button" onClick={sendCode} disabled={isSendingOtp} className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60">
                   {isSendingOtp ? "Sending..." : "Send Verification Code"}
                 </button>
               </>
@@ -188,16 +188,16 @@ export function BusinessRegister() {
 
             {step === "code" ? (
               <>
-                <div className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-muted">
+                <div className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-muted">
                   Code sent to <span className="font-semibold text-ink">{otpInfo?.maskedEmail || sentEmail}</span>
                 </div>
                 <Field icon={<KeyRound size={17} />} label="Verification code" error={form.formState.errors.otpCode?.message}>
                   <input {...form.register("otpCode")} className="auth-input" placeholder="123456" inputMode="numeric" />
                 </Field>
-                <button type="button" onClick={verifyCode} disabled={isVerifyingOtp} className="w-full rounded-md bg-brand px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
+                <button type="button" onClick={verifyCode} disabled={isVerifyingOtp} className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60">
                   {isVerifyingOtp ? "Verifying..." : "Verify Code"}
                 </button>
-                <button type="button" onClick={sendCode} disabled={isSendingOtp || cooldownRemaining > 0} className="w-full rounded-md border border-line px-4 py-3 text-sm font-semibold text-ink transition hover:border-brand hover:text-brand disabled:opacity-60">
+                <button type="button" onClick={sendCode} disabled={isSendingOtp || cooldownRemaining > 0} className="w-full rounded-xl border border-line px-4 py-3 text-sm font-semibold text-ink transition hover:border-brand hover:text-brand disabled:opacity-60">
                   {cooldownRemaining > 0 ? `Resend Code in ${cooldownRemaining}s` : isSendingOtp ? "Sending..." : "Resend Code"}
                 </button>
               </>
@@ -214,7 +214,7 @@ export function BusinessRegister() {
                 <Field icon={<LockKeyhole size={17} />} label="Password" error={form.formState.errors.password?.message}>
                   <input {...form.register("password")} type="password" className="auth-input" placeholder="Minimum 8 characters" />
                 </Field>
-                <button type="button" onClick={form.handleSubmit(submit)} disabled={form.formState.isSubmitting} className="w-full rounded-md bg-brand px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
+                <button type="button" onClick={form.handleSubmit(submit)} disabled={form.formState.isSubmitting} className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60">
                   {form.formState.isSubmitting ? "Please wait..." : "Create account"}
                 </button>
               </>
@@ -222,7 +222,7 @@ export function BusinessRegister() {
           </form>
 
           <div className="mt-6 text-center text-sm text-muted">
-            Already registered? <Link className="font-semibold text-brand hover:text-blue-700" to="/login">Login here</Link>
+            Already registered? <Link className="font-semibold text-brand hover:text-brand-700" to="/login">Login here</Link>
           </div>
         </div>
       </section>
@@ -265,10 +265,10 @@ function StepProgress({ step }) {
             key={item.code}
             className={
               isActive
-                ? "rounded-md border border-brand bg-blue-50 px-3 py-2"
+                ? "rounded-xl border border-brand bg-brand-50 px-3 py-2"
                 : isDone
-                  ? "rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2"
-                  : "rounded-md border border-line bg-surface px-3 py-2"
+                  ? "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2"
+                  : "rounded-xl border border-line bg-surface px-3 py-2"
             }
           >
             <div className={isActive ? "text-[11px] font-bold uppercase tracking-wide text-brand" : isDone ? "text-[11px] font-bold uppercase tracking-wide text-emerald-700" : "text-[11px] font-bold uppercase tracking-wide text-muted"}>
@@ -284,7 +284,7 @@ function StepProgress({ step }) {
 
 function HeroTile({ title, text }) {
   return (
-    <div className="rounded-md border border-white/10 bg-white/5 p-4">
+    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
       <div className="font-semibold">{title}</div>
       <div className="mt-1 text-slate-300">{text}</div>
     </div>
@@ -295,7 +295,7 @@ function Field({ icon, label, error, children }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>
-      <div className="flex items-center gap-2 rounded-md border border-line bg-white px-3 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15">
+      <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15">
         <span className="text-muted">{icon}</span>
         {children}
       </div>

@@ -4,7 +4,7 @@ export function DynamicForm({ fields, values, onChange, errors = [], columns = "
   const gridClassName = columns === "single" ? "grid gap-4" : "grid gap-4 md:grid-cols-2";
 
   if (!visibleFields.length) {
-    return <div className="rounded-md border border-dashed border-line bg-surface p-4 text-sm text-muted">No active form fields yet.</div>;
+    return <div className="rounded-xl border border-dashed border-line bg-surface p-4 text-sm text-muted">No active form fields yet.</div>;
   }
 
   function updateValue(key, value) {
@@ -38,7 +38,7 @@ function FieldInput({ field, value, onChange }) {
 
   if (field.type === "boolean") {
     return (
-      <div className="flex h-[46px] items-center rounded-md border border-line px-3">
+      <div className="flex h-[46px] items-center rounded-xl border border-line px-3">
         <input type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />
         <span className="ml-2 text-sm text-muted">Enabled</span>
       </div>

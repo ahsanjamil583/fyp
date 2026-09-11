@@ -7,6 +7,8 @@ import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getCustomFields } from "../../services/customFieldApi.js";
 import { createCustomer, deleteCustomer, getCustomerInsights, getCustomers, updateCustomer } from "../../services/customerApi.js";
+import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 const emptyForm = {
   type: "customer",
@@ -163,9 +165,9 @@ export function CustomersPage() {
   if (!selectedTenant) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Customers</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Customers</h1>
         <p className="text-sm text-muted">Create a business before adding customers.</p>
-        <Link className="inline-flex rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/business">
+        <Link className="inline-flex rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/business">
           Create Business
         </Link>
       </section>
@@ -175,7 +177,7 @@ export function CustomersPage() {
   if (isLoadingModules) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Customers</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Customers</h1>
         <p className="text-sm text-muted">Loading customer module settings...</p>
       </section>
     );
@@ -184,9 +186,9 @@ export function CustomersPage() {
   if (!customersModuleEnabled) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Customers</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Customers</h1>
         <p className="text-sm text-muted">Enable the Customers module before managing customer records.</p>
-        <Link className="inline-flex rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/modules">
+        <Link className="inline-flex rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/modules">
           Enable Module
         </Link>
       </section>
@@ -195,16 +197,16 @@ export function CustomersPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line pb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Customer Module</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Customers</h1>
+      <div className="border-b border-line-soft pb-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Customer Module</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Customers</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
           Manage customers, tags, segments, and repeat-customer insights from one place.
         </p>
       </div>
 
-      {serverMessage ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{serverMessage}</div> : null}
-      {serverError ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div> : null}
+      {serverMessage ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{serverMessage}</div> : null}
+      {serverError ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div> : null}
 
       {insights ? (
         <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
@@ -216,14 +218,14 @@ export function CustomersPage() {
       ) : null}
 
       <div className="grid gap-6">
-        <form className="space-y-5 rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6" onSubmit={submit}>
+        <form className="space-y-5 rounded-2xl border border-line bg-white p-5 shadow-card sm:p-6" onSubmit={submit}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-ink">{editingCustomer ? "Edit Customer" : "Add Customer"}</h2>
+              <SectionTitle>{editingCustomer ? "Edit Customer" : "Add Customer"}</SectionTitle>
               <p className="mt-1 text-sm text-muted">Save profile, contact details, tags, and custom customer fields in one clean form.</p>
             </div>
             {editingCustomer ? (
-              <button type="button" className="w-fit rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={resetForm}>
+              <button type="button" className="w-fit rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={resetForm}>
                 Cancel edit
               </button>
             ) : null}
@@ -268,16 +270,16 @@ export function CustomersPage() {
           </div>
 
           <div className="rounded-xl border border-line bg-surface p-4">
-            <h3 className="mb-3 text-sm font-semibold text-ink">Custom fields</h3>
+            <SectionTitle className="mb-3 !text-sm">Custom fields</SectionTitle>
             <DynamicForm fields={fields} values={customValues} onChange={setCustomValues} errors={customErrors} columns="single" />
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row">
-            <button className="flex-1 rounded-md bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" disabled={isSaving}>
+            <button className="flex-1 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700" disabled={isSaving}>
               {isSaving ? "Saving..." : editingCustomer ? "Update Customer" : "Create Customer"}
             </button>
             {editingCustomer ? (
-              <button type="button" className="rounded-md border border-line px-4 py-2.5 text-sm font-semibold text-ink hover:bg-surface" onClick={resetForm}>
+              <button type="button" className="rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-ink hover:bg-surface" onClick={resetForm}>
                 Cancel
               </button>
             ) : null}
@@ -285,10 +287,10 @@ export function CustomersPage() {
         </form>
 
         <div className="space-y-5">
-          <div className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
+          <div className="rounded-2xl border border-line bg-white p-5 shadow-card sm:p-6">
             <div className="flex flex-col gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-ink">Customer Records</h2>
+                <SectionTitle>Customer Records</SectionTitle>
                 <p className="mt-1 text-sm text-muted">{meta.total || 0} records found.</p>
               </div>
               <div className="grid w-full gap-2 sm:grid-cols-2 2xl:grid-cols-[minmax(220px,1fr)_160px_180px_160px_auto]">
@@ -310,7 +312,7 @@ export function CustomersPage() {
                     <option key={tag} value={tag}>{tag}</option>
                   ))}
                 </select>
-                <button type="button" className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={() => refreshCustomers()}>
+                <button type="button" className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={() => refreshCustomers()}>
                   Search
                 </button>
               </div>
@@ -322,7 +324,7 @@ export function CustomersPage() {
                   <button
                     key={item.tag}
                     type="button"
-                    className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-muted hover:bg-white"
+                    className="rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-muted hover:bg-white"
                     onClick={() => setTagFilter(item.tag)}
                   >
                     {item.tag} ({item.count})
@@ -331,7 +333,7 @@ export function CustomersPage() {
               </div>
             ) : null}
 
-            <div className="mt-4 overflow-x-auto rounded-md border border-line">
+            <div className="mt-4 overflow-x-auto rounded-xl border border-line">
               <table className="min-w-[760px] divide-y divide-line text-sm">
                 <thead className="bg-surface">
                   <tr>
@@ -352,7 +354,7 @@ export function CustomersPage() {
                         <div className="text-xs text-muted">{customer.email || "-"}</div>
                         <div className="mt-2 flex flex-wrap gap-1">
                           {(customer.tags || []).map((tag) => (
-                            <span key={tag} className="rounded-md bg-surface px-2 py-1 text-[11px] font-semibold text-muted">
+                            <span key={tag} className="rounded-xl bg-surface px-2 py-1 text-[11px] font-semibold text-muted">
                               {tag}
                             </span>
                           ))}
@@ -362,7 +364,7 @@ export function CustomersPage() {
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-1">
                           {(customer.segments || []).length ? (customer.segments || []).map((segment) => (
-                            <span key={segment} className="rounded-md bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">
+                            <span key={segment} className="rounded-xl bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700">
                               {segmentLabels[segment] || segment}
                             </span>
                           )) : <span className="text-muted">-</span>}
@@ -373,13 +375,13 @@ export function CustomersPage() {
                         <div>PKR {customer.stats?.totalSpent || 0}</div>
                       </td>
                       <td className="whitespace-nowrap px-3 py-3 text-right">
-                        <Link className="mr-1 inline-flex rounded-md border border-line px-2.5 py-1.5 text-sm font-semibold text-ink hover:bg-surface" to={`/dashboard/customers/${customer.id}`}>
+                        <Link className="mr-1 inline-flex rounded-xl border border-line px-2.5 py-1.5 text-sm font-semibold text-ink hover:bg-surface" to={`/dashboard/customers/${customer.id}`}>
                           View
                         </Link>
-                        <button type="button" className="mr-1 rounded-md border border-line px-2.5 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => editCustomer(customer)}>
+                        <button type="button" className="mr-1 rounded-xl border border-line px-2.5 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => editCustomer(customer)}>
                           Edit
                         </button>
-                        <button type="button" className="rounded-md border border-line px-2.5 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => handleDelete(customer.id)}>
+                        <button type="button" className="rounded-xl border border-line px-2.5 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => handleDelete(customer.id)}>
                           Delete
                         </button>
                       </td>
@@ -396,11 +398,11 @@ export function CustomersPage() {
           </div>
 
           {insights?.topRepeatCustomers?.length ? (
-            <div className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
-              <h2 className="mb-4 text-lg font-semibold text-ink">Top Repeat Customers</h2>
+            <div className="rounded-2xl border border-line bg-white p-5 shadow-card sm:p-6">
+              <SectionTitle className="mb-4">Top Repeat Customers</SectionTitle>
               <div className="space-y-3">
                 {insights.topRepeatCustomers.map((customer) => (
-                  <div key={customer.id} className="flex flex-col gap-3 rounded-md border border-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div key={customer.id} className="flex flex-col gap-3 rounded-xl border border-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <div className="font-semibold text-ink">{customer.name}</div>
                       <div className="text-sm text-muted">{customer.phone || "-"}</div>
@@ -415,8 +417,8 @@ export function CustomersPage() {
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="mb-4 text-lg font-semibold text-ink">Custom Field Table View</h2>
+          <div className="rounded-2xl border border-line bg-white p-5 shadow-card sm:p-6">
+            <SectionTitle className="mb-4">Custom Field Table View</SectionTitle>
             <DynamicTable fields={fields} rows={tableRows} />
           </div>
         </div>
@@ -435,10 +437,5 @@ function Field({ label, children }) {
 }
 
 function InsightCard({ label, value }) {
-  return (
-    <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-      <div className="text-sm text-muted">{label}</div>
-      <div className="mt-2 text-3xl font-semibold text-ink">{value}</div>
-    </div>
-  );
+  return <KitStatCard label={label} value={value} />;
 }

@@ -8,7 +8,10 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getPublicBusinessCategories } from "../../services/businessCategoryApi.js";
 import { createTenant, publishTenant, unpublishTenant, updateTenant } from "../../services/tenantApi.js";
+import { formatApiError } from "../../utils/apiErrors.js";
 import { languageModeOptions, pakistanProvinces } from "../../utils/localization.js";
+import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 const schema = Joi.object({
   name: Joi.string().min(2).required().label("Business name"),
@@ -212,44 +215,51 @@ export function BusinessProfile() {
 
   async function togglePublish() {
     if (!selectedTenant) return;
-    const saved =
-      selectedTenant.websiteStatus === "published"
-        ? await unpublishTenant(selectedTenant.id)
-        : await publishTenant(selectedTenant.id);
-    await refreshTenants();
-    selectTenant(saved);
+    setServerError("");
+    setServerMessage("");
+    try {
+      const saved =
+        selectedTenant.websiteStatus === "published"
+          ? await unpublishTenant(selectedTenant.id)
+          : await publishTenant(selectedTenant.id);
+      await refreshTenants();
+      selectTenant(saved);
+      setServerMessage(saved.websiteStatus === "pending_review" ? "Website request sent to admin for review." : "Website status updated.");
+    } catch (error) {
+      setServerError(formatApiError(error.response?.data?.detail, "Unable to submit website request."));
+    }
   }
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-4 border-b border-line pb-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-4 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-brand">Business Foundation</p>
-          <h1 className="mt-2 text-3xl font-semibold text-ink">{selectedTenant ? "Business Onboarding" : "Create Your First Business"}</h1>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Business Foundation</p>
+          <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">{selectedTenant ? "Business Onboarding" : "Create Your First Business"}</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
             Finish the setup step by step. Once the foundation is complete, you can enable modules, add items or services, and publish the website.
           </p>
         </div>
         {selectedTenant ? (
-          <button className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={togglePublish}>
-            {selectedTenant.websiteStatus === "published" ? "Unpublish" : "Publish"}
+          <button className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={togglePublish}>
+            {selectedTenant.websiteStatus === "published" ? "Unpublish" : selectedTenant.websiteApprovalStatus === "pending" ? "Resubmit review" : "Submit for admin review"}
           </button>
         ) : null}
       </div>
 
-      {serverMessage ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{serverMessage}</div> : null}
-      {serverError ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div> : null}
+      {serverMessage ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{serverMessage}</div> : null}
+      {serverError ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div> : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <form className="space-y-6" onSubmit={form.handleSubmit(submit)}>
-          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-line bg-white p-5 shadow-card">
             <div className="flex flex-wrap gap-3 border-b border-line pb-4">
               {steps.map((step) => (
                 <button
                   key={step.id}
                   type="button"
                   onClick={() => setCurrentStep(step.id)}
-                  className={currentStep === step.id ? "rounded-md bg-brand px-3 py-2 text-sm font-semibold text-white" : "rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface"}
+                  className={currentStep === step.id ? "rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white" : "rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface"}
                 >
                   Step {step.id}: {step.label}
                 </button>
@@ -259,8 +269,8 @@ export function BusinessProfile() {
             {currentStep === 1 ? (
               <div className="mt-4 space-y-4">
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-wide text-brand">Step 1</div>
-                  <h2 className="mt-2 text-xl font-semibold text-ink">Business identity</h2>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Step 1</div>
+                  <SectionTitle className="mt-2">Business identity</SectionTitle>
                   <p className="mt-2 text-sm leading-6 text-muted">
                     Define the name, category, and short description that will shape this workspace.
                   </p>
@@ -285,11 +295,11 @@ export function BusinessProfile() {
                   </label>
                 </div>
                 {selectedCategory ? (
-                  <div className="rounded-md border border-line bg-surface p-4">
+                  <div className="rounded-xl border border-line bg-surface p-4">
                     <div className="text-sm font-semibold text-ink">Suggested modules</div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {selectedCategory.suggestedModules.map((module) => (
-                        <span key={module} className="rounded-md bg-white px-2.5 py-1 text-xs font-medium text-muted">
+                        <span key={module} className="rounded-xl bg-white px-2.5 py-1 text-xs font-medium text-muted">
                           {module}
                         </span>
                       ))}
@@ -304,8 +314,8 @@ export function BusinessProfile() {
                       <div className="mt-4">
                         <div className="text-sm font-semibold text-ink">Template rules</div>
                         <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted">
-                          <span className="rounded-md bg-white px-2.5 py-1">Preset: {selectedCategory.templateRules.recommendedVisualPreset || "auto"}</span>
-                          <span className="rounded-md bg-white px-2.5 py-1">Hero style: {selectedCategory.templateRules.heroStyle || "general-purpose"}</span>
+                          <span className="rounded-xl bg-white px-2.5 py-1">Preset: {selectedCategory.templateRules.recommendedVisualPreset || "auto"}</span>
+                          <span className="rounded-xl bg-white px-2.5 py-1">Hero style: {selectedCategory.templateRules.heroStyle || "general-purpose"}</span>
                         </div>
                         <div className="mt-2 text-xs text-muted">
                           Preferred sections: {(selectedCategory.templateRules.sectionPriority || []).join(", ") || "standard"}
@@ -316,10 +326,10 @@ export function BusinessProfile() {
                       <div className="mt-4">
                         <div className="text-sm font-semibold text-ink">Fulfillment hints</div>
                         <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted">
-                          <span className="rounded-md bg-white px-2.5 py-1">Default: {selectedCategory.fulfillmentHints.defaultMode || "none"}</span>
-                          <span className="rounded-md bg-white px-2.5 py-1">Delivery: {selectedCategory.fulfillmentHints.supportsDelivery ? "Yes" : "No"}</span>
-                          <span className="rounded-md bg-white px-2.5 py-1">Pickup: {selectedCategory.fulfillmentHints.supportsPickup ? "Yes" : "No"}</span>
-                          <span className="rounded-md bg-white px-2.5 py-1">In-person: {selectedCategory.fulfillmentHints.supportsInPerson ? "Yes" : "No"}</span>
+                          <span className="rounded-xl bg-white px-2.5 py-1">Default: {selectedCategory.fulfillmentHints.defaultMode || "none"}</span>
+                          <span className="rounded-xl bg-white px-2.5 py-1">Delivery: {selectedCategory.fulfillmentHints.supportsDelivery ? "Yes" : "No"}</span>
+                          <span className="rounded-xl bg-white px-2.5 py-1">Pickup: {selectedCategory.fulfillmentHints.supportsPickup ? "Yes" : "No"}</span>
+                          <span className="rounded-xl bg-white px-2.5 py-1">In-person: {selectedCategory.fulfillmentHints.supportsInPerson ? "Yes" : "No"}</span>
                         </div>
                       </div>
                     ) : null}
@@ -341,8 +351,8 @@ export function BusinessProfile() {
             {currentStep === 2 ? (
               <div className="mt-4 space-y-4">
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-wide text-brand">Step 2</div>
-                  <h2 className="mt-2 text-xl font-semibold text-ink">Contact, location, and language</h2>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Step 2</div>
+                  <SectionTitle className="mt-2">Contact, location, and language</SectionTitle>
                   <p className="mt-2 text-sm leading-6 text-muted">
                     Add the contact details, Pakistan location, and preferred customer-facing language for this business.
                   </p>
@@ -389,8 +399,8 @@ export function BusinessProfile() {
             {currentStep === 3 ? (
               <div className="mt-4 space-y-5">
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-wide text-brand">Step 3</div>
-                  <h2 className="mt-2 text-xl font-semibold text-ink">Review and finish</h2>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Step 3</div>
+                  <SectionTitle className="mt-2">Review and finish</SectionTitle>
                   <p className="mt-2 text-sm leading-6 text-muted">
                     Review the setup summary, save the business foundation, and continue into modules or website setup.
                   </p>
@@ -402,7 +412,7 @@ export function BusinessProfile() {
                   <SummaryCard label="Location" value={[watchedValues.city, watchedValues.province].filter(Boolean).join(", ") || "Not added"} />
                   <SummaryCard label="Language mode" value={languageModeOptions.find((option) => option.value === watchedValues.languageMode)?.label || "Mixed"} />
                 </div>
-                <div className="rounded-md border border-line bg-surface p-4 text-sm text-muted">
+                <div className="rounded-xl border border-line bg-surface p-4 text-sm text-muted">
                   After saving, continue with modules, items/services, and website settings. Publishing will still require the website builder and at least one public item when the items module is enabled.
                 </div>
               </div>
@@ -414,7 +424,7 @@ export function BusinessProfile() {
                   type="button"
                   onClick={handlePreviousStep}
                   disabled={currentStep === 1}
-                  className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Back
                 </button>
@@ -422,12 +432,12 @@ export function BusinessProfile() {
                   <button
                     type="button"
                     onClick={handleNextStep}
-                    className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                    className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
                   >
                     Next Step
                   </button>
                 ) : (
-                  <button className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700" disabled={form.formState.isSubmitting}>
+                  <button className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700" disabled={form.formState.isSubmitting}>
                     {form.formState.isSubmitting ? "Saving..." : selectedTenant ? "Save and Complete Setup" : "Create Business and Continue"}
                   </button>
                 )}
@@ -435,10 +445,10 @@ export function BusinessProfile() {
 
               {selectedTenant && currentStep === 3 ? (
                 <div className="flex flex-wrap gap-3">
-                  <Link className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" to="/dashboard/modules">
+                  <Link className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" to="/dashboard/modules">
                     Configure Modules
                   </Link>
-                  <Link className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" to="/dashboard/public-website">
+                  <Link className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" to="/dashboard/public-website">
                     Website Settings
                   </Link>
                 </div>
@@ -448,15 +458,15 @@ export function BusinessProfile() {
         </form>
 
         <div className="space-y-4">
-          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-            <div className="text-sm font-semibold uppercase tracking-wide text-brand">Setup Progress</div>
-            <h2 className="mt-2 text-xl font-semibold text-ink">{completionPercent}% complete</h2>
+          <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Setup Progress</div>
+            <SectionTitle className="mt-2">{completionPercent}% complete</SectionTitle>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface">
               <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${completionPercent}%` }} />
             </div>
             <div className="mt-4 space-y-3">
               {onboardingChecks.map((item) => (
-                <div key={item.label} className="flex items-center justify-between gap-3 rounded-md border border-line px-3 py-2 text-sm">
+                <div key={item.label} className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2 text-sm">
                   <span className="text-ink">{item.label}</span>
                   <span className={item.done ? "font-semibold text-green-700" : "text-muted"}>{item.done ? "Done" : "Pending"}</span>
                 </div>
@@ -464,8 +474,8 @@ export function BusinessProfile() {
             </div>
           </div>
 
-          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-            <div className="text-sm font-semibold uppercase tracking-wide text-brand">Workspace Status</div>
+          <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Workspace Status</div>
             <div className="mt-4 space-y-3 text-sm">
               <StatusRow label="Business record" value={selectedTenant ? "Created" : "Not created"} />
               <StatusRow label="Visibility" value={selectedTenant?.settings?.publicVisibility ? "Public-ready" : "Private"} />
@@ -474,8 +484,8 @@ export function BusinessProfile() {
             </div>
           </div>
 
-          <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-            <div className="text-sm font-semibold uppercase tracking-wide text-brand">Next Best Actions</div>
+          <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Next Best Actions</div>
             <div className="mt-4 space-y-3 text-sm text-muted">
               <p>1. Complete the business identity and contact setup.</p>
               <p>2. Enable the modules this business needs.</p>
@@ -486,7 +496,7 @@ export function BusinessProfile() {
               <button
                 type="button"
                 onClick={() => navigate("/dashboard/modules")}
-                className="mt-4 w-full rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface"
+                className="mt-4 w-full rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface"
               >
                 Continue to Modules
               </button>
@@ -510,7 +520,7 @@ function Field({ label, error, children }) {
 
 function StatusRow({ label, value }) {
   return (
-    <div className="flex items-center justify-between border-b border-line pb-3 last:border-b-0 last:pb-0">
+    <div className="flex items-center justify-between border-b border-line-soft pb-3 last:border-b-0 last:pb-0">
       <span className="text-muted">{label}</span>
       <span className="font-semibold capitalize text-ink">{String(value).replaceAll("_", " ")}</span>
     </div>
@@ -518,18 +528,13 @@ function StatusRow({ label, value }) {
 }
 
 function SummaryCard({ label, value }) {
-  return (
-    <div className="rounded-md border border-line bg-white p-4">
-      <div className="text-sm text-muted">{label}</div>
-      <div className="mt-2 font-semibold text-ink">{value}</div>
-    </div>
-  );
+  return <KitStatCard label={label} value={value} />;
 }
 
 function HintBlock({ label, value }) {
   return (
-    <div className="rounded-md bg-white p-3">
-      <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
+    <div className="rounded-xl bg-white p-3">
+      <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">{label}</div>
       <div className="mt-1 font-semibold text-ink">{value}</div>
     </div>
   );

@@ -3,10 +3,17 @@ from fastapi import APIRouter, Depends
 from app.core.permissions import require_platform_admin
 from app.core.responses import success_response
 from app.core.security import get_current_user
-from app.schemas.admin_schema import AdminModuleUpdateRequest, AdminPackageUpgradeDecisionRequest, AdminTenantUpdateRequest, AdminUserUpdateRequest
+from app.schemas.admin_schema import (
+    AdminModuleUpdateRequest,
+    AdminPackageUpgradeDecisionRequest,
+    AdminTenantUpdateRequest,
+    AdminUserUpdateRequest,
+    AdminWebsiteRequestDecisionRequest,
+)
 from app.schemas.module_schema import ModuleCreateRequest
 from app.services.admin_service import (
     decide_admin_package_upgrade,
+    decide_admin_website_request,
     get_admin_overview,
     get_admin_payments,
     get_admin_reports,
@@ -81,6 +88,17 @@ async def decide_package_request(
     require_platform_admin(current_user)
     data = await decide_admin_package_upgrade(tenantId, planCode, payload, current_user)
     return success_response("Package upgrade request updated successfully.", data)
+
+
+@router.post("/tenants/{tenantId}/website-request/decision")
+async def decide_website_request(
+    tenantId: str,
+    payload: AdminWebsiteRequestDecisionRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    require_platform_admin(current_user)
+    data = await decide_admin_website_request(tenantId, payload, current_user)
+    return success_response("Website request updated successfully.", data)
 
 
 @router.get("/modules")

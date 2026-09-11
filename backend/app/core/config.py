@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     mongodb_db_name: str = "bizxus_ai"
 
     jwt_secret_key: str = ""
+    report_scheduler_enabled: bool = False
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
@@ -60,12 +61,21 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"
     groq_api_key: str = ""
-    groq_model: str = "llama-3.1-8b-instant"
+    groq_model: str = "openai/gpt-oss-20b"
 
     whatsapp_provider: str = "mock"
     whatsapp_log_retention_days: int = 180
     whatsapp_verify_token: str = "bizxus-whatsapp-verify"
     backend_public_url: str = ""
+    # Where the Baileys bridge serves its pairing pages. The dashboard turns this into a
+    # per-business link the owner clicks to scan their QR, so it must be an address the
+    # owner's browser can reach, not the address the API uses.
+    whatsapp_bridge_public_url: str = "http://localhost:3005"
+    # Shared secret the bridge presents to fetch the businesses it should connect. Without
+    # it every new business needs a hand-edited bridge .env and a restart. It hands out
+    # per-tenant bridge tokens, so it is operator infrastructure: leave it empty and the
+    # discovery endpoint stays disabled.
+    whatsapp_bridge_admin_key: str = ""
 
     sms_provider: str = "mock"
     sms_api_key: str = ""
@@ -95,6 +105,31 @@ class Settings(BaseSettings):
     stripe_currency: str = "pkr"
     stripe_success_path: str = "/customer/orders/{orderId}?payment=stripe_success"
     stripe_cancel_path: str = "/customer/orders/{orderId}?payment=stripe_cancelled"
+
+    # --- Pakistani payment gateways -------------------------------------------------
+    # Both are hosted-checkout gateways: the customer is redirected to the gateway, pays,
+    # and is returned to a callback that carries a signed result.
+    #
+    # `mode` selects where that redirect goes:
+    #   simulator - a local page that mimics the gateway, so the whole flow is testable
+    #               before merchant onboarding issues real credentials
+    #   sandbox   - the gateway's own test environment
+    #   live      - production
+    # sandbox and live both require real credentials; without them the mode falls back to
+    # the simulator rather than sending customers to a gateway that will reject them.
+    jazzcash_mode: str = "simulator"
+    jazzcash_merchant_id: str = ""
+    jazzcash_password: str = ""
+    jazzcash_integrity_salt: str = ""
+
+    easypaisa_mode: str = "simulator"
+    easypaisa_store_id: str = ""
+    easypaisa_hash_key: str = ""
+    easypaisa_account_number: str = ""
+
+    # Where a gateway sends the customer back. Must be reachable by their browser, and by
+    # the gateway's servers for server-to-server confirmations.
+    payment_return_path: str = "/customer/orders/{orderId}?payment={status}"
 
     local_upload_dir: str = "./uploads"
     temp_upload_dir: str = "./uploads/temp"
@@ -151,13 +186,19 @@ class Settings(BaseSettings):
         normalized = str(value or "INFO").strip().upper()
         return normalized if normalized in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO"
 
+    @field_validator("jazzcash_mode", "easypaisa_mode", mode="before")
+    @classmethod
+    def normalize_gateway_mode(cls, value):
+        normalized = str(value or "simulator").strip().lower()
+        return normalized if normalized in {"simulator", "sandbox", "live"} else "simulator"
+
     @field_validator("whatsapp_provider", mode="before")
     @classmethod
     def normalize_whatsapp_provider(cls, value):
         normalized = str(value or "mock").strip().lower()
         return normalized if normalized in {"mock", "baileys"} else "mock"
 
-    @field_validator("frontend_base_url", "backend_public_url", mode="before")
+    @field_validator("frontend_base_url", "backend_public_url", "whatsapp_bridge_public_url", mode="before")
     @classmethod
     def normalize_base_url(cls, value):
         return str(value or "").strip().rstrip("/")
@@ -178,6 +219,27 @@ class Settings(BaseSettings):
         return str((backend_root / path).resolve())
 
     @property
+    def jazzcash_configured(self) -> bool:
+        return bool(self.jazzcash_merchant_id and self.jazzcash_password and self.jazzcash_integrity_salt)
+
+    @property
+    def easypaisa_configured(self) -> bool:
+        return bool(self.easypaisa_store_id and self.easypaisa_hash_key)
+
+    @property
+    def effective_jazzcash_mode(self) -> str:
+        """Never send a customer to a gateway that cannot accept the request."""
+        if self.jazzcash_mode in {"sandbox", "live"} and not self.jazzcash_configured:
+            return "simulator"
+        return self.jazzcash_mode
+
+    @property
+    def effective_easypaisa_mode(self) -> str:
+        if self.easypaisa_mode in {"sandbox", "live"} and not self.easypaisa_configured:
+            return "simulator"
+        return self.easypaisa_mode
+
+    @property
     def jwt_secret_is_public(self) -> bool:
         """True when the signing key is a known placeholder or too short to be safe."""
         return self.jwt_secret_key in PUBLIC_JWT_SECRETS or len(self.jwt_secret_key) < MIN_JWT_SECRET_LENGTH
@@ -196,6 +258,12 @@ class Settings(BaseSettings):
                 raise ValueError(f"JWT_SECRET_KEY must be at least {MIN_JWT_SECRET_LENGTH} characters in production.")
             if self.bcrypt_rounds < 12:
                 raise ValueError("BCRYPT_ROUNDS must be at least 12 in production.")
+            for gateway in ("jazzcash", "easypaisa"):
+                if getattr(self, f"{gateway}_mode") == "live" and not getattr(self, f"{gateway}_configured"):
+                    raise ValueError(
+                        f"{gateway.upper()} is set to live but its credentials are missing, so it would "
+                        "silently fall back to the local payment simulator."
+                    )
             if not self.stripe_webhook_secret and self.stripe_secret_key:
                 raise ValueError("STRIPE_WEBHOOK_SECRET is required in production when Stripe is enabled.")
         return self

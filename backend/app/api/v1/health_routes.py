@@ -14,6 +14,7 @@ router = APIRouter()
 @router.get("/health")
 async def health_check():
     mongo = await get_mongo_status()
+    chroma = chroma_client.status()
     return {
         "success": True,
         "message": "BizxusAI API is running.",
@@ -21,7 +22,7 @@ async def health_check():
             "service": settings.app_name,
             "environment": settings.app_env,
             "mongodb": mongo,
-            "chroma": chroma_client.status(),
+            "chroma": {"connected": chroma.get("connected", False)},
         },
         "meta": {},
     }

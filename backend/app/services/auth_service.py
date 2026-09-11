@@ -8,6 +8,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    ensure_current_session,
     hash_password,
     verify_password,
 )
@@ -58,7 +59,7 @@ def duplicate_account_detail(existing: dict, normalized_email: str, normalized_p
     if email_matches and phone_matches:
         return "Email and phone already exist. Sign in instead."
     if phone_matches:
-        return "Phone number already exists. Use phone OTP login instead."
+        return "Phone number already exists. Sign in instead."
     if email_matches:
         return "This email is already registered. Please login."
     return "Email or phone already exists. Sign in instead."
@@ -181,7 +182,7 @@ async def change_password(current_user: dict, current_password: str, new_passwor
     now = datetime.now(timezone.utc)
     await db.users.update_one(
         {"_id": current_user["_id"]},
-        {"$set": {"passwordHash": hash_password(new_password), "mustResetPassword": False, "updatedAt": now}},
+        {"$set": {"passwordHash": hash_password(new_password), "mustResetPassword": False, "updatedAt": now}, "$inc": {"sessionVersion": 1}},
     )
     updated = await db.users.find_one({"_id": current_user["_id"]})
     return auth_payload(updated)
@@ -189,10 +190,13 @@ async def change_password(current_user: dict, current_password: str, new_passwor
 
 async def refresh_auth_token(refresh_token: str) -> dict:
     payload = decode_token(refresh_token, expected_type="refresh")
+    if not ObjectId.is_valid(payload.get("sub", "")):
+        raise HTTPException(status_code=401, detail="Invalid token subject.")
     db = get_database()
     user = await db.users.find_one({"_id": ObjectId(payload["sub"]), "status": "active"})
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive.")
+    ensure_current_session(payload, user)
     return auth_payload(user)
 
 
@@ -243,7 +247,8 @@ async def reset_password_with_phone_otp(phone: str, code: str, new_password: str
                 "isPhoneVerified": True,
                 "mustResetPassword": False,
                 "updatedAt": datetime.now(timezone.utc),
-            }
+            },
+            "$inc": {"sessionVersion": 1},
         },
     )
     if result.matched_count == 0:
@@ -275,7 +280,8 @@ async def reset_password_with_email_otp(email: str, code: str, new_password: str
                 "emailVerifiedAt": datetime.now(timezone.utc),
                 "mustResetPassword": False,
                 "updatedAt": datetime.now(timezone.utc),
-            }
+            },
+            "$inc": {"sessionVersion": 1},
         },
     )
     if result.matched_count == 0:

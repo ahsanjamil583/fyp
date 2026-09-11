@@ -27,6 +27,10 @@ class StripeCheckoutSessionRequest(BaseModel):
     cancelUrl: str = Field(default="", max_length=500)
 
 
+class GatewayCheckoutRequest(BaseModel):
+    provider: str = Field(min_length=1, max_length=32)
+
+
 class StripePaymentSyncRequest(BaseModel):
     sessionId: str = Field(default="", max_length=200)
 

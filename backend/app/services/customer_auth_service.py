@@ -7,7 +7,6 @@ from app.core.password_policy import validate_password_strength
 from app.core.security import hash_password
 from app.db.mongodb import get_database
 from app.services.auth_service import auth_payload, duplicate_account_detail, find_user_by_email_or_phone
-from app.services.otp_service import optional_email_to_document
 from app.services.customer_service import sync_registered_customer_records
 from app.services.localization_service import normalize_optional_email, normalize_optional_pk_phone
 
@@ -29,8 +28,8 @@ async def register_customer(payload) -> dict:
     db = get_database()
     now = datetime.now(timezone.utc)
 
-    normalized_email = normalize_optional_email(payload.email or "")
-    normalized_phone = normalize_optional_pk_phone(payload.phone)
+    normalized_email = normalize_optional_email(payload.email)
+    normalized_phone = ""
     existing = await find_user_by_email_or_phone(normalized_email, normalized_phone)
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=duplicate_account_detail(existing, normalized_email, normalized_phone))
@@ -39,7 +38,7 @@ async def register_customer(payload) -> dict:
 
     user = {
         "fullName": payload.fullName,
-        **optional_email_to_document(normalized_email),
+        "email": normalized_email,
         "phone": normalized_phone,
         "passwordHash": hash_password(payload.password),
         "accountType": "customer",

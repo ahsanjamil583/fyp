@@ -3,6 +3,8 @@ import logging
 from fastapi import APIRouter, Depends, Header
 
 from app.core.responses import success_response
+from app.schemas.whatsapp_schema import WhatsAppDeliveryAck
+from app.services.whatsapp_outbound_service import claim_outbound_message, acknowledge_outbound_message
 from app.core.security import get_current_business_user
 from app.schemas.whatsapp_schema import (
     WhatsAppBridgeInboundRequest,
@@ -13,6 +15,7 @@ from app.schemas.whatsapp_schema import (
 )
 from app.services.whatsapp_service import (
     disconnect_whatsapp_settings,
+    list_bridge_tenants,
     get_whatsapp_settings_for_owner,
     list_whatsapp_conversations,
     process_bridge_inbound,
@@ -25,6 +28,16 @@ from app.services.whatsapp_service import (
 
 router = APIRouter(tags=["whatsapp-agent"])
 logger = logging.getLogger(__name__)
+
+
+@router.post("/whatsapp/bridge/{tenantId}/outbound/next")
+async def bridge_next_outbound(tenantId: str, x_bizxus_bridge_token: str = Header(default="", alias="X-BizXus-Bridge-Token")):
+    return success_response("Outbound queue checked.", await claim_outbound_message(tenantId, x_bizxus_bridge_token))
+
+
+@router.post("/whatsapp/bridge/{tenantId}/outbound/{messageId}/ack")
+async def bridge_ack_outbound(tenantId: str, messageId: str, payload: WhatsAppDeliveryAck, x_bizxus_bridge_token: str = Header(default="", alias="X-BizXus-Bridge-Token")):
+    return success_response("Delivery status recorded.", await acknowledge_outbound_message(tenantId, messageId, x_bizxus_bridge_token, payload.deliveryStatus))
 
 
 @router.get("/tenants/{tenantId}/whatsapp/settings")
@@ -84,6 +97,14 @@ async def whatsapp_send_test(
 ):
     data = await send_owner_whatsapp_test(tenantId, payload, current_user)
     return success_response("WhatsApp test message processed successfully.", data)
+
+
+@router.get("/whatsapp/bridge/tenants")
+async def whatsapp_bridge_tenants(
+    x_bizxus_bridge_key: str = Header(default="", alias="X-BizXus-Bridge-Key"),
+):
+    data = await list_bridge_tenants(x_bizxus_bridge_key)
+    return success_response("WhatsApp bridge tenants fetched successfully.", data)
 
 
 @router.post("/whatsapp/bridge/status")

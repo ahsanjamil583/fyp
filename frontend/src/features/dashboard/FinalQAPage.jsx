@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getFinalQaChecklist, recordFinalQaDemoRun } from "../../services/qaApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 const badgeStyles = {
   pass: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -72,7 +73,7 @@ export function FinalQAPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-primary">
@@ -86,7 +87,7 @@ export function FinalQAPage() {
           <button
             type="button"
             onClick={() => qaQuery.refetch()}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-surface"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-surface"
           >
             <RefreshCw className="h-4 w-4" /> Refresh QA
           </button>
@@ -100,15 +101,15 @@ export function FinalQAPage() {
       ) : (
         <>
           <div className="grid gap-4 lg:grid-cols-4">
-            <div className="rounded-2xl border border-line bg-white p-5 shadow-sm lg:col-span-1">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">Demo readiness</div>
+            <div className="rounded-2xl border border-line bg-white p-5 shadow-card lg:col-span-1">
+              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">Demo readiness</div>
               <div className="mt-1 text-xs text-muted">PASS = working, WARN = usable but needs attention, FAIL = must fix before demo.</div>
               <div className={`mt-2 text-2xl font-bold capitalize ${scoreColor(summary?.status)}`}>{String(summary?.status || "loading").replaceAll("_", " ")}</div>
               <div className="mt-2 text-sm text-muted">Required: {summary?.requiredPercent ?? 0}% · Overall: {summary?.percent ?? 0}%</div>
             </div>
             {Object.entries(summary?.totals || {}).map(([key, value]) => (
-              <div key={key} className="rounded-2xl border border-line bg-white p-5 shadow-sm">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted">{key}</div>
+              <div key={key} className="rounded-2xl border border-line bg-white p-5 shadow-card">
+                <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">{key}</div>
                 <div className="mt-2 text-3xl font-bold text-ink">{value}</div>
               </div>
             ))}
@@ -137,22 +138,22 @@ export function FinalQAPage() {
           ) : null}
 
           {nextActions.length ? (
-            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
-              <h2 className="font-bold text-blue-900">Recommended next actions</h2>
+            <div className="rounded-2xl border border-brand-200 bg-brand-50 p-5">
+              <h2 className="font-bold text-brand-900">Recommended next actions</h2>
               <div className="mt-3 grid gap-2">
                 {nextActions.map((action) => (
-                  <div key={action.code} className="rounded-xl bg-white/70 p-3 text-sm text-blue-900">
+                  <div key={action.code} className="rounded-xl bg-white/70 p-3 text-sm text-brand-900">
                     <div className="font-semibold">{action.title}</div>
-                    <div className="mt-1 text-blue-800">{action.action}</div>
-                    {action.route ? <div className="mt-1 text-xs font-bold uppercase tracking-wide text-blue-700">{action.route}</div> : null}
+                    <div className="mt-1 text-brand-800">{action.action}</div>
+                    {action.route ? <div className="mt-1 text-xs font-bold uppercase tracking-wide text-brand-700">{action.route}</div> : null}
                   </div>
                 ))}
               </div>
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-ink">System QA checklist</h2>
+          <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
+            <SectionTitle>System QA checklist</SectionTitle>
             <div className="mt-4 grid gap-3">
               {checks.map((check) => (
                 <div key={check.code} className={`rounded-xl border p-4 ${badgeStyles[check.status] || badgeStyles.warn}`}>
@@ -181,10 +182,10 @@ export function FinalQAPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
             <div className="flex items-center gap-2">
               <Route className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-bold text-ink">Supervisor demo script</h2>
+              <SectionTitle>Supervisor demo script</SectionTitle>
             </div>
             <div className="mt-4 grid gap-3">
               {demoScript.map((step) => (
@@ -207,29 +208,29 @@ export function FinalQAPage() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
               <div className="flex items-center gap-2">
                 <Terminal className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-bold text-ink">Final verification commands</h2>
+                <SectionTitle>Final verification commands</SectionTitle>
               </div>
               <div className="mt-4 space-y-3">
                 {commands.map((item) => (
                   <div key={item.name} className="rounded-xl bg-surface p-4">
                     <div className="font-semibold text-ink">{item.name}</div>
-                    <code className="mt-2 block overflow-x-auto rounded-md bg-ink px-3 py-2 text-xs text-white">{item.command}</code>
+                    <code className="mt-2 block overflow-x-auto rounded-xl bg-ink px-3 py-2 text-xs text-white">{item.command}</code>
                     <p className="mt-2 text-xs text-muted">{item.purpose}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
               <div className="flex items-center gap-2">
                 <PlayCircle className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-bold text-ink">Record manual demo run</h2>
+                <SectionTitle>Record manual demo run</SectionTitle>
               </div>
               {report?.latestDemoRun ? (
-                <div className="mt-4 rounded-lg bg-surface p-3 text-sm text-muted">
+                <div className="mt-4 rounded-xl bg-surface p-3 text-sm text-muted">
                   Last run: <span className="font-semibold text-ink">{report.latestDemoRun.result}</span> by {report.latestDemoRun.reviewerName || "Unknown"}
                   {report.latestDemoRun.demoCoverage ? (
                     <div className="mt-1 text-xs">
@@ -241,7 +242,7 @@ export function FinalQAPage() {
               <div className="mt-4 space-y-3">
                 <label className="block text-sm font-semibold text-ink">
                   Result
-                  <select value={result} onChange={(event) => setResult(event.target.value)} className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm">
+                  <select value={result} onChange={(event) => setResult(event.target.value)} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm">
                     <option value="pass">Pass</option>
                     <option value="warn">Pass with warnings</option>
                     <option value="fail">Fail / needs fixes</option>
@@ -249,17 +250,17 @@ export function FinalQAPage() {
                 </label>
                 <label className="block text-sm font-semibold text-ink">
                   Reviewer name
-                  <input value={reviewerName} onChange={(event) => setReviewerName(event.target.value)} className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" placeholder="Ahsan / Supervisor / Tester" />
+                  <input value={reviewerName} onChange={(event) => setReviewerName(event.target.value)} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm" placeholder="Ahsan / Supervisor / Tester" />
                 </label>
                 <label className="block text-sm font-semibold text-ink">
                   Notes
-                  <textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 min-h-28 w-full rounded-md border border-line px-3 py-2 text-sm" placeholder="Write what was tested and any remaining fixes..." />
+                  <textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 min-h-28 w-full rounded-xl border border-line px-3 py-2 text-sm" placeholder="Write what was tested and any remaining fixes..." />
                 </label>
                 <button
                   type="button"
                   disabled={recordMutation.isPending}
                   onClick={() => recordMutation.mutate()}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
                 >
                   <ClipboardCheck className="h-4 w-4" /> {recordMutation.isPending ? "Saving..." : "Save demo QA run"}
                 </button>

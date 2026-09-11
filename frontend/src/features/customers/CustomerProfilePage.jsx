@@ -6,6 +6,7 @@ import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getCustomFields } from "../../services/customFieldApi.js";
 import { getCustomer } from "../../services/customerApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 export function CustomerProfilePage() {
   const { customerId } = useParams();
@@ -42,7 +43,7 @@ export function CustomerProfilePage() {
   if (!selectedTenant) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Customer Profile</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Customer Profile</h1>
         <p className="text-sm text-muted">Create a business before viewing customer profiles.</p>
       </section>
     );
@@ -51,7 +52,7 @@ export function CustomerProfilePage() {
   if (isLoadingModules) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Customer Profile</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Customer Profile</h1>
         <p className="text-sm text-muted">Loading customer module settings...</p>
       </section>
     );
@@ -60,9 +61,9 @@ export function CustomerProfilePage() {
   if (!customersModuleEnabled) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Customer Profile</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Customer Profile</h1>
         <p className="text-sm text-muted">Enable the Customers module before viewing customer profiles.</p>
-        <Link className="inline-flex rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/modules">
+        <Link className="inline-flex rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/modules">
           Enable Module
         </Link>
       </section>
@@ -72,7 +73,7 @@ export function CustomerProfilePage() {
   if (isLoading) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Customer Profile</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Customer Profile</h1>
         <p className="text-sm text-muted">Loading customer details...</p>
       </section>
     );
@@ -84,25 +85,25 @@ export function CustomerProfilePage() {
         <Link className="text-sm font-semibold text-brand" to="/dashboard/customers">
           Back to customers
         </Link>
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
       </section>
     );
   }
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-col gap-3 border-b border-line pb-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <Link className="text-sm font-semibold text-brand" to="/dashboard/customers">
             Back to customers
           </Link>
-          <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-brand">Customer Profile</p>
-          <h1 className="mt-2 text-3xl font-semibold text-ink">{customer.name}</h1>
+          <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Customer Profile</p>
+          <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">{customer.name}</h1>
           <p className="mt-2 text-sm capitalize text-muted">
             {customer.type} / {customer.status}
           </p>
         </div>
-        <div className="rounded-md border border-line bg-white px-4 py-3 text-sm text-muted shadow-sm">
+        <div className="rounded-xl border border-line bg-white px-4 py-3 text-sm text-muted shadow-card">
           <div className="font-semibold text-ink">Stats</div>
           <div className="mt-1">Transactions: {customer.stats?.totalTransactions || 0}</div>
           <div>Total spent: {customer.stats?.totalSpent || 0}</div>
@@ -127,7 +128,7 @@ export function CustomerProfilePage() {
             {customer.tags?.length ? (
               <div className="flex flex-wrap gap-2">
                 {customer.tags.map((tag) => (
-                  <span key={tag} className="rounded-md bg-surface px-2.5 py-1 text-xs font-semibold text-muted">
+                  <span key={tag} className="rounded-xl bg-surface px-2.5 py-1 text-xs font-semibold text-muted">
                     {tag}
                   </span>
                 ))}
@@ -141,7 +142,7 @@ export function CustomerProfilePage() {
             {customer.segments?.length ? (
               <div className="flex flex-wrap gap-2">
                 {customer.segments.map((segment) => (
-                  <span key={segment} className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                  <span key={segment} className="rounded-xl bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">
                     {segment.replaceAll("_", " ")}
                   </span>
                 ))}
@@ -162,8 +163,8 @@ export function CustomerProfilePage() {
 
 function ProfileCard({ title, children }) {
   return (
-    <div className="rounded-md border border-line bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-lg font-semibold text-ink">{title}</h2>
+    <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+      <SectionTitle className="mb-4">{title}</SectionTitle>
       <div className="space-y-3">{children}</div>
     </div>
   );
@@ -171,7 +172,7 @@ function ProfileCard({ title, children }) {
 
 function InfoRow({ label, value }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-line pb-3 last:border-b-0 last:pb-0">
+    <div className="flex items-start justify-between gap-4 border-b border-line-soft pb-3 last:border-b-0 last:pb-0">
       <span className="text-sm text-muted">{label}</span>
       <span className="text-right text-sm font-semibold text-ink">{value}</span>
     </div>

@@ -25,7 +25,7 @@ export function LandingPage() {
               customer chatbot ordering, WhatsApp agent support, stock/payments, daily reports, and owner AI assistant.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link to="/register" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-primary-dark">
+              <Link to="/register" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-card transition hover:bg-primary-dark">
                 Start as Business Owner <ArrowRight className="h-4 w-4" />
               </Link>
               <Link to="/customer/marketplace" className="inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 py-3 text-sm font-bold text-ink transition hover:bg-surface">
@@ -50,7 +50,7 @@ export function LandingPage() {
                   "Payments, stock, reports, and Owner AI are verified from dashboard.",
                 ].map((item, index) => (
                   <li key={item} className="flex gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-primary shadow-sm">{index + 1}</span>
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-primary shadow-card">{index + 1}</span>
                     <span>{item}</span>
                   </li>
                 ))}
@@ -63,7 +63,7 @@ export function LandingPage() {
           {features.map((feature) => {
             const Icon = feature.icon;
             return (
-              <div key={feature.title} className="rounded-2xl border border-line bg-white p-5 shadow-sm">
+              <div key={feature.title} className="rounded-2xl border border-line bg-white p-5 shadow-card">
                 <Icon className="h-6 w-6 text-primary" />
                 <h2 className="mt-4 font-bold text-ink">{feature.title}</h2>
                 <p className="mt-2 text-sm leading-6 text-muted">{feature.text}</p>

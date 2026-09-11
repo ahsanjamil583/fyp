@@ -12,6 +12,8 @@ import {
   updateKnowledgeDocument,
   uploadKnowledgeDocument,
 } from "../../services/knowledgeBaseApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
 
 const sourceLabels = {
   owner_text: "Owner text",
@@ -281,17 +283,17 @@ export function KnowledgeBasePage() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-line bg-white p-5 shadow-card">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-brand">Phase 21</p>
-            <h1 className="mt-2 text-3xl font-semibold text-ink">Knowledge Base Manager</h1>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Phase 21</p>
+            <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Knowledge Base Manager</h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-muted">
               Upload policies, FAQs, menus, size guides, service rules, delivery details, and business instructions. BizXus AI will index this content into RAG and use it when answering customers.
             </p>
           </div>
           <button
-            className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isReindexing}
             onClick={handleReindex}
             type="button"
@@ -299,8 +301,8 @@ export function KnowledgeBasePage() {
             {isReindexing ? "Reindexing..." : "Reindex all knowledge"}
           </button>
         </div>
-        {notice ? <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</div> : null}
-        {error ? <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+        {notice ? <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</div> : null}
+        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Stat label="Total documents" value={pagination.total || 0} />
           <Stat label="Owner uploads" value={summary.ownerUploadCount || 0} />
@@ -310,8 +312,8 @@ export function KnowledgeBasePage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <form className="rounded-md border border-line bg-white p-5 shadow-sm" onSubmit={handleCreateText}>
-          <h2 className="text-lg font-semibold text-ink">Add text knowledge</h2>
+        <form className="rounded-xl border border-line bg-white p-5 shadow-card" onSubmit={handleCreateText}>
+          <SectionTitle>Add text knowledge</SectionTitle>
           <p className="mt-1 text-sm text-muted">Use this for FAQs, delivery policies, refund rules, or business instructions.</p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="block">
@@ -331,13 +333,13 @@ export function KnowledgeBasePage() {
             <input checked={textForm.isActive} type="checkbox" onChange={(event) => setTextForm((form) => ({ ...form, isActive: event.target.checked }))} />
             Active in AI/RAG
           </label>
-          <button className="mt-4 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSavingText} type="submit">
+          <button className="mt-4 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSavingText} type="submit">
             {isSavingText ? "Saving..." : "Save and index"}
           </button>
         </form>
 
-        <form className="rounded-md border border-line bg-white p-5 shadow-sm" onSubmit={handleUpload}>
-          <h2 className="text-lg font-semibold text-ink">Upload knowledge file</h2>
+        <form className="rounded-xl border border-line bg-white p-5 shadow-card" onSubmit={handleUpload}>
+          <SectionTitle>Upload knowledge file</SectionTitle>
           <p className="mt-1 text-sm text-muted">Supported formats: TXT, MD, CSV, XLSX, PDF, and DOCX. Files must be 10MB or smaller.</p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="block">
@@ -371,21 +373,21 @@ export function KnowledgeBasePage() {
             <input checked={uploadForm.isActive} type="checkbox" onChange={(event) => setUploadForm((form) => ({ ...form, isActive: event.target.checked }))} />
             Active in AI/RAG
           </label>
-          <button className="mt-4 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60" disabled={isUploading || !uploadForm.file} type="submit">
+          <button className="mt-4 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60" disabled={isUploading || !uploadForm.file} type="submit">
             {isUploading ? "Uploading..." : uploadForm.file ? "Upload and index" : "Choose a file first"}
           </button>
         </form>
       </div>
 
-      <form className="rounded-md border border-line bg-white p-5 shadow-sm" onSubmit={handleTestQuestion}>
+      <form className="rounded-xl border border-line bg-white p-5 shadow-card" onSubmit={handleTestQuestion}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Ask a test question from this knowledge base</h2>
+            <SectionTitle>Ask a test question from this knowledge base</SectionTitle>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">
               Preview how BizXus AI will answer using this business&apos;s RAG, catalog, category, and order tools. Sources and tool trace are visible only here for owner debugging.
             </p>
           </div>
-          <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60" disabled={isTesting || !testForm.question.trim()} type="submit">
+          <button className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60" disabled={isTesting || !testForm.question.trim()} type="submit">
             {isTesting ? "Testing..." : "Test answer"}
           </button>
         </div>
@@ -397,7 +399,7 @@ export function KnowledgeBasePage() {
         />
         {testResult ? (
           <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="rounded-md border border-blue-100 bg-blue-50 p-4">
+            <div className="rounded-xl border border-brand-100 bg-brand-50 p-4">
               <div className="text-xs font-semibold uppercase tracking-wide text-brand">AI answer preview</div>
               <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink">{testResult.reply || "No answer generated."}</div>
               <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
@@ -407,11 +409,11 @@ export function KnowledgeBasePage() {
               </div>
             </div>
             <div className="space-y-3">
-              <div className="rounded-md border border-line p-3">
+              <div className="rounded-xl border border-line p-3">
                 <div className="text-sm font-semibold text-ink">Top RAG sources</div>
                 <div className="mt-2 space-y-2">
                   {(testResult.ragSources || []).slice(0, 3).map((source) => (
-                    <div className="rounded-md bg-surface p-2 text-xs text-muted" key={`${source.documentId}-${source.excerpt}`}>
+                    <div className="rounded-xl bg-surface p-2 text-xs text-muted" key={`${source.documentId}-${source.excerpt}`}>
                       <div className="font-semibold text-ink">{source.title || "Knowledge"}</div>
                       <div>{source.matchType || "source"} | score {source.confidence || 0}</div>
                       <div className="mt-1 line-clamp-2">{source.excerpt}</div>
@@ -420,7 +422,7 @@ export function KnowledgeBasePage() {
                   {!testResult.ragSources?.length ? <div className="text-xs text-muted">No RAG source matched this question.</div> : null}
                 </div>
               </div>
-              <div className="rounded-md border border-line p-3">
+              <div className="rounded-xl border border-line p-3">
                 <div className="text-sm font-semibold text-ink">Tool trace</div>
                 <div className="mt-2 max-h-44 space-y-1 overflow-auto text-xs text-muted">
                   {(testResult.toolCalls || []).map((tool) => (
@@ -436,10 +438,10 @@ export function KnowledgeBasePage() {
       </form>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-line bg-white p-5 shadow-card">
           <div className="flex flex-col gap-3 border-b border-line pb-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-ink">Indexed knowledge</h2>
+              <SectionTitle>Indexed knowledge</SectionTitle>
               <p className="mt-1 text-sm text-muted">Owner uploads and system-generated catalog/business documents used by RAG.</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -455,7 +457,7 @@ export function KnowledgeBasePage() {
           <div className="mt-4 space-y-3">
             {documents.map((document) => (
               <button
-                className={selectedDocumentId === document.id ? "w-full rounded-md border border-brand bg-blue-50 p-4 text-left" : "w-full rounded-md border border-line p-4 text-left transition hover:bg-surface"}
+                className={selectedDocumentId === document.id ? "w-full rounded-xl border border-brand bg-brand-50 p-4 text-left" : "w-full rounded-xl border border-line p-4 text-left transition hover:bg-surface"}
                 key={document.id}
                 onClick={() => setSelectedDocumentId(document.id)}
                 type="button"
@@ -473,16 +475,16 @@ export function KnowledgeBasePage() {
                 </div>
               </button>
             ))}
-            {!documents.length && !isLoading ? <div className="rounded-md border border-dashed border-line bg-surface p-5 text-sm text-muted">No knowledge documents found.</div> : null}
+            {!documents.length && !isLoading ? <div className="rounded-xl border border-dashed border-line bg-surface p-5 text-sm text-muted">No knowledge documents found.</div> : null}
           </div>
         </div>
 
-        <aside className="rounded-md border border-line bg-white p-5 shadow-sm">
+        <aside className="rounded-xl border border-line bg-white p-5 shadow-card">
           {selectedDocument ? (
             <form onSubmit={handleUpdate}>
               <div className="border-b border-line pb-4">
-                <p className="text-sm font-semibold uppercase tracking-wide text-brand">Document detail</p>
-                <h2 className="mt-2 text-xl font-semibold text-ink">{selectedDocument.title}</h2>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Document detail</p>
+                <SectionTitle className="mt-2">{selectedDocument.title}</SectionTitle>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted">
                   <span className="rounded-full bg-surface px-2 py-1 capitalize">{sourceLabel(selectedDocument.sourceType)}</span>
                   <span className="rounded-full bg-surface px-2 py-1">{selectedDocument.chunkCount || 0} chunks</span>
@@ -509,20 +511,20 @@ export function KnowledgeBasePage() {
                     Active in AI/RAG
                   </label>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60" disabled={isUpdating} type="submit">
+                    <button className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60" disabled={isUpdating} type="submit">
                       {isUpdating ? "Updating..." : "Update and reindex"}
                     </button>
-                    <button className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50" onClick={handleDelete} type="button">
+                    <button className="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50" onClick={handleDelete} type="button">
                       Delete
                     </button>
                   </div>
                 </>
               ) : (
                 <div className="mt-4 space-y-4">
-                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
                     This is system-generated knowledge. Update the original business profile, website FAQ, or catalog item and then reindex.
                   </div>
-                  <div className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-md border border-line bg-surface p-4 text-sm leading-6 text-muted">
+                  <div className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl border border-line bg-surface p-4 text-sm leading-6 text-muted">
                     {selectedDocument.content || "No content available."}
                   </div>
                 </div>
@@ -538,10 +540,5 @@ export function KnowledgeBasePage() {
 }
 
 function Stat({ label, value }) {
-  return (
-    <div className="rounded-md border border-line bg-surface p-4">
-      <div className="text-sm text-muted">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-ink">{value}</div>
-    </div>
-  );
+  return <KitStatCard label={label} value={value} />;
 }

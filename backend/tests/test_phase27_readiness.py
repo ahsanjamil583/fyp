@@ -27,6 +27,8 @@ class Phase27ReadinessTests(unittest.TestCase):
             from app.main import create_app
 
             app = create_app()
+            from app.core.security import require_auth_in_production
+            app.dependency_overrides[require_auth_in_production] = lambda: {"globalRole": "platform_admin"}
             with TestClient(app) as client:
                 response = client.get("/api/v1/health/readiness")
 
@@ -37,7 +39,7 @@ class Phase27ReadinessTests(unittest.TestCase):
         self.assertIn("X-Request-ID", response.headers)
         self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
 
-    def test_demo_accounts_route_is_available_for_demo_setup(self):
+    def test_demo_accounts_route_rejects_anonymous_access_even_in_development(self):
         with (
             patch("app.main.connect_to_mongo", new=AsyncMock()),
             patch("app.main.close_mongo_connection", new=AsyncMock()),
@@ -52,9 +54,7 @@ class Phase27ReadinessTests(unittest.TestCase):
             with TestClient(app) as client:
                 response = client.get("/api/v1/health/demo-accounts")
 
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(payload["data"]["businessSlug"], "demo-bazaar")
+        self.assertEqual(response.status_code, 401)
 
 
 class Phase27SystemValidationTests(unittest.IsolatedAsyncioTestCase):

@@ -17,6 +17,7 @@ from app.api.v1.knowledge_base_routes import router as knowledge_base_router
 from app.api.v1.module_routes import router as module_router
 from app.api.v1.onboarding_routes import router as onboarding_router
 from app.api.v1.payment_routes import router as payment_router
+from app.api.v1.payment_gateway_routes import router as payment_gateway_router
 from app.api.v1.owner_agent_routes import router as owner_agent_router
 from app.api.v1.report_delivery_routes import router as report_delivery_router
 from app.api.v1.submission_routes import router as submission_router
@@ -44,6 +45,7 @@ api_router.include_router(module_router)
 api_router.include_router(onboarding_router)
 api_router.include_router(owner_agent_router)
 api_router.include_router(payment_router)
+api_router.include_router(payment_gateway_router)
 api_router.include_router(qa_router)
 api_router.include_router(report_delivery_router)
 api_router.include_router(submission_router)

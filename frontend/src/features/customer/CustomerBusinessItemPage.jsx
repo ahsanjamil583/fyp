@@ -1,3 +1,4 @@
+import { ProductImage } from "../../components/common/ProductImage.jsx";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -52,7 +53,7 @@ export function CustomerBusinessItemPage() {
   if (error && !item) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Item unavailable</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Item unavailable</h1>
         <p className="text-sm text-muted">{error}</p>
       </section>
     );
@@ -67,25 +68,25 @@ export function CustomerBusinessItemPage() {
       <div>
         <Link className="text-sm font-semibold text-brand" to={`/customer/businesses/${tenantSlug}`}>Back to {business.name}</Link>
         {item.images?.[0]?.url ? (
-          <img alt="" className="mt-5 h-80 w-full rounded-md object-cover" src={resolveUploadUrl(item.images[0].url)} />
+          <ProductImage alt="" className="mt-5 h-80 w-full rounded-xl object-cover" src={resolveUploadUrl(item.images[0].url)} />
         ) : (
-          <div className="mt-5 h-80 rounded-md bg-surface" />
+          <div className="mt-5 h-80 rounded-xl bg-surface" />
         )}
         <h1 className="mt-6 text-4xl font-semibold text-ink">{item.name}</h1>
         <p className="mt-4 text-base leading-7 text-muted">{item.description || "No description added."}</p>
       </div>
-      <div className="h-fit rounded-md border border-line bg-white p-5 shadow-sm">
-        {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-        {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      <div className="h-fit rounded-xl border border-line bg-white p-5 shadow-card">
+        {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+        {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
         <div className="text-2xl font-semibold text-ink">{item.currency} {item.price}</div>
         <div className="mt-4">
           <label className="mb-1.5 block text-sm font-medium text-ink">Quantity</label>
           <input className="form-input" min="1" type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
         </div>
-        <button className="mt-4 w-full rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink" onClick={toggleFavorite}>
+        <button className="mt-4 w-full rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink" onClick={toggleFavorite}>
           {favorites.some((favorite) => favorite.item?.id === itemId && favorite.tenant?.id === business.id) ? "Saved to favorites" : "Save to favorites"}
         </button>
-        <button className="mt-4 w-full rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" onClick={handleAdd}>
+        <button className="mt-4 w-full rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" onClick={handleAdd}>
           Add to cart
         </button>
         <div className="mt-4">

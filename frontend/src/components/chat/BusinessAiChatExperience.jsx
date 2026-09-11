@@ -1,6 +1,8 @@
+import { ProductImage } from "../common/ProductImage.jsx";
 import { useEffect, useMemo, useRef } from "react";
 
-import { CustomerPaymentInstructions, getDefaultPaymentMethod } from "../payments/CustomerPaymentInstructions.jsx";
+import { CustomerPaymentInstructions } from "../payments/CustomerPaymentInstructions.jsx";
+import { getDefaultPaymentMethod } from "../payments/paymentMethods.js";
 
 function formatTime(value) {
   if (!value) return "";
@@ -51,8 +53,8 @@ function MessageBubble({ message }) {
       <div
         className={
           isCustomer
-            ? "max-w-[82%] rounded-[24px] rounded-br-md bg-gradient-to-br from-blue-600 to-cyan-600 px-4 py-3 text-sm text-white shadow-sm"
-            : "max-w-[82%] rounded-[24px] rounded-bl-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm"
+            ? "max-w-[82%] rounded-[24px] rounded-br-lg bg-gradient-to-br from-brand-600 to-cyan-600 px-4 py-3 text-sm text-white shadow-card"
+            : "max-w-[82%] rounded-[24px] rounded-bl-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-card"
         }
       >
         <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] opacity-70">
@@ -70,10 +72,10 @@ function MessageBubble({ message }) {
 function TypingIndicator() {
   return (
     <div className="flex justify-start">
-      <div className="rounded-[24px] rounded-bl-md border border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <div className="rounded-[24px] rounded-bl-lg border border-slate-200 bg-white px-4 py-3 shadow-card">
         <div className="flex items-center gap-2 text-sm text-slate-500">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-          <span className="h-2 w-2 animate-pulse rounded-full bg-blue-400 [animation-delay:120ms]" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-brand-500" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-brand-400 [animation-delay:120ms]" />
           <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400 [animation-delay:240ms]" />
           <span className="ml-2">AI is checking catalog, stock, and knowledge...</span>
         </div>
@@ -96,7 +98,7 @@ function DraftItemCard({ item, quantity, onQuantityChange }) {
   const stock = item.stockSnapshot || {};
   const lineTotal = Number(quantity || item.quantity || 1) * Number(item.unitPrice || 0);
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="font-semibold text-slate-950">{item.name}</div>
@@ -136,13 +138,13 @@ function DraftItemCard({ item, quantity, onQuantityChange }) {
 function ProductSuggestionCard({ item, onAskForItem, resolveUploadUrl }) {
   const image = item.images?.[0]?.url || item.imageUrl || item.image || "";
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      {image ? <img alt="" className="h-28 w-full object-cover" src={resolveUploadUrl ? resolveUploadUrl(image) : image} /> : null}
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+      {image ? <ProductImage alt="" className="h-28 w-full object-cover" src={resolveUploadUrl ? resolveUploadUrl(image) : image} /> : null}
       <div className="p-3">
         <div className="font-semibold text-slate-950">{item.name}</div>
         {item.matchedVariant?.name ? <div className="mt-1 text-xs text-slate-500">Variant: {item.matchedVariant.name}</div> : null}
         <div className="mt-2 flex items-center justify-between text-sm">
-          <span className="font-semibold text-blue-700">{formatMoney(item.currency, item.price)}</span>
+          <span className="font-semibold text-brand-700">{formatMoney(item.currency, item.price)}</span>
           <span className="rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">Suggested</span>
         </div>
         <button className="mt-3 w-full rounded-xl bg-slate-950 px-3 py-2 text-xs font-semibold text-white" type="button" onClick={() => onAskForItem?.(`I want ${item.name}`)}>
@@ -203,13 +205,13 @@ export function BusinessAiDraftOrderSummary({
   }
 
   return (
-    <div className={compact ? "rounded-2xl border border-blue-100 bg-white p-3 shadow-sm" : "rounded-[30px] border border-white/80 bg-white p-5 shadow-xl shadow-slate-200/70"}>
+    <div className={compact ? "rounded-2xl border border-brand-100 bg-white p-3 shadow-card" : "rounded-[30px] border border-white/80 bg-white p-5 shadow-xl shadow-slate-200/70"}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-blue-700">Draft Order</div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-brand-700">Draft Order</div>
           <h2 className={compact ? "mt-1 text-base font-bold text-slate-950" : "mt-1 text-xl font-bold text-slate-950"}>Order summary</h2>
         </div>
-        <span className={draftItems.length ? "rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700" : "rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500"}>
+        <span className={draftItems.length ? "rounded-full bg-brand-50 px-2 py-1 text-[10px] font-bold text-brand-700" : "rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500"}>
           {draftItems.length ? "Review" : "No draft"}
         </span>
       </div>
@@ -322,7 +324,7 @@ export function BusinessAiDraftOrderSummary({
         </div>
       ) : (
         <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
-          No draft yet. Ask for an item and quantity, for example: "2 burgers delivery kar do".
+          No draft yet. Ask for an item and quantity, for example: &quot;2 burgers delivery kar do&quot;.
         </div>
       )}
     </div>
@@ -351,7 +353,7 @@ export function BusinessAiChatExperience({
   setCheckout,
   publicMode = false,
   resolveUploadUrl,
-  accentClass = "text-blue-700",
+  accentClass = "text-brand-700",
   draftPlacement = "below",
 }) {
   const scrollRef = useRef(null);
@@ -391,7 +393,7 @@ export function BusinessAiChatExperience({
           {backLink ? <a className={`text-sm font-semibold ${accentClass}`} href={backLink}>{backLabel || "Back"}</a> : null}
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.24em] text-blue-700">AI Business Assistant</div>
+              <div className="text-xs font-bold uppercase tracking-[0.24em] text-brand-700">AI Business Assistant</div>
               <h1 className="mt-2 text-2xl font-bold text-slate-950">Chat with {business.name}</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Ask about products, prices, stock, delivery, and orders. I can guide you step by step and prepare a safe draft order.</p>
             </div>
@@ -408,8 +410,8 @@ export function BusinessAiChatExperience({
         <div className="flex h-[min(660px,calc(100vh-260px))] min-h-[520px] flex-col">
           <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
             {!messages.length ? (
-              <div className="rounded-[28px] border border-dashed border-blue-200 bg-white/80 p-6 text-center shadow-sm">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-2xl">AI</div>
+              <div className="rounded-[28px] border border-dashed border-brand-200 bg-white/80 p-6 text-center shadow-card">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-2xl">AI</div>
                 <h2 className="mt-4 text-lg font-bold text-slate-950">Hi! I am the AI assistant for this business.</h2>
                 <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">You can ask about products, prices, stock, delivery, or place an order.</p>
               </div>
@@ -422,19 +424,19 @@ export function BusinessAiChatExperience({
           <form className="border-t border-white/80 bg-white/95 p-4" onSubmit={onSubmitMessage}>
             <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
               {prompts.map((prompt) => (
-                <button key={prompt} className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-200 hover:bg-blue-50" type="button" onClick={() => setMessageText(prompt)}>
+                <button key={prompt} className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-brand-200 hover:bg-brand-50" type="button" onClick={() => setMessageText(prompt)}>
                   {prompt}
                 </button>
               ))}
             </div>
             <div className="flex items-end gap-3">
               <textarea
-                className="min-h-12 flex-1 resize-none rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                className="min-h-12 flex-1 resize-none rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
                 placeholder="Type your message, e.g. '2 zinger burgers delivery kar do'"
                 value={messageText}
                 onChange={(event) => setMessageText(event.target.value)}
               />
-              <button className="rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-600 px-5 py-3 text-sm font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60" disabled={isSending || !messageText.trim()}>
+              <button className="rounded-2xl bg-gradient-to-br from-brand-600 to-cyan-600 px-5 py-3 text-sm font-bold text-white shadow-card disabled:cursor-not-allowed disabled:opacity-60" disabled={isSending || !messageText.trim()}>
                 {isSending ? "Sending..." : "Send"}
               </button>
             </div>

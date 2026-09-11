@@ -3,13 +3,13 @@ const statusStyles = {
   partially_paid: "bg-emerald-50 text-emerald-700 border-emerald-100",
   pending_verification: "bg-amber-50 text-amber-700 border-amber-100",
   pending: "bg-amber-50 text-amber-700 border-amber-100",
-  cod: "bg-blue-50 text-blue-700 border-blue-100",
+  cod: "bg-brand-50 text-brand-700 border-brand-100",
   unpaid: "bg-slate-50 text-slate-700 border-slate-200",
   rejected: "bg-red-50 text-red-700 border-red-100",
   failed: "bg-red-50 text-red-700 border-red-100",
   refunded: "bg-purple-50 text-purple-700 border-purple-100",
   awaiting_quote: "bg-slate-50 text-slate-700 border-slate-200",
-  quoted: "bg-blue-50 text-blue-700 border-blue-100",
+  quoted: "bg-brand-50 text-brand-700 border-brand-100",
   not_applicable: "bg-slate-50 text-slate-500 border-slate-200",
 };
 

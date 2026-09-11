@@ -19,13 +19,13 @@ export function CustomerOrdersPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line pb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Transactions</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Transaction History</h1>
+      <div className="border-b border-line-soft pb-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Transactions</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Transaction History</h1>
         <p className="mt-3 text-sm text-muted">{meta.total || 0} transactions found.</p>
       </div>
-      {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-      <div className="rounded-md border border-line bg-white shadow-sm">
+      {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      <div className="rounded-xl border border-line bg-white shadow-card">
         <table className="min-w-full divide-y divide-line text-sm">
           <thead className="bg-surface">
             <tr>
@@ -56,11 +56,11 @@ export function CustomerOrdersPage() {
                 <td className="px-4 py-3 text-muted">{order.pricing?.total}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-2">
-                    <Link className="rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink" to={`/customer/orders/${order.id}`}>
+                    <Link className="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink" to={`/customer/orders/${order.id}`}>
                       {["unpaid", "rejected", "pending_verification"].includes(order.paymentStatus) ? "View payment" : "View"}
                     </Link>
                     <button
-                      className="rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink"
+                      className="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink"
                       onClick={async () => {
                         const result = await reorderCustomerTransaction(order.id);
                         setMessage(`Items from ${order.transactionNumber} were added to your cart for ${result.tenantSlug}.`);

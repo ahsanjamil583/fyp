@@ -13,8 +13,10 @@ from bson import ObjectId
 from fastapi import HTTPException, status
 
 from app.core.config import settings
+from app.integrations.payments import gateways
 from app.core.module_guard import ensure_tenant_module_enabled
 from app.core.object_ids import parse_object_id, serialize_document
+from app.core.private_uploads import payment_record_view
 from app.core.permissions import get_owned_tenant_or_403
 from app.db.mongodb import get_database
 from app.services.business_notification_service import create_business_notification
@@ -26,16 +28,19 @@ from app.services.transaction_workflow_service import get_allowed_payment_status
 logger = logging.getLogger(__name__)
 
 PAYMENT_METHODS = {"cod", "manual_bank", "bank_transfer", "jazzcash_mock", "easypaisa_mock", "stripe_test", "manual", "jazzcash", "easypaisa", "stripe", "card", "online_card"}
-CANONICAL_PAYMENT_METHODS = {"cod", "manual_bank", "jazzcash_mock", "easypaisa_mock", "stripe_test"}
+# The *_mock codes are the owner-verified manual flows and stay valid so historical
+# records keep rendering. "jazzcash"/"easypaisa" are the redirect gateways added later.
+CANONICAL_PAYMENT_METHODS = {"cod", "manual_bank", "jazzcash_mock", "easypaisa_mock", "stripe_test", "jazzcash", "easypaisa"}
+ONLINE_GATEWAY_METHODS = {"jazzcash": "jazzcash", "easypaisa": "easypaisa"}
+# Saved settings from before the gateways existed point at the manual codes.
+LEGACY_METHOD_UPGRADES = {"jazzcash_mock": "jazzcash", "easypaisa_mock": "easypaisa"}
 PAYMENT_METHOD_ALIASES = {
     "manual": "manual_bank",
     "bank": "manual_bank",
     "bank_transfer": "manual_bank",
     "manual_transfer": "manual_bank",
-    "jazzcash": "jazzcash_mock",
-    "jazz_cash": "jazzcash_mock",
-    "easypaisa": "easypaisa_mock",
-    "easy_paisa": "easypaisa_mock",
+    "jazz_cash": "jazzcash",
+    "easy_paisa": "easypaisa",
     "stripe": "stripe_test",
     "card": "stripe_test",
     "online_card": "stripe_test",
@@ -120,10 +125,21 @@ def _public_method_label(method: str) -> str:
     return {
         "cod": "Cash on Delivery",
         "manual_bank": "Manual bank transfer",
-        "jazzcash_mock": "JazzCash mock",
-        "easypaisa_mock": "EasyPaisa mock",
-        "stripe_test": "Stripe test card",
+        "jazzcash_mock": "JazzCash (manual)",
+        "easypaisa_mock": "EasyPaisa (manual)",
+        "jazzcash": "JazzCash",
+        "easypaisa": "Easypaisa",
+        "stripe_test": "Stripe (card)",
     }.get(method, method.replace("_", " ").title())
+
+
+def _gateway_available(provider: str) -> bool:
+    """True when this gateway can take a customer end to end right now."""
+    mode = gateways.gateway_mode(provider)
+    if mode == "simulator":
+        # Usable for testing, but never something to route real customers into.
+        return settings.app_env != "production"
+    return True
 
 
 def _enabled_method_codes(settings_doc: dict) -> list[str]:
@@ -132,11 +148,16 @@ def _enabled_method_codes(settings_doc: dict) -> list[str]:
         methods.append("cod")
     if settings_doc.get("manualEnabled") or settings_doc.get("bankTransferEnabled"):
         methods.append("manual_bank")
+    # One toggle per wallet. Whether the customer is redirected to the gateway or told to
+    # pay manually depends on whether that gateway can actually run: in production a
+    # gateway without credentials falls back to the manual flow instead of dead-ending.
     if settings_doc.get("jazzCashEnabled"):
-        methods.append("jazzcash_mock")
+        methods.append("jazzcash" if _gateway_available("jazzcash") else "jazzcash_mock")
     if settings_doc.get("easyPaisaEnabled"):
-        methods.append("easypaisa_mock")
-    if settings_doc.get("stripeEnabled"):
+        methods.append("easypaisa" if _gateway_available("easypaisa") else "easypaisa_mock")
+    # Offering Stripe without a secret key puts a button in front of the customer that
+    # can only fail at payment time, the same trap the gateways avoid above.
+    if settings_doc.get("stripeEnabled") and settings.stripe_secret_key:
         methods.append("stripe_test")
     return methods
 
@@ -198,13 +219,33 @@ def _method_customer_details(settings_doc: dict, method: str) -> dict[str, Any]:
             "bankName": "EasyPaisa",
             "iban": "",
         }
+    if method in ONLINE_GATEWAY_METHODS:
+        simulated = gateways.is_simulated(method)
+        return {
+            "code": method,
+            "label": _public_method_label(method),
+            "description": (
+                f"Pay with {gateways.gateway_label(method)}. You will be taken to a secure payment page "
+                "and returned here once the payment is complete."
+            ),
+            "requiresOwnerApproval": False,
+            "isOnline": True,
+            "provider": method,
+            "mode": gateways.gateway_mode(method),
+            "simulated": simulated,
+        }
+
     if method == "stripe_test":
         return {
             "code": method,
             "label": _public_method_label(method),
-            "description": "Pay online with Stripe Checkout using a test card such as 4242 4242 4242 4242.",
+            "description": (
+                "Pay online by card through Stripe Checkout. You will be returned here once the payment "
+                "is complete."
+            ),
             "requiresOwnerApproval": False,
             "isOnline": True,
+            "mode": "test" if str(settings.stripe_secret_key).startswith("sk_test") else "live",
             "provider": "stripe",
             "testCard": "4242 4242 4242 4242",
         }
@@ -219,7 +260,10 @@ def serialize_customer_payment_options(settings_doc: dict | None) -> dict[str, A
     methods = [_method_customer_details(settings_doc, method) for method in enabled]
     default_method = settings_doc.get("defaultMethod") or (enabled[0] if enabled else "cod")
     if default_method not in enabled and enabled:
-        default_method = enabled[0]
+        # A tenant whose saved default predates the redirect gateways should land on the
+        # same wallet, not silently fall back to cash on delivery.
+        upgraded = LEGACY_METHOD_UPGRADES.get(default_method)
+        default_method = upgraded if upgraded in enabled else enabled[0]
     return {
         "enabled": bool(methods),
         "defaultMethod": default_method,
@@ -258,7 +302,11 @@ def normalize_customer_payment_preference(payment_method: str | None, payment_op
 async def list_customer_payment_records_for_transaction(transaction: dict) -> list[dict[str, Any]]:
     db = get_database()
     cursor = db.payment_records.find({"transactionId": transaction["_id"]}).sort("createdAt", -1)
-    return [serialize_document(record) async for record in cursor]
+    records = [payment_record_view(record) async for record in cursor]
+    for record in records:
+        for key in ("actorUserId", "createdBy", "updatedBy", "verifiedBy", "internalNotes", "providerResponse", "gatewayResponse"):
+            record.pop(key, None)
+    return records
 
 
 async def summarize_payment_records_for_transaction(transaction: dict, db=None) -> dict[str, Any]:
@@ -285,7 +333,7 @@ async def summarize_payment_records_for_transaction(transaction: dict, db=None) 
     refunds = [record for record in records if record.get("recordType") == "refund" or record.get("status") == "refunded"]
     return {
         **empty_summary,
-        "latest": serialize_document(latest) if latest else None,
+        "latest": payment_record_view(latest) if latest else None,
         "pendingCount": len(pending),
         "approvedCount": len(approved),
         "rejectedCount": len(rejected),
@@ -812,7 +860,7 @@ async def list_payment_overview(tenant_id: str, user: dict, page: int = 1, limit
     payment_query = {"tenantId": tenant_oid}
     total_records = await db.payment_records.count_documents(payment_query)
     records_cursor = db.payment_records.find(payment_query).sort("createdAt", -1).skip((page - 1) * limit).limit(limit)
-    records = [serialize_document(row) async for row in records_cursor]
+    records = [payment_record_view(row) async for row in records_cursor]
 
     outstanding_cursor = db.transactions.find(
         {
@@ -1541,3 +1589,278 @@ async def process_stripe_webhook(payload: bytes, signature_header: str) -> dict[
     except Exception as exc:
         await db.stripe_webhook_events.update_one({"eventId": event_id}, {"$set": {"status": "failed", "processedAt": datetime.now(timezone.utc), "error": str(exc)}})
         raise
+
+
+# --- Redirect payment gateways (JazzCash, Easypaisa) ---------------------------------
+#
+# The shape mirrors the Stripe flow above: create a pending payment_record, send the
+# customer to the gateway, and let the signed callback move that record to paid and
+# resync the transaction. Keeping one shape means the Transactions and Payments screens,
+# receipts, and refunds work for every provider without special cases.
+
+
+def _gateway_return_url(provider: str) -> str:
+    return f"{gateways._api_base_url()}/payments/{provider}/callback"
+
+
+def _frontend_order_url(order_id: str, status_value: str) -> str:
+    base = (settings.frontend_base_url or "http://localhost:5173").rstrip("/")
+    path = settings.payment_return_path.replace("{orderId}", str(order_id)).replace("{status}", status_value)
+    return f"{base}{path}"
+
+
+def _build_gateway_txn_ref(record_id: Any) -> str:
+    """Reference the gateway echoes back, used to find the record again.
+
+    JazzCash requires this to be unique per attempt and alphanumeric, so the payment
+    record id carries the linkage rather than the order id: one order can have several
+    attempts, and each needs its own reference.
+    """
+    return f"BZX{str(record_id)}"
+
+
+def _record_id_from_txn_ref(txn_ref: str) -> str:
+    return str(txn_ref or "").strip().removeprefix("BZX")
+
+
+async def create_gateway_checkout(order_id: str, provider: str, current_user: dict) -> dict[str, Any]:
+    """Start a JazzCash or Easypaisa payment for an existing order."""
+    if provider not in ONLINE_GATEWAY_METHODS:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported payment gateway.")
+    if not _gateway_available(provider):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"{gateways.gateway_label(provider)} is not configured for online payments yet.",
+        )
+
+    db = get_database()
+    transaction_oid = parse_object_id(order_id, "orderId")
+    transaction = await db.transactions.find_one({"_id": transaction_oid, "customerUserId": current_user["_id"]})
+    if not transaction:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found.")
+    if transaction.get("transactionType") not in PAYABLE_TRANSACTION_TYPES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This transaction cannot be paid online.")
+
+    tenant_oid = transaction["tenantId"]
+    payment_options = await get_customer_payment_options_for_tenant(tenant_oid)
+    normalize_customer_payment_preference(provider, payment_options)
+
+    summary = await _calculate_payment_summary(tenant_oid, transaction)
+    balance = summary["balance"]
+    if balance <= 0:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This transaction has no remaining balance.")
+
+    now = datetime.now(timezone.utc)
+    customer_snapshot = transaction.get("customerSnapshot") or {}
+    record = {
+        "tenantId": tenant_oid,
+        "transactionId": transaction["_id"],
+        "transactionNumber": transaction.get("transactionNumber", ""),
+        "customerSnapshot": customer_snapshot,
+        "recordType": "payment",
+        "amount": float(balance),
+        "currency": (transaction.get("pricing") or {}).get("currency") or "PKR",
+        "method": provider,
+        "methodLabel": _public_method_label(provider),
+        "status": "pending_verification",
+        "referenceNumber": "",
+        "notes": f"{gateways.gateway_label(provider)} checkout started.",
+        "submittedBy": "customer",
+        "provider": provider,
+        "providerMode": gateways.gateway_mode(provider),
+        "providerSessionId": "",
+        "providerTransactionId": "",
+        "createdBy": current_user["_id"],
+        "createdAt": now,
+        "updatedAt": now,
+    }
+    record["_id"] = (await db.payment_records.insert_one(record)).inserted_id
+
+    txn_ref = _build_gateway_txn_ref(record["_id"])
+    try:
+        checkout = gateways.build_checkout(
+            provider,
+            txn_ref=txn_ref,
+            amount=float(balance),
+            return_url=_gateway_return_url(provider),
+            bill_reference=transaction.get("transactionNumber", "") or txn_ref,
+            description=f"Payment for {transaction.get('transactionNumber', 'order')}",
+            customer_mobile=str(customer_snapshot.get("phone") or ""),
+            customer_email=str(customer_snapshot.get("email") or current_user.get("email") or ""),
+        )
+    except (gateways.PaymentGatewayError, ValueError) as exc:
+        await db.payment_records.update_one(
+            {"_id": record["_id"]},
+            {"$set": {"status": "failed", "notes": f"Could not start {gateways.gateway_label(provider)}: {exc}", "updatedAt": datetime.now(timezone.utc)}},
+        )
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Unable to start {gateways.gateway_label(provider)} payment.") from exc
+
+    await db.payment_records.update_one(
+        {"_id": record["_id"]},
+        {"$set": {"providerSessionId": txn_ref, "referenceNumber": txn_ref, "updatedAt": datetime.now(timezone.utc)}},
+    )
+    updated_transaction = await _sync_transaction_payment_status(
+        tenant_oid, transaction, current_user.get("_id"), f"{gateways.gateway_label(provider)} checkout started."
+    )
+    await create_business_notification(
+        tenant_oid,
+        "gateway_checkout_created",
+        f"{gateways.gateway_label(provider)} checkout started for {transaction.get('transactionNumber', 'transaction')}",
+        f"Customer opened {gateways.gateway_label(provider)} for {float(balance):g}.",
+        priority="medium",
+        metadata={"transactionId": str(transaction["_id"]), "paymentRecordId": str(record["_id"]), "provider": provider},
+    )
+    return {
+        "provider": provider,
+        "label": gateways.gateway_label(provider),
+        "mode": gateways.gateway_mode(provider),
+        "simulated": bool(checkout.get("simulated")),
+        "redirect": {"url": checkout["url"], "method": checkout["method"], "fields": checkout.get("fields") or {}},
+        "paymentRecordId": str(record["_id"]),
+        "txnRef": txn_ref,
+        "amount": float(balance),
+        "transaction": serialize_document(updated_transaction),
+    }
+
+
+async def complete_gateway_payment(provider: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Apply a gateway callback to the payment record it refers to.
+
+    Returns where to send the customer next. This is a public endpoint, so nothing here
+    trusts the payload beyond what the signature covers, and a replayed callback for an
+    already-paid record is a no-op rather than a second payment.
+    """
+    if provider not in ONLINE_GATEWAY_METHODS:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported payment gateway.")
+
+    result = gateways.verify_callback(provider, payload)
+    db = get_database()
+    record_id = _record_id_from_txn_ref(result.get("txnRef"))
+    record = None
+    if record_id:
+        try:
+            record = await db.payment_records.find_one({"_id": ObjectId(record_id)})
+        except Exception:
+            record = None
+    if not record:
+        logger.warning("Ignoring %s callback for unknown reference %r.", provider, result.get("txnRef"))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment reference not recognised.")
+
+    order_id = str(record["transactionId"])
+    if not result["signatureValid"]:
+        # Either a misconfigured salt/key or a forged callback; both mean "not paid".
+        logger.error("Rejecting %s callback for %s: signature did not verify.", provider, result.get("txnRef"))
+        await db.payment_records.update_one(
+            {"_id": record["_id"]},
+            {"$set": {"status": "failed", "notes": "Callback signature did not verify.", "updatedAt": datetime.now(timezone.utc)}},
+        )
+        transaction = await db.transactions.find_one({"_id": record["transactionId"], "tenantId": record["tenantId"]})
+        if transaction:
+            await _sync_transaction_payment_status(
+                record["tenantId"], transaction, None, f"{gateways.gateway_label(provider)} callback could not be verified."
+            )
+        return {"paid": False, "redirectUrl": _frontend_order_url(order_id, "failed"), "reason": "invalid_signature"}
+
+    if record.get("status") in {"paid", "completed"}:
+        return {"paid": True, "redirectUrl": _frontend_order_url(order_id, "success"), "alreadyProcessed": True}
+
+    now = datetime.now(timezone.utc)
+    if not result["paid"]:
+        await db.payment_records.update_one(
+            {"_id": record["_id"]},
+            {"$set": {
+                "status": "failed",
+                "notes": result.get("responseMessage") or "Payment was not completed.",
+                "providerResponseCode": result.get("responseCode", ""),
+                "updatedAt": now,
+            }},
+        )
+        # Without this the order keeps the "pending_verification" it was given when the
+        # attempt started, so an abandoned payment would look like one awaiting review.
+        transaction = await db.transactions.find_one({"_id": record["transactionId"], "tenantId": record["tenantId"]})
+        if transaction:
+            await _sync_transaction_payment_status(
+                record["tenantId"], transaction, None, f"{gateways.gateway_label(provider)} payment was not completed."
+            )
+        return {"paid": False, "redirectUrl": _frontend_order_url(order_id, "cancelled"), "reason": result.get("responseCode", "")}
+
+    transaction = await db.transactions.find_one({"_id": record["transactionId"], "tenantId": record["tenantId"]})
+    if not transaction:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found for this payment.")
+
+    # The gateway's amount is authoritative: a customer who pays less than the balance
+    # must not close the order.
+    paid_amount = float(result.get("amount") or 0) or float(record.get("amount", 0))
+    await db.payment_records.update_one(
+        {"_id": record["_id"]},
+        {"$set": {
+            "status": "paid",
+            "amount": paid_amount,
+            "providerTransactionId": result.get("providerTransactionId", ""),
+            "referenceNumber": result.get("providerTransactionId") or record.get("referenceNumber", ""),
+            "providerResponseCode": result.get("responseCode", ""),
+            "notes": result.get("responseMessage") or f"{gateways.gateway_label(provider)} payment completed.",
+            "verification": {"verifiedByUserId": None, "verifiedAt": now, "verifiedBy": f"{provider}_callback"},
+            "updatedAt": now,
+        }},
+    )
+    updated_transaction = await _sync_transaction_payment_status(
+        record["tenantId"], transaction, None, f"{gateways.gateway_label(provider)} payment completed."
+    )
+    await create_business_notification(
+        record["tenantId"],
+        "gateway_payment_paid",
+        f"{gateways.gateway_label(provider)} payment received for {transaction.get('transactionNumber', 'transaction')}",
+        f"{gateways.gateway_label(provider)} confirmed payment of {paid_amount:g}.",
+        priority="high",
+        metadata={"transactionId": order_id, "paymentRecordId": str(record["_id"]), "provider": provider},
+    )
+    if updated_transaction.get("customerUserId"):
+        await create_customer_notification(
+            updated_transaction["customerUserId"],
+            record["tenantId"],
+            "payment_paid",
+            "Payment received",
+            f"Your {gateways.gateway_label(provider)} payment for {updated_transaction.get('transactionNumber', 'order')} was received.",
+            {"transactionId": order_id, "paymentRecordId": str(record["_id"])},
+        )
+    return {
+        "paid": True,
+        "redirectUrl": _frontend_order_url(order_id, "success"),
+        "paymentRecordId": str(record["_id"]),
+        "amount": paid_amount,
+    }
+
+
+async def get_gateway_simulator_context(provider: str, txn_ref: str) -> dict[str, Any]:
+    """Details the local simulator page needs to stand in for a real gateway."""
+    if not gateways.is_simulated(provider):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment simulator is not enabled.")
+    db = get_database()
+    record_id = _record_id_from_txn_ref(txn_ref)
+    try:
+        record = await db.payment_records.find_one({"_id": ObjectId(record_id)})
+    except Exception:
+        record = None
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment reference not recognised.")
+    tenant = await db.tenants.find_one({"_id": record["tenantId"]}) or {}
+    return {
+        "provider": provider,
+        "label": gateways.gateway_label(provider),
+        "txnRef": txn_ref,
+        "amount": float(record.get("amount", 0)),
+        "currency": record.get("currency", "PKR"),
+        "businessName": tenant.get("name", ""),
+        "transactionNumber": record.get("transactionNumber", ""),
+        "alreadyPaid": record.get("status") in {"paid", "completed"},
+    }
+
+
+async def apply_simulated_gateway_result(provider: str, txn_ref: str, approve: bool) -> dict[str, Any]:
+    """Sign a simulated outcome and push it through the real callback path."""
+    if not gateways.is_simulated(provider):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment simulator is not enabled.")
+    context = await get_gateway_simulator_context(provider, txn_ref)
+    payload = gateways.build_simulated_callback(provider, txn_ref=txn_ref, amount=context["amount"], approve=approve)
+    return await complete_gateway_payment(provider, payload)

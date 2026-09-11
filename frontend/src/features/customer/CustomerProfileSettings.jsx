@@ -42,13 +42,13 @@ export function CustomerProfileSettings() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line pb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Profile</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">{customer?.fullName || "Customer Profile"}</h1>
+      <div className="border-b border-line-soft pb-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Profile</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">{customer?.fullName || "Customer Profile"}</h1>
       </div>
-      {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
-      <form className="grid gap-4 rounded-md border border-line bg-white p-5 shadow-sm md:grid-cols-2" onSubmit={submit}>
+      {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      <form className="grid gap-4 rounded-xl border border-line bg-white p-5 shadow-card md:grid-cols-2" onSubmit={submit}>
         <label>
           <span className="mb-1.5 block text-sm font-medium text-ink">Phone</span>
           <input className="form-input" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} />
@@ -66,7 +66,7 @@ export function CustomerProfileSettings() {
           <input className="form-input" value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} />
         </label>
         <div className="md:col-span-2">
-          <button className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white">Save Profile</button>
+          <button className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white">Save Profile</button>
         </div>
       </form>
     </section>

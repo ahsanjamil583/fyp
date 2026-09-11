@@ -31,18 +31,7 @@ async def seed_default_admin() -> None:
     now = datetime.now(timezone.utc)
 
     if existing:
-        await db.users.update_one(
-            {"_id": existing["_id"]},
-            {
-                "$set": {
-                    "globalRole": "platform_admin",
-                    "accountType": "business_owner",
-                    "status": "active",
-                    "updatedAt": now,
-                }
-            },
-        )
-        logger.info("Default admin already exists; role/status ensured.")
+        logger.info("Default admin account already exists; leaving credentials, role and status unchanged.")
         return
 
     await db.users.insert_one(

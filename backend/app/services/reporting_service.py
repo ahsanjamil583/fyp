@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException, status
 
@@ -10,11 +11,15 @@ from app.services.analytics_service import get_analytics_summary
 from app.services.business_notification_service import create_business_notification, sync_low_stock_notifications
 
 
-def _parse_summary_date(value: str | None) -> datetime:
-    if not value:
-        return datetime.now(timezone.utc)
+def _parse_summary_date(value: str | None, timezone_name: str = "Asia/Karachi") -> datetime:
     try:
-        return datetime.fromisoformat(f"{value}T00:00:00+00:00")
+        zone = ZoneInfo(timezone_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise HTTPException(status_code=422, detail="Invalid business timezone.")
+    if not value:
+        return datetime.now(zone)
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=zone)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Use YYYY-MM-DD for summary date.") from exc
 
@@ -24,6 +29,11 @@ async def _get_reporting_access(tenant_id: str, user: dict) -> tuple[str, dict]:
     tenant = await get_owned_tenant_or_403(tenant_oid, user)
     await ensure_tenant_module_enabled(tenant_oid, "reports")
     return tenant_id, tenant
+
+
+async def _report_timezone(db, tenant: dict) -> str:
+    delivery = await db.report_delivery_settings.find_one({"tenantId": tenant["_id"]})
+    return (delivery or {}).get("timezone") or (tenant.get("settings") or {}).get("timezone") or "Asia/Karachi"
 
 
 def _build_hook_preview(summary: dict, tenant: dict) -> dict:
@@ -62,12 +72,27 @@ async def generate_daily_summary(tenant_id: str, user: dict, summary_date: str |
     db = get_database()
     _, tenant = await _get_reporting_access(tenant_id, user)
     tenant_oid = tenant["_id"]
-    target_day = _parse_summary_date(summary_date)
+    timezone_name = await _report_timezone(db, tenant)
+    target_day = _parse_summary_date(summary_date, timezone_name)
     start = target_day.replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + timedelta(days=1)
 
     await sync_low_stock_notifications(tenant_oid)
     analytics = await get_analytics_summary(tenant_id, user)
+    day_filter = {"tenantId": tenant_oid, "createdAt": {"$gte": start, "$lt": end}}
+    order_filter = {**day_filter, "transactionType": "order", "status": {"$nin": ["cancelled", "rejected"]}}
+    revenue_rows = await db.transactions.aggregate([
+        {"$match": order_filter},
+        {"$group": {"_id": None, "grossRevenue": {"$sum": "$pricing.total"}, "averageOrderValue": {"$avg": "$pricing.total"}}},
+    ]).to_list(length=1)
+    daily_revenue = revenue_rows[0] if revenue_rows else {}
+    top_rows = await db.transactions.aggregate([
+        {"$match": order_filter}, {"$unwind": "$items"},
+        {"$group": {"_id": "$items.itemId", "name": {"$first": "$items.name"}, "quantity": {"$sum": "$items.quantity"}, "revenue": {"$sum": "$items.subtotal"}}},
+        {"$sort": {"revenue": -1, "quantity": -1}}, {"$limit": 5},
+    ]).to_list(length=5)
+    daily_top_items = [{**serialize_document(row), "itemId": str(row.get("_id", ""))} for row in top_rows]
+    daily_recent = [serialize_document(row) async for row in db.transactions.find(day_filter).sort("createdAt", -1).limit(5)]
 
     new_transactions = await db.transactions.count_documents({"tenantId": tenant_oid, "createdAt": {"$gte": start, "$lt": end}})
     new_orders = await db.transactions.count_documents({"tenantId": tenant_oid, "transactionType": "order", "createdAt": {"$gte": start, "$lt": end}})
@@ -85,6 +110,7 @@ async def generate_daily_summary(tenant_id: str, user: dict, summary_date: str |
     summary = {
         "tenantId": str(tenant_oid),
         "summaryDate": start.strftime("%Y-%m-%d"),
+        "summaryTimezone": timezone_name,
         "headline": headline,
         "metrics": {
             "newTransactions": new_transactions,
@@ -94,12 +120,12 @@ async def generate_daily_summary(tenant_id: str, user: dict, summary_date: str |
             "newInquiries": new_inquiries,
             "unreadAlerts": unread_alerts,
             "lowStockAlerts": low_stock_count,
-            "grossRevenue": analytics.get("revenue", {}).get("grossRevenue", 0),
-            "averageOrderValue": analytics.get("revenue", {}).get("averageOrderValue", 0),
+            "grossRevenue": round(float(daily_revenue.get("grossRevenue", 0) or 0), 2),
+            "averageOrderValue": round(float(daily_revenue.get("averageOrderValue", 0) or 0), 2),
         },
-        "analyticsSummary": analytics.get("dashboardSummary", ""),
-        "topItems": analytics.get("topItems", [])[:5],
-        "recentTransactions": analytics.get("recentTransactions", [])[:5],
+        "analyticsSummary": headline,
+        "topItems": daily_top_items,
+        "recentTransactions": daily_recent,
         "lowStockItems": analytics.get("lowStockItems", [])[:5],
         "generatedAt": datetime.now(timezone.utc).isoformat(),
     }
@@ -110,6 +136,8 @@ async def generate_daily_summary(tenant_id: str, user: dict, summary_date: str |
         {"tenantId": tenant_oid, "reportType": "daily_summary", "summaryDate": summary["summaryDate"]},
         {
             "$set": {
+                "summaryVersion": 2,
+                "summaryTimezone": timezone_name,
                 "headline": summary["headline"],
                 "metrics": summary["metrics"],
                 "analyticsSummary": summary["analyticsSummary"],
@@ -144,10 +172,11 @@ async def generate_daily_summary(tenant_id: str, user: dict, summary_date: str |
 async def get_daily_summary(tenant_id: str, user: dict, summary_date: str | None = None) -> dict:
     db = get_database()
     _, tenant = await _get_reporting_access(tenant_id, user)
-    target_day = _parse_summary_date(summary_date)
+    timezone_name = await _report_timezone(db, tenant)
+    target_day = _parse_summary_date(summary_date, timezone_name)
     date_key = target_day.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d")
     snapshot = await db.report_snapshots.find_one({"tenantId": tenant["_id"], "reportType": "daily_summary", "summaryDate": date_key})
-    if snapshot:
+    if snapshot and snapshot.get("summaryVersion") == 2 and snapshot.get("summaryTimezone") == timezone_name:
         serialized = serialize_document(snapshot)
         serialized["tenantId"] = str(tenant["_id"])
         serialized["generatedAt"] = serialized.get("updatedAt") or serialized.get("createdAt")

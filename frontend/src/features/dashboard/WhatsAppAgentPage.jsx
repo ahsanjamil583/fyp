@@ -11,6 +11,7 @@ import {
   sendWhatsAppTest,
   simulateWhatsAppInbound,
 } from "../../services/whatsappApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 const defaultForm = {
   provider: "baileys",
@@ -60,18 +61,23 @@ export function WhatsAppAgentPage() {
 
   const aiEnabled = enabledModules.includes("ai_chat");
   const whatsappEnabled = enabledModules.includes("whatsapp_agent");
-  const connected = Boolean(settings?.isConnected);
+  const connected = Boolean(settings?.provider === "baileys" ? settings?.bridgeOnline : settings?.isConnected);
   const connectionStatus = settings?.connectionStatus || settings?.status || "not_configured";
   const webhookUrl = useMemo(() => {
-    const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1";
+    const base = import.meta.env.VITE_API_BASE_URL || "/api/v1";
     return `${base.replace(/\/$/, "")}/webhooks/whatsapp`;
   }, []);
   const apiBaseUrl = useMemo(() => {
-    return (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1").replace(/\/$/, "");
+    return new URL(import.meta.env.VITE_API_BASE_URL || "/api/v1", window.location.origin).href.replace(/\/$/, "");
   }, []);
   const bridgeStatusUrl = `${apiBaseUrl}/whatsapp/bridge/status`;
   const bridgeInboundUrl = `${apiBaseUrl}/whatsapp/bridge/inbound`;
-  const bridgeQrUrl = settings?.bridgePort ? `http://localhost:${settings.bridgePort}` : "http://localhost:3005";
+  // The pairing page is per business, so the owner opens their own QR and never sees
+  // another tenant on the same bridge. The API supplies it; the fallback keeps the
+  // button working against an older backend.
+  const bridgeQrUrl =
+    settings?.bridgePairingUrl ||
+    (selectedTenant ? `http://localhost:3005/pair/${encodeURIComponent(selectedTenant.id)}` : "http://localhost:3005");
   const bridgeEnv = selectedTenant
     ? [
         `BIZXUS_API_BASE_URL=${apiBaseUrl}`,
@@ -119,6 +125,19 @@ export function WhatsAppAgentPage() {
   useEffect(() => {
     loadWorkspace().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTenant?.id, aiEnabled, whatsappEnabled]);
+
+  useEffect(() => {
+    if (!selectedTenant?.id || !aiEnabled || !whatsappEnabled) return undefined;
+    let active = true;
+    const timer = setInterval(() => {
+      getWhatsAppSettings(selectedTenant.id).then((data) => {
+        if (active) setSettings(data.settings || {});
+      }).catch(() => {
+        if (active) setSettings((current) => ({ ...current, bridgeOnline: false, connectionStatus: "status_unavailable" }));
+      });
+    }, 15000);
+    return () => { active = false; clearInterval(timer); };
   }, [selectedTenant?.id, aiEnabled, whatsappEnabled]);
 
   function updateForm(field, value) {
@@ -234,16 +253,16 @@ export function WhatsAppAgentPage() {
   }
 
   if (isLoadingTenants || isLoadingModules || isLoading) {
-    return <div className="rounded-md border border-line bg-white p-6 text-sm text-muted">Loading WhatsApp agent...</div>;
+    return <div className="rounded-xl border border-line bg-white p-6 text-sm text-muted">Loading WhatsApp agent...</div>;
   }
 
   if (!selectedTenant) {
-    return <div className="rounded-md border border-line bg-white p-6 text-sm text-muted">Select a business first.</div>;
+    return <div className="rounded-xl border border-line bg-white p-6 text-sm text-muted">Select a business first.</div>;
   }
 
   if (!aiEnabled || !whatsappEnabled) {
     return (
-      <div className="rounded-md border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
         Enable AI Chat and WhatsApp Agent modules before configuring the WhatsApp assistant.
       </div>
     );
@@ -251,11 +270,11 @@ export function WhatsAppAgentPage() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">WhatsApp Agent</p>
+      <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">WhatsApp Agent</p>
         <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold text-ink">WhatsApp Agent for {selectedTenant.name}</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight text-ink">WhatsApp Agent for {selectedTenant.name}</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
               Keep this page ready for your new WhatsApp method. For now, the local simulator lets you test AI replies,
               handoff keywords, order drafts, and conversation history. The Baileys bridge lets a business owner scan
@@ -263,20 +282,25 @@ export function WhatsAppAgentPage() {
             </p>
           </div>
           <div className={connected ? "rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800" : "rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"}>
-            <div className="font-semibold">{connected ? "Connected" : "Needs WhatsApp number"}</div>
+            <div className="font-semibold">{connected ? "Connected" : settings?.isConnected ? "Waiting for bridge connection" : "Needs WhatsApp number"}</div>
             <div className="mt-1 text-xs">Status: {connectionStatus}</div>
-            {settings?.bridgeStatus ? <div className="mt-1 text-xs">Bridge: {settings.bridgeStatus}</div> : null}
+            {settings?.bridgeStatus ? <div className="mt-1 text-xs">Bridge: {settings.bridgeStatus.replaceAll("_", " ")}</div> : null}
+            {settings?.provider === "baileys" && settings?.bridgeStatus !== "ready" ? (
+              <a className="mt-2 inline-block text-xs font-bold underline" href={bridgeQrUrl} rel="noreferrer noopener" target="_blank">
+                Open WhatsApp connection page
+              </a>
+            ) : null}
           </div>
         </div>
       </div>
 
-      {notice ? <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{notice}</div> : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+      {notice ? <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{notice}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <form onSubmit={handleSave} className="space-y-5 rounded-md border border-line bg-white p-5 shadow-sm">
+        <form onSubmit={handleSave} className="space-y-5 rounded-xl border border-line bg-white p-5 shadow-card">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Connection settings</h2>
+            <SectionTitle>Connection settings</SectionTitle>
             <p className="mt-1 text-sm text-muted">
               This is a clean provider-neutral setup. Save the business WhatsApp contact number and test the AI flow with the simulator.
             </p>
@@ -285,7 +309,7 @@ export function WhatsAppAgentPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <label className="text-sm font-medium text-ink">
               Provider
-              <select className="mt-2 w-full rounded-md border border-line px-3 py-2 text-sm" value={form.provider} onChange={(event) => updateForm("provider", event.target.value)}>
+              <select className="mt-2 w-full rounded-xl border border-line px-3 py-2 text-sm" value={form.provider} onChange={(event) => updateForm("provider", event.target.value)}>
                 <option value="baileys">Baileys linked device</option>
                 <option value="mock">Mock / local simulator</option>
               </select>
@@ -293,16 +317,16 @@ export function WhatsAppAgentPage() {
             </label>
             <label className="text-sm font-medium text-ink">
               Business WhatsApp number
-              <input className="mt-2 w-full rounded-md border border-line px-3 py-2 text-sm" value={form.businessWhatsAppNumber} onChange={(event) => updateForm("businessWhatsAppNumber", event.target.value)} placeholder="+923001234567" required />
+              <input className="mt-2 w-full rounded-xl border border-line px-3 py-2 text-sm" value={form.businessWhatsAppNumber} onChange={(event) => updateForm("businessWhatsAppNumber", event.target.value)} placeholder="+923001234567" required />
               <span className="mt-1 block text-xs font-normal text-muted">This number is shown to customers as the business contact number.</span>
             </label>
             <label className="text-sm font-medium text-ink">
               Display name
-              <input className="mt-2 w-full rounded-md border border-line px-3 py-2 text-sm" value={form.displayName} onChange={(event) => updateForm("displayName", event.target.value)} placeholder={selectedTenant.name} />
+              <input className="mt-2 w-full rounded-xl border border-line px-3 py-2 text-sm" value={form.displayName} onChange={(event) => updateForm("displayName", event.target.value)} placeholder={selectedTenant.name} />
             </label>
             <label className="text-sm font-medium text-ink">
               Business hours behavior
-              <select className="mt-2 w-full rounded-md border border-line px-3 py-2 text-sm" value={form.businessHoursMode} onChange={(event) => updateForm("businessHoursMode", event.target.value)}>
+              <select className="mt-2 w-full rounded-xl border border-line px-3 py-2 text-sm" value={form.businessHoursMode} onChange={(event) => updateForm("businessHoursMode", event.target.value)}>
                 <option value="always_on">Always reply with AI</option>
                 <option value="business_hours">Reply during business hours</option>
                 <option value="offline_handoff">Mark handoff outside hours</option>
@@ -312,24 +336,24 @@ export function WhatsAppAgentPage() {
 
           <label className="block text-sm font-medium text-ink">
             Welcome message
-            <textarea className="mt-2 min-h-24 w-full rounded-md border border-line px-3 py-2 text-sm" value={form.welcomeMessage} onChange={(event) => updateForm("welcomeMessage", event.target.value)} />
+            <textarea className="mt-2 min-h-24 w-full rounded-xl border border-line px-3 py-2 text-sm" value={form.welcomeMessage} onChange={(event) => updateForm("welcomeMessage", event.target.value)} />
           </label>
 
           <label className="block text-sm font-medium text-ink">
             Default fallback reply
-            <textarea className="mt-2 min-h-20 w-full rounded-md border border-line px-3 py-2 text-sm" value={form.fallbackReply} onChange={(event) => updateForm("fallbackReply", event.target.value)} />
+            <textarea className="mt-2 min-h-20 w-full rounded-xl border border-line px-3 py-2 text-sm" value={form.fallbackReply} onChange={(event) => updateForm("fallbackReply", event.target.value)} />
           </label>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <label className="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-3 text-sm text-ink">
+            <label className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-3 text-sm text-ink">
               <input type="checkbox" checked={form.agentEnabled} onChange={(event) => updateForm("agentEnabled", event.target.checked)} />
               Agent enabled
             </label>
-            <label className="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-3 text-sm text-ink">
+            <label className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-3 text-sm text-ink">
               <input type="checkbox" checked={form.autoReplyEnabled} onChange={(event) => updateForm("autoReplyEnabled", event.target.checked)} />
               Auto-reply with AI agent
             </label>
-            <label className="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-3 text-sm text-ink">
+            <label className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-3 text-sm text-ink">
               <input type="checkbox" checked={form.handoffEnabled} onChange={(event) => updateForm("handoffEnabled", event.target.checked)} />
               Allow human handoff keywords
             </label>
@@ -337,16 +361,16 @@ export function WhatsAppAgentPage() {
 
           <label className="block text-sm font-medium text-ink">
             Handoff keywords
-            <input className="mt-2 w-full rounded-md border border-line px-3 py-2 text-sm" value={form.handoffKeywords} onChange={(event) => updateForm("handoffKeywords", event.target.value)} />
+            <input className="mt-2 w-full rounded-xl border border-line px-3 py-2 text-sm" value={form.handoffKeywords} onChange={(event) => updateForm("handoffKeywords", event.target.value)} />
             <span className="mt-1 block text-xs font-normal text-muted">Comma-separated words like human, owner, call me, insan.</span>
           </label>
 
-          <div className="rounded-md bg-surface p-4 text-sm text-muted">
+          <div className="rounded-xl bg-surface p-4 text-sm text-muted">
             <div className="font-semibold text-ink">Generic webhook URL</div>
             <div className="mt-1 break-all">{webhookUrl}</div>
             <div className="mt-3 font-semibold text-ink">Verify token</div>
             <div className="mt-1 break-all">{settings?.webhookVerifyToken || "Save settings to use the configured verify token."}</div>
-            <div className="mt-3 rounded-md border border-line bg-white p-3 text-xs leading-5">
+            <div className="mt-3 rounded-xl border border-line bg-white p-3 text-xs leading-5">
               This endpoint is kept as a provider-neutral placeholder for your new WhatsApp method.
             </div>
           </div>
@@ -357,20 +381,38 @@ export function WhatsAppAgentPage() {
                 <div>
                   <div className="font-semibold">Baileys bridge setup</div>
                   <p className="mt-1 leading-6">
-                    Run one bridge per connected business. The owner opens the bridge QR page, scans it from
-                    WhatsApp or WhatsApp Business Linked Devices, and BizXusAI handles replies through this tenant.
+                    Save your settings first, then open the connection page below and scan the QR from
+                    WhatsApp or WhatsApp Business Linked Devices. BizXusAI then handles replies through this tenant.
                   </p>
                 </div>
-                <button className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800" onClick={() => copyText(bridgeEnv, "Bridge environment copied.")} type="button">
+                <button className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800" onClick={() => copyText(bridgeEnv, "Bridge environment copied.")} type="button">
                   Copy env
                 </button>
               </div>
+
+              <div className="mt-3 rounded-xl border border-emerald-300 bg-white p-4">
+                <div className="text-sm font-bold text-ink">Connect this business&apos;s WhatsApp</div>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  Opens the pairing page for this business in a new tab. Keep the bridge running while you scan.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <a
+                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700"
+                    href={bridgeQrUrl}
+                    rel="noreferrer noopener"
+                    target="_blank"
+                  >
+                    Open WhatsApp connection page
+                  </a>
+                  <button className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800" onClick={() => copyText(bridgeQrUrl, "Connection page link copied.")} type="button">
+                    Copy link
+                  </button>
+                </div>
+                <div className="mt-2 break-all text-xs text-slate-500">{bridgeQrUrl}</div>
+              </div>
+
               <pre className="mt-3 overflow-x-auto rounded-xl bg-white p-3 text-xs leading-5 text-ink">{bridgeEnv}</pre>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl bg-white p-3">
-                  <div className="text-xs font-bold uppercase tracking-wide text-emerald-700">Bridge QR page</div>
-                  <div className="mt-1 break-all font-semibold text-ink">{bridgeQrUrl}</div>
-                </div>
                 <div className="rounded-xl bg-white p-3">
                   <div className="text-xs font-bold uppercase tracking-wide text-emerald-700">Connected number</div>
                   <div className="mt-1 font-semibold text-ink">{settings?.bridgeConnectedNumber || settings?.businessWhatsAppNumber || "Not connected yet"}</div>
@@ -385,10 +427,10 @@ export function WhatsAppAgentPage() {
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800" onClick={() => copyText(`cd whatsapp-bridge\nnpm install\nnpm run dev`, "Bridge run commands copied.")} type="button">
+                <button className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800" onClick={() => copyText(`cd whatsapp-bridge\nnpm install\nnpm run dev`, "Bridge run commands copied.")} type="button">
                   Copy run commands
                 </button>
-                <button className="rounded-md border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800" disabled={isRefreshingToken} onClick={handleRefreshToken} type="button">
+                <button className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800" disabled={isRefreshingToken} onClick={handleRefreshToken} type="button">
                   {isRefreshingToken ? "Refreshing..." : "Refresh bridge token"}
                 </button>
               </div>
@@ -396,11 +438,11 @@ export function WhatsAppAgentPage() {
           ) : null}
 
           <div className="flex flex-wrap gap-3">
-            <button className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700" disabled={isSaving} type="submit">
+            <button className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700" disabled={isSaving} type="submit">
               {isSaving ? "Saving..." : "Save / Connect"}
             </button>
             {connected ? (
-              <button className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={handleDisconnect} type="button">
+              <button className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={handleDisconnect} type="button">
                 Disconnect
               </button>
             ) : null}
@@ -408,16 +450,16 @@ export function WhatsAppAgentPage() {
         </form>
 
         <div className="space-y-6">
-          <form onSubmit={handleMockInbound} className="space-y-4 rounded-md border border-line bg-white p-5 shadow-sm">
+          <form onSubmit={handleMockInbound} className="space-y-4 rounded-xl border border-line bg-white p-5 shadow-card">
             <div>
-              <h2 className="text-lg font-semibold text-ink">Mock customer message</h2>
+              <SectionTitle>Mock customer message</SectionTitle>
               <p className="mt-1 text-sm text-muted">Simulate a WhatsApp customer asking the agent a question or requesting an order.</p>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {["Menu bhej do", "Zinger burger available hai?", "Delivery charges?", "2 items order kar do"].map((prompt) => (
                 <button
                   key={prompt}
-                  className="shrink-0 rounded-full border border-line bg-surface px-3 py-2 text-xs font-semibold text-muted hover:border-blue-200 hover:bg-blue-50 hover:text-brand"
+                  className="shrink-0 rounded-full border border-line bg-surface px-3 py-2 text-xs font-semibold text-muted hover:border-brand-200 hover:bg-brand-50 hover:text-brand"
                   type="button"
                   onClick={() => setMockForm((current) => ({ ...current, messageText: prompt }))}
                 >
@@ -425,54 +467,54 @@ export function WhatsAppAgentPage() {
                 </button>
               ))}
             </div>
-            <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={mockForm.customerPhone} onChange={(event) => setMockForm((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="Customer phone" />
-            <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={mockForm.customerName} onChange={(event) => setMockForm((current) => ({ ...current, customerName: event.target.value }))} placeholder="Customer name" />
-            <textarea className="min-h-28 w-full rounded-md border border-line px-3 py-2 text-sm" value={mockForm.messageText} onChange={(event) => setMockForm((current) => ({ ...current, messageText: event.target.value }))} />
-            <button className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700" disabled={!connected || isSimulating} type="submit">
+            <input className="w-full rounded-xl border border-line px-3 py-2 text-sm" value={mockForm.customerPhone} onChange={(event) => setMockForm((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="Customer phone" />
+            <input className="w-full rounded-xl border border-line px-3 py-2 text-sm" value={mockForm.customerName} onChange={(event) => setMockForm((current) => ({ ...current, customerName: event.target.value }))} placeholder="Customer name" />
+            <textarea className="min-h-28 w-full rounded-xl border border-line px-3 py-2 text-sm" value={mockForm.messageText} onChange={(event) => setMockForm((current) => ({ ...current, messageText: event.target.value }))} />
+            <button className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700" disabled={!connected || isSimulating} type="submit">
               {isSimulating ? "Processing..." : "Process with AI"}
             </button>
             {lastResult ? (
-              <div className="space-y-3 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-cyan-50 p-4 text-sm text-blue-950">
+              <div className="space-y-3 rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-cyan-50 p-4 text-sm text-brand-900">
                 <div className="flex items-center justify-between gap-3">
                   <div className="font-semibold">WhatsApp AI reply</div>
                   <span className={lastResult.handoffRequired ? "rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800" : "rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-800"}>
                     {lastResult.handoffRequired ? "Handoff" : "AI reply"}
                   </span>
                 </div>
-                <div className="rounded-2xl rounded-bl-md bg-white px-4 py-3 shadow-sm">
+                <div className="rounded-2xl rounded-bl-lg bg-white px-4 py-3 shadow-card">
                   <p className="leading-6">{lastResult.reply}</p>
                 </div>
               </div>
             ) : null}
           </form>
 
-          <form onSubmit={handleSendTest} className="space-y-4 rounded-md border border-line bg-white p-5 shadow-sm">
+          <form onSubmit={handleSendTest} className="space-y-4 rounded-xl border border-line bg-white p-5 shadow-card">
             <div>
-              <h2 className="text-lg font-semibold text-ink">Send test message</h2>
+              <SectionTitle>Send test message</SectionTitle>
               <p className="mt-1 text-sm text-muted">This logs a local outbound message for testing and review.</p>
             </div>
-            <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={testForm.toPhone} onChange={(event) => setTestForm((current) => ({ ...current, toPhone: event.target.value }))} placeholder="Recipient phone" />
-            <textarea className="min-h-20 w-full rounded-md border border-line px-3 py-2 text-sm" value={testForm.messageText} onChange={(event) => setTestForm((current) => ({ ...current, messageText: event.target.value }))} />
-            <button className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" disabled={!connected || isSendingTest} type="submit">
+            <input className="w-full rounded-xl border border-line px-3 py-2 text-sm" value={testForm.toPhone} onChange={(event) => setTestForm((current) => ({ ...current, toPhone: event.target.value }))} placeholder="Recipient phone" />
+            <textarea className="min-h-20 w-full rounded-xl border border-line px-3 py-2 text-sm" value={testForm.messageText} onChange={(event) => setTestForm((current) => ({ ...current, messageText: event.target.value }))} />
+            <button className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" disabled={!connected || isSendingTest} type="submit">
               {isSendingTest ? "Sending..." : "Log test"}
             </button>
           </form>
         </div>
       </div>
 
-      <div className="rounded-md border border-line bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-line bg-white p-5 shadow-card">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Recent WhatsApp conversations</h2>
+            <SectionTitle>Recent WhatsApp conversations</SectionTitle>
             <p className="mt-1 text-sm text-muted">These also appear in the AI Chat conversation review screen.</p>
           </div>
-          <button className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={() => loadWorkspace()} type="button">
+          <button className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={() => loadWorkspace()} type="button">
             Refresh
           </button>
         </div>
-        <div className="mt-4 overflow-hidden rounded-md border border-line">
+        <div className="mt-4 overflow-hidden rounded-xl border border-line">
           <table className="min-w-full divide-y divide-line text-sm">
-            <thead className="bg-surface text-left text-xs uppercase tracking-wide text-muted">
+            <thead className="bg-surface text-left text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">
               <tr>
                 <th className="px-4 py-3">Customer</th>
                 <th className="px-4 py-3">Last intent</th>

@@ -126,7 +126,38 @@ AVAILABILITY_HINTS = {"available", "availability", "stock", "have", "mil", "hai"
 RECOMMENDATION_HINTS = {"suggest", "recommend", "best", "popular", "options", "menu", "show", "dikhao", "dikhado"}
 CONTACT_HINTS = {"contact", "phone", "email", "call", "address", "location", "where"}
 HOURS_HINTS = {"hours", "timing", "open", "close", "time"}
-GREETING_HINTS = {"hi", "hello", "salam", "assalam", "hey", "aoa"}
+GREETING_HINTS = {"hi", "hello", "salam", "assalam", "hey", "aoa", "hlo", "helo", "salaam", "asalam"}
+
+# Phrases, not single words, so "what are your product prices" stays a price question.
+ABOUT_BUSINESS_PHRASES = (
+    "about your business",
+    "about the business",
+    "about your shop",
+    "about your store",
+    "about you",
+    "tell me about",
+    "what do you sell",
+    "what do you do",
+    "what is this business",
+    "who are you",
+    "your business",
+    "business ke bare",
+    "business ke baare",
+    "apna business",
+    "aap kya bechte",
+    "kya bechte",
+    "kya kaam",
+    "kaam kya",
+    "aap kon",
+    "aap kaun",
+    "apne bare",
+    "apne baare",
+)
+
+
+def looks_like_about_business(normalized_text: str) -> bool:
+    text = str(normalized_text or "")
+    return any(phrase in text for phrase in ABOUT_BUSINESS_PHRASES)
 
 CATEGORY_PRODUCT_TERMS = {
     "restaurant": {
@@ -243,11 +274,11 @@ def _stock_text(item: dict[str, Any], variant: dict[str, Any] | None = None, qua
     if not snapshot.get("tracked"):
         return "Stock available hai"
     if not snapshot.get("available", True):
-        return snapshot.get("message") or "Out of stock"
+        return "Out of stock for the requested quantity"
     available_quantity = snapshot.get("availableQuantity")
     if available_quantity is None:
         return "Stock available hai"
-    return f"Stock: {int(float(available_quantity))}"
+    return "In stock"
 
 
 def _extract_kb_answer(knowledge_docs: list[dict[str, Any]], language_mode: str) -> str:
@@ -298,12 +329,12 @@ def _format_item_answer(item: dict[str, Any], intent: str, language_mode: str) -
         if intent == "ask_price":
             return f"{name} ki price {format_price(currency, price)} hai. {stock}."
         if intent == "ask_availability":
-            return f"Ji, {name} available hai.\nPrice: {format_price(currency, price)}\n{stock}\nAap order karna chahte hain?"
+            return f"{name}\nPrice: {format_price(currency, price)}\n{stock}\nAap order karna chahte hain?"
         return f"{name}\nPrice: {format_price(currency, price)}\n{stock}\nOrder ke liye quantity bata dein."
     if intent == "ask_price":
         return f"The price for {name} is {format_price(currency, price)}. {stock}."
     if intent == "ask_availability":
-        return f"Yes, {name} is available.\nPrice: {format_price(currency, price)}\n{stock}\nWould you like to order it?"
+        return f"{name}\nPrice: {format_price(currency, price)}\n{stock}\nWould you like to order it?"
     return f"{name}\nPrice: {format_price(currency, price)}\n{stock}\nTell me the quantity if you want to order."
 
 
@@ -312,7 +343,12 @@ def detect_language_mode(text: str) -> str:
     tokens = normalized.split()
     roman_urdu_hits = sum(
         1
-        for token in ["hai", "mujhe", "chahiye", "kar", "qeemat", "kitne", "kya", "kon", "kis", "mil", "acha", "bhej", "la"]
+        for token in [
+            "hai", "hain", "mujhe", "chahiye", "kar", "qeemat", "kitne", "kya", "kon", "kis", "mil", "acha", "bhej", "la",
+            # Greetings and courtesies open most conversations, so they decide the language
+            # of the very first reply.
+            "salam", "assalam", "assalamualaikum", "alaikum", "aoa", "aap", "shukriya", "ji", "nahi", "theek", "bhai",
+        ]
         if token in tokens
     )
     english_hits = sum(
@@ -976,6 +1012,24 @@ def build_llm_messages(system_prompt: str, user_message: str, recent_messages: l
     return messages
 
 
+def _describe_llm_failure(provider: str, model: str, exc: Exception) -> str:
+    """Say why a provider refused, including the body it sent back.
+
+    A retired model id answers 404 with a precise explanation, but raise_for_status
+    reports only "Client error '404 Not Found'". That difference cost a debugging session:
+    every reply silently became the canned fallback and the log said nothing useful.
+    """
+    detail = ""
+    response = getattr(exc, "response", None)
+    if response is not None:
+        try:
+            payload = response.json()
+            detail = payload.get("error", {}).get("message") or str(payload)[:300]
+        except Exception:
+            detail = (response.text or "")[:300]
+    return f"{provider} completion failed for model '{model}' ({type(exc).__name__}): {exc}. {detail}".strip()
+
+
 async def generate_openai_response(system_prompt: str, user_message: str, recent_messages: list[dict[str, Any]]) -> str | None:
     if not settings.openai_api_key:
         return None
@@ -993,7 +1047,7 @@ async def generate_openai_response(system_prompt: str, user_message: str, recent
     except Exception as exc:
         # Falling through to the next provider is intentional, but doing it silently
         # made a bad key or a rate limit look like the model simply choosing not to answer.
-        logger.warning("OpenAI completion failed (%s): %s", type(exc).__name__, exc)
+        logger.error("%s", _describe_llm_failure("OpenAI", settings.openai_model, exc))
         return None
 
 
@@ -1012,7 +1066,7 @@ async def generate_groq_response(system_prompt: str, user_message: str, recent_m
             data = response.json()
             return data["choices"][0]["message"]["content"].strip()
     except Exception as exc:
-        logger.warning("Groq completion failed (%s): %s", type(exc).__name__, exc)
+        logger.error("%s", _describe_llm_failure("Groq", settings.groq_model, exc))
         return None
 
 
@@ -1035,6 +1089,75 @@ def format_address_summary(tenant: dict[str, Any], language_mode: str) -> str:
     return f"Business address: {address_line}, {city}, {province}."
 
 
+def _sellable_item_names(all_items: list[dict[str, Any]] | None, limit: int = 4) -> list[str]:
+    names = []
+    for item in all_items or []:
+        name = str(item.get("name") or "").strip()
+        if name and name not in names:
+            names.append(name)
+        if len(names) >= limit:
+            break
+    return names
+
+
+def _business_category_name(tenant: dict[str, Any]) -> str:
+    return str((tenant.get("categoryConfig") or {}).get("name") or "").strip()
+
+
+def format_greeting_response(tenant: dict[str, Any], all_items: list[dict[str, Any]] | None, language_mode: str) -> str:
+    """Answer a greeting like a shop would.
+
+    A greeting carries no catalog terms, so it used to fall through every branch to the
+    "I could not find this information" message: the first thing a customer ever sent
+    got the least helpful reply the agent has.
+    """
+    name = tenant.get("name") or "this business"
+    examples = _sellable_item_names(all_items, 3)
+    if language_mode in {"roman_urdu", "mixed"}:
+        lines = [f"Assalam o Alaikum! {name} mein khush aamdeed."]
+        if examples:
+            lines.append("Hamare paas hain: " + ", ".join(examples) + ".")
+        lines.append("Aap price, availability, timing pooch sakte hain ya order de sakte hain.")
+        return " ".join(lines)
+    lines = [f"Hello! Welcome to {name}."]
+    if examples:
+        lines.append("We have " + ", ".join(examples) + ", and more.")
+    lines.append("You can ask about prices, availability, and timings, or place an order.")
+    return " ".join(lines)
+
+
+def format_business_summary(tenant: dict[str, Any], all_items: list[dict[str, Any]] | None, language_mode: str) -> str:
+    """Introduce the business from its own profile and catalog."""
+    name = tenant.get("name") or "This business"
+    category = _business_category_name(tenant)
+    description = " ".join(str(tenant.get("description") or "").split())
+    if len(description) > 160:
+        description = description[:160].rsplit(" ", 1)[0] + "..."
+    examples = _sellable_item_names(all_items, 4)
+    city = str((tenant.get("address") or {}).get("city") or "").strip().title()
+
+    if language_mode in {"roman_urdu", "mixed"}:
+        lines = [f"{name}" + (f" ek {category} business hai." if category else " ke bare mein:")]
+        if description:
+            lines.append(description)
+        if examples:
+            lines.append("Hamare products: " + ", ".join(examples) + ".")
+        if city:
+            lines.append(f"Location: {city}.")
+        lines.append("Kisi product ka naam bhejein to price aur availability bata deta hoon.")
+        return "\n".join(lines)
+
+    lines = [f"{name}" + (f" is a {category} business." if category else ":")]
+    if description:
+        lines.append(description)
+    if examples:
+        lines.append("Our products include: " + ", ".join(examples) + ".")
+    if city:
+        lines.append(f"Location: {city}.")
+    lines.append("Send a product name and I will share its price and availability.")
+    return "\n".join(lines)
+
+
 def generate_rule_based_response(
     tenant: dict[str, Any],
     knowledge_docs: list[dict[str, Any]],
@@ -1043,6 +1166,7 @@ def generate_rule_based_response(
     matched_items: list[dict[str, Any]],
     language_mode: str,
     safety: dict[str, Any],
+    all_items: list[dict[str, Any]] | None = None,
 ) -> str:
     intent = intent_profile.get("intent", "general_info")
     category_mismatch = detect_category_mismatch(tenant, intent_profile.get("normalizedText", ""), matched_items)
@@ -1068,6 +1192,13 @@ def generate_rule_based_response(
 
     if draft_order.get("items"):
         return _format_draft_response(draft_order, language_mode)
+
+    normalized_text = str(intent_profile.get("normalizedText") or "")
+    if looks_like_about_business(normalized_text):
+        return format_business_summary(tenant, all_items, language_mode)
+
+    if intent == "greeting" and not matched_items:
+        return format_greeting_response(tenant, all_items, language_mode)
 
     if intent == "ask_price" and matched_items:
         return _format_item_answer(matched_items[0], intent, language_mode)
@@ -1137,13 +1268,15 @@ async def generate_agent_response(
     all_items: list[dict[str, Any]] | None = None,
     channel: str = "customer_portal",
 ) -> tuple[str, str]:
+    if channel not in OWNER_CHANNELS and safety.get("allowed", True) and matched_items and intent_profile.get("intent") in {"ask_price", "ask_availability"}:
+        return _format_item_answer(matched_items[0], intent_profile["intent"], language_mode), "live_catalog"
     catalog_items = select_catalog_for_prompt(matched_items, all_items or [], intent_profile)
     system_prompt = build_system_prompt(
         tenant, knowledge_docs, draft_order, intent_profile, language_mode, safety,
         catalog_items=catalog_items, channel=channel,
     )
     if not safety.get("allowed", True):
-        return generate_rule_based_response(tenant, knowledge_docs, draft_order, intent_profile, matched_items, language_mode, safety), "safety_rule"
+        return generate_rule_based_response(tenant, knowledge_docs, draft_order, intent_profile, matched_items, language_mode, safety, all_items), "safety_rule"
 
     ai_text = await generate_openai_response(system_prompt, user_message, recent_messages)
     if ai_text:
@@ -1151,7 +1284,7 @@ async def generate_agent_response(
     ai_text = await generate_groq_response(system_prompt, user_message, recent_messages)
     if ai_text:
         return ai_text, "groq"
-    return generate_rule_based_response(tenant, knowledge_docs, draft_order, intent_profile, matched_items, language_mode, safety), "rule_based_fallback"
+    return generate_rule_based_response(tenant, knowledge_docs, draft_order, intent_profile, matched_items, language_mode, safety, all_items), "rule_based_fallback"
 
 
 def build_rag_sources(knowledge_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1168,6 +1301,14 @@ def build_rag_sources(knowledge_docs: list[dict[str, Any]]) -> list[dict[str, An
     ]
 
 
+def _trim_to_width(line: str, width: int) -> str:
+    """Shorten a line without cutting a word in half."""
+    if len(line) <= width:
+        return line
+    trimmed = line[:width].rsplit(" ", 1)[0].rstrip(" ,;:-")
+    return (trimmed or line[:width].rstrip()) + "..."
+
+
 def clean_customer_reply(reply_text: str, channel: str = "customer_portal") -> str:
     text = str(reply_text or "").strip()
     text = re.sub(r"\b(?:tool|rag|vector|embedding|chunk|metadata|confidence|sourceType|matchType)\s*[:=]\s*\S+", "", text, flags=re.IGNORECASE)
@@ -1178,10 +1319,13 @@ def clean_customer_reply(reply_text: str, channel: str = "customer_portal") -> s
         for line in lines:
             if re.search(r"\b(rag|vector|embedding|chunk|metadata|tool call|internal)\b", line, re.IGNORECASE):
                 continue
-            compact.append(line[:180])
+            compact.append(_trim_to_width(line, 180))
             if len(compact) >= 6:
                 break
         text = "\n".join(compact).strip() or text[:700]
+        # WhatsApp marks bold with single asterisks; a model that emits Markdown
+        # **bold** would otherwise show the asterisks to the customer.
+        text = re.sub(r"\x2a{2,}(.+?)\x2a{2,}", r"*\1*", text, flags=re.DOTALL)
         if len(text) > 700:
             text = text[:680].rstrip() + "..."
     return text

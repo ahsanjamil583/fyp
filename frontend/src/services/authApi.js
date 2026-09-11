@@ -20,11 +20,6 @@ export async function loginBusiness(payload) {
   return response.data.data;
 }
 
-export async function loginBusinessWithPhone(payload) {
-  const response = await apiClient.post("/auth/login/phone", payload);
-  return response.data.data;
-}
-
 export async function requestBusinessOtp(payload) {
   const response = await apiClient.post("/auth/otp/request", payload);
   return response.data.data;

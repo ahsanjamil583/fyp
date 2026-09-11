@@ -9,8 +9,7 @@ from fastapi import HTTPException, status
 from app.core.object_ids import parse_object_id, serialize_document
 from app.core.permissions import get_owned_tenant_or_403
 from app.db.mongodb import get_database
-from app.services.module_service import PLAN_ORDER, enable_tenant_module, list_tenant_modules
-from app.services.module_service import get_package_access_status, get_plan_definition
+from app.services.module_service import PLAN_ORDER, enable_tenant_module, get_plan_definition, list_tenant_modules
 from app.services.tenant_service import publish_tenant
 from app.services.whatsapp_service import normalize_phone
 
@@ -19,7 +18,7 @@ LAUNCH_PROFILES: dict[str, dict[str, Any]] = {
         "name": "Basic",
         "priceLabel": "Free",
         "isPaid": False,
-        "description": "Free website, basic catalog/items, public website, simple dashboard, and manual orders/inquiries.",
+        "description": "Website, catalog/items, public website, simple dashboard, and manual orders/inquiries.",
         "targetPlan": "starter",
         "features": ["Business profile", "Basic catalog/items", "Public website", "Basic dashboard", "Manual orders/inquiries"],
         "modules": ["items", "website_builder", "analytics", "notifications"],
@@ -28,7 +27,7 @@ LAUNCH_PROFILES: dict[str, dict[str, Any]] = {
         "name": "AI Ordering",
         "priceLabel": "Paid",
         "isPaid": True,
-        "description": "Paid package with customer portal, AI chat, RAG, smart ordering, payments, and stock-aware ordering.",
+        "description": "Customer portal, AI chat, RAG, smart ordering, payments, and stock-aware ordering.",
         "targetPlan": "growth",
         "features": ["Everything in Basic", "Customer portal", "AI chat", "RAG knowledge base", "Smart order drafts", "Payments", "Stock-aware ordering"],
         "modules": ["items", "customers", "website_builder", "customer_portal", "ai_chat", "analytics", "payments", "notifications"],
@@ -37,7 +36,7 @@ LAUNCH_PROFILES: dict[str, dict[str, Any]] = {
         "name": "Full Agent",
         "priceLabel": "Paid",
         "isPaid": True,
-        "description": "Paid package with WhatsApp agent, owner AI assistant, daily reports, advanced agent tools, and full automation demo features.",
+        "description": "WhatsApp agent, owner AI assistant, daily reports, advanced agent tools, and full automation demo features.",
         "targetPlan": "scale",
         "features": ["Everything in AI Ordering", "WhatsApp agent", "Owner AI assistant", "Daily WhatsApp/SMS reports", "Agent tools", "Advanced reports", "Full automation demo"],
         "modules": [
@@ -62,14 +61,12 @@ def normalize_launch_profile(profile_code: str | None) -> str:
     return code if code in LAUNCH_PROFILES else "ai_ordering"
 
 
-def _is_platform_admin(user: dict) -> bool:
-    return user.get("globalRole") == "platform_admin"
-
-
 def _profile_access_status(tenant: dict, profile: dict) -> str:
     if not profile.get("isPaid"):
         return "approved"
-    return get_package_access_status(tenant, profile.get("targetPlan"))
+    target_plan = str(profile.get("targetPlan") or "starter").lower()
+    access = (((tenant.get("settings") or {}).get("packageAccess") or {}).get(target_plan) or {})
+    return str(access.get("status") or "locked").lower()
 
 
 def plan_rank(plan_code: str | None) -> int:
@@ -389,8 +386,8 @@ async def get_launch_status(tenant_id: str, user: dict) -> dict:
         code: {
             **profile,
             "accessStatus": _profile_access_status(tenant, profile),
-            "targetPlanName": get_plan_definition(profile["targetPlan"])["name"],
-            "targetPlanDisplayName": get_plan_definition(profile["targetPlan"])["displayName"],
+            "targetPlanName": get_plan_definition(profile.get("targetPlan")).get("name", "Basic"),
+            "targetPlanDisplayName": get_plan_definition(profile.get("targetPlan")).get("displayName", "Basic Free"),
         }
         for code, profile in LAUNCH_PROFILES.items()
     }
@@ -463,13 +460,13 @@ async def apply_launch_profile(tenant_id: str, payload, user: dict) -> dict:
     profile = LAUNCH_PROFILES[profile_code]
     current_plan = ((tenant.get("settings") or {}).get("planCode") or "starter")
     target_plan = highest_required_plan(current_plan, profile.get("targetPlan"))
-    if profile.get("isPaid") and not _is_platform_admin(user) and _profile_access_status(tenant, profile) != "approved":
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail=f"{profile['name']} is a paid package. Please complete payment or request admin approval before applying it.",
-        )
-
     if target_plan != current_plan:
+        access_status = _profile_access_status(tenant, profile)
+        if profile.get("isPaid") and access_status != "approved":
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=f"This launch profile needs admin approval for the {target_plan} plan. Request the package first.",
+            )
         if not payload.autoUpgradePlan:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -581,7 +578,7 @@ async def request_package_upgrade(tenant_id: str, payload, user: dict) -> dict:
         "profileCode": profile_code,
         "targetPlan": profile["targetPlan"],
         "status": "pending_approval",
-        "message": f"{profile['name']} upgrade requested. Admin approval or payment confirmation is required before paid modules unlock.",
+        "message": f"{profile['name']} setup request recorded.",
     }
     return report
 
@@ -612,7 +609,7 @@ async def finalize_launch(tenant_id: str, payload, user: dict) -> dict:
         {
             "$set": {
                 "settings.onboarding.phase28.finalizedAt": datetime.now(timezone.utc).isoformat(),
-                "settings.onboarding.phase28.finalizeStatus": "published" if not publish_error and payload.publishWebsite else "saved_with_warnings",
+                "settings.onboarding.phase28.finalizeStatus": (published_tenant.get("websiteStatus", "pending_review") if not publish_error and payload.publishWebsite else "saved_with_warnings"),
                 "updatedAt": datetime.now(timezone.utc),
             }
         },

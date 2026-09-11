@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getSubmissionExport, getSubmissionPackage, recordSubmissionSignoff } from "../../services/submissionApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 const badgeStyles = {
   pass: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -85,7 +86,7 @@ export function SubmissionCenterPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-primary">
@@ -101,7 +102,7 @@ export function SubmissionCenterPage() {
             <button
               type="button"
               onClick={() => packageQuery.refetch()}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-surface"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-surface"
             >
               <RefreshCw className="h-4 w-4" /> Refresh
             </button>
@@ -109,7 +110,7 @@ export function SubmissionCenterPage() {
               type="button"
               disabled={exportMutation.isPending}
               onClick={() => exportMutation.mutate()}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
             >
               <Download className="h-4 w-4" /> {exportMutation.isPending ? "Preparing..." : "Export evidence JSON"}
             </button>
@@ -124,21 +125,21 @@ export function SubmissionCenterPage() {
       ) : (
         <>
           <div className="grid gap-4 lg:grid-cols-4">
-            <div className="rounded-2xl border border-line bg-white p-5 shadow-sm lg:col-span-1">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">Submission status</div>
+            <div className="rounded-2xl border border-line bg-white p-5 shadow-card lg:col-span-1">
+              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">Submission status</div>
               <div className="mt-2 text-xl font-bold capitalize text-ink">{statusText(summary.status)}</div>
               <div className="mt-3 text-sm text-muted">Required QA: {summary.requiredPercent ?? 0}% · Overall QA: {summary.overallPercent ?? 0}%</div>
             </div>
-            <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">Blocking gaps</div>
+            <div className="rounded-2xl border border-line bg-white p-5 shadow-card">
+              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">Blocking gaps</div>
               <div className="mt-2 text-3xl font-bold text-ink">{summary.blockingCount ?? 0}</div>
             </div>
-            <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">Warnings</div>
+            <div className="rounded-2xl border border-line bg-white p-5 shadow-card">
+              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">Warnings</div>
               <div className="mt-2 text-3xl font-bold text-ink">{summary.warningCount ?? 0}</div>
             </div>
-            <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">Sign-off</div>
+            <div className="rounded-2xl border border-line bg-white p-5 shadow-card">
+              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">Sign-off</div>
               <div className="mt-2 text-xl font-bold capitalize text-ink">{statusText(summary.latestSignoffStatus)}</div>
               <div className="mt-3 text-sm text-muted">
                 Artifacts: {artifactSummary.includedCount ?? includedArtifacts.length}/{artifactSummary.requiredCount ?? requiredArtifacts.length} required
@@ -146,14 +147,14 @@ export function SubmissionCenterPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
             <div className="flex items-center gap-2">
               <FileCheck2 className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-bold text-ink">Proposal-to-code traceability</h2>
+              <SectionTitle>Proposal-to-code traceability</SectionTitle>
             </div>
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full text-left text-sm">
-                <thead className="text-xs uppercase tracking-wide text-muted">
+                <thead className="text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">
                   <tr>
                     <th className="border-b border-line py-2 pr-4">Proposal area</th>
                     <th className="border-b border-line py-2 pr-4">Implemented by</th>
@@ -176,10 +177,10 @@ export function SubmissionCenterPage() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
               <div className="flex items-center gap-2">
                 <Archive className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-bold text-ink">Final artifact checklist</h2>
+                <SectionTitle>Final artifact checklist</SectionTitle>
               </div>
               <div className="mt-4 space-y-3">
                 {artifactChecklist.map((artifact) => (
@@ -212,51 +213,51 @@ export function SubmissionCenterPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-bold text-ink">Submit these</h2>
+              <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
+                <SectionTitle>Submit these</SectionTitle>
                 <div className="mt-4 grid gap-2 text-sm text-muted">
-                  {(data?.filesToSubmit || []).map((item) => <code key={item} className="rounded-md bg-surface px-3 py-2">{item}</code>)}
+                  {(data?.filesToSubmit || []).map((item) => <code key={item} className="rounded-xl bg-surface px-3 py-2">{item}</code>)}
                 </div>
               </div>
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-card">
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="h-5 w-5" />
                   <h2 className="text-lg font-bold">Never submit these</h2>
                 </div>
                 <div className="mt-4 grid gap-2 text-sm">
-                  {(data?.filesToExclude || []).map((item) => <code key={item} className="rounded-md bg-white/70 px-3 py-2">{item}</code>)}
+                  {(data?.filesToExclude || []).map((item) => <code key={item} className="rounded-xl bg-white/70 px-3 py-2">{item}</code>)}
                 </div>
               </div>
             </div>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-ink">Tenant evidence counts</h2>
+            <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
+              <SectionTitle>Tenant evidence counts</SectionTitle>
               <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                 {Object.entries(data?.counts || {}).map(([key, value]) => (
-                  <div key={key} className="rounded-lg bg-surface p-3">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-muted">{key}</dt>
+                  <div key={key} className="rounded-xl bg-surface p-3">
+                    <dt className="text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">{key}</dt>
                     <dd className="mt-1 text-xl font-bold text-ink">{value}</dd>
                   </div>
                 ))}
               </dl>
             </div>
 
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+            <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-bold text-ink">Final sign-off</h2>
+                <SectionTitle>Final sign-off</SectionTitle>
               </div>
               {data?.latestSignoff ? (
-                <div className="mt-4 rounded-lg bg-surface p-3 text-sm text-muted">
+                <div className="mt-4 rounded-xl bg-surface p-3 text-sm text-muted">
                   Last sign-off: <span className="font-semibold text-ink">{statusText(data.latestSignoff.status)}</span> by {data.latestSignoff.reviewerName || "Unknown"}
                 </div>
               ) : null}
               <div className="mt-4 space-y-3">
                 <label className="block text-sm font-semibold text-ink">
                   Status
-                  <select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm">
+                  <select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm">
                     <option value="ready">Ready</option>
                     <option value="ready_with_notes">Ready with notes</option>
                     <option value="blocked">Blocked</option>
@@ -264,17 +265,17 @@ export function SubmissionCenterPage() {
                 </label>
                 <label className="block text-sm font-semibold text-ink">
                   Reviewer name
-                  <input value={reviewerName} onChange={(event) => setReviewerName(event.target.value)} className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" placeholder="Ahsan / Supervisor / Tester" />
+                  <input value={reviewerName} onChange={(event) => setReviewerName(event.target.value)} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm" placeholder="Ahsan / Supervisor / Tester" />
                 </label>
                 <label className="block text-sm font-semibold text-ink">
                   Notes
-                  <textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 min-h-28 w-full rounded-md border border-line px-3 py-2 text-sm" placeholder="Final submission notes, known warnings, or demo instructions..." />
+                  <textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 min-h-28 w-full rounded-xl border border-line px-3 py-2 text-sm" placeholder="Final submission notes, known warnings, or demo instructions..." />
                 </label>
                 <button
                   type="button"
                   disabled={signoffMutation.isPending || !canSignOffReady}
                   onClick={() => signoffMutation.mutate()}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
                 >
                   <FileCheck2 className="h-4 w-4" /> {signoffMutation.isPending ? "Saving..." : "Save final sign-off"}
                 </button>

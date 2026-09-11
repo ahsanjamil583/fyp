@@ -19,10 +19,15 @@ class AdminTenantUpdateRequest(BaseModel):
     settings: dict | None = None
     websiteSettings: dict | None = None
     status: Literal["draft", "active", "archived"] | None = None
-    websiteStatus: Literal["not_generated", "published", "unpublished"] | None = None
+    websiteStatus: Literal["not_generated", "pending_review", "published", "unpublished", "rejected"] | None = None
 
 
 class AdminPackageUpgradeDecisionRequest(BaseModel):
+    status: Literal["approved", "rejected"]
+    note: str | None = Field(default="", max_length=500)
+
+
+class AdminWebsiteRequestDecisionRequest(BaseModel):
     status: Literal["approved", "rejected"]
     note: str | None = Field(default="", max_length=500)
 

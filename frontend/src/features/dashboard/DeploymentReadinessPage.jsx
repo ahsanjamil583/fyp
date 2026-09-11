@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 
 import { getDemoAccounts, getReadinessReport } from "../../services/readinessApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 const statusStyles = {
   pass: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -29,7 +30,7 @@ export function DeploymentReadinessPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-primary">
@@ -44,7 +45,7 @@ export function DeploymentReadinessPage() {
           <button
             type="button"
             onClick={() => readinessQuery.refetch()}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-surface"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-surface"
           >
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
@@ -58,21 +59,21 @@ export function DeploymentReadinessPage() {
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-4">
-            <div className="rounded-2xl border border-line bg-white p-5 shadow-sm md:col-span-1">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">Overall status</div>
+            <div className="rounded-2xl border border-line bg-white p-5 shadow-card md:col-span-1">
+              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">Overall status</div>
               <div className="mt-2 text-xl font-bold capitalize text-ink">{overall.replaceAll("_", " ")}</div>
               <div className="mt-3 text-xs text-muted">Version {report?.runtime?.appVersion} · {report?.runtime?.buildLabel}</div>
             </div>
             {Object.entries(report?.totals || {}).map(([key, value]) => (
-              <div key={key} className="rounded-2xl border border-line bg-white p-5 shadow-sm">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted">{key}</div>
+              <div key={key} className="rounded-2xl border border-line bg-white p-5 shadow-card">
+                <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">{key}</div>
                 <div className="mt-2 text-3xl font-bold text-ink">{value}</div>
               </div>
             ))}
           </div>
 
-          <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-ink">Readiness checks</h2>
+          <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
+            <SectionTitle>Readiness checks</SectionTitle>
             <div className="mt-4 grid gap-3">
               {(report?.checks || []).map((check) => (
                 <div key={check.code} className={`rounded-xl border p-4 ${statusStyles[check.status] || statusStyles.warn}`}>
@@ -92,8 +93,8 @@ export function DeploymentReadinessPage() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-ink">Runtime</h2>
+            <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
+              <SectionTitle>Runtime</SectionTitle>
               <dl className="mt-4 space-y-3 text-sm">
                 {Object.entries(report?.runtime || {}).map(([key, value]) => (
                   <div key={key} className="flex justify-between gap-4 border-b border-line pb-2 last:border-0">
@@ -103,23 +104,23 @@ export function DeploymentReadinessPage() {
                 ))}
               </dl>
             </div>
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-ink">Demo accounts</h2>
+            <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
+              <SectionTitle>Demo accounts</SectionTitle>
               {demoQuery.isLoading ? (
                 <p className="mt-4 text-sm text-muted">Loading demo account info...</p>
               ) : (
                 <div className="mt-4 space-y-3 text-sm">
                   {demo ? (
                     <>
-                      <div className="rounded-lg bg-surface p-3">
+                      <div className="rounded-xl bg-surface p-3">
                         <div className="font-semibold text-ink">Business Owner</div>
                         <div className="text-muted">{demo.businessOwner.email} / {demo.businessOwner.password}</div>
                       </div>
-                      <div className="rounded-lg bg-surface p-3">
+                      <div className="rounded-xl bg-surface p-3">
                         <div className="font-semibold text-ink">Customer</div>
                         <div className="text-muted">{demo.customer.email} / {demo.customer.password}</div>
                       </div>
-                      <div className="rounded-lg bg-surface p-3">
+                      <div className="rounded-xl bg-surface p-3">
                         <div className="font-semibold text-ink">Public demo slug</div>
                         <div className="text-muted">/businesses/{demo.businessSlug}</div>
                       </div>

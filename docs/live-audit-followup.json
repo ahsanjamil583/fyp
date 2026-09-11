@@ -1,0 +1,417 @@
+[
+  {
+    "test": "business login",
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "ms": 5505
+  },
+  {
+    "test": "customer login",
+    "method": "POST",
+    "path": "/api/v1/customer/auth/login",
+    "status": 200,
+    "ms": 333
+  },
+  {
+    "test": "Owner tenants",
+    "method": "GET",
+    "path": "/api/v1/tenants/my",
+    "status": 200,
+    "ms": 7
+  },
+  {
+    "test": "Marketplace",
+    "method": "GET",
+    "path": "/api/v1/customer/marketplace",
+    "status": 200,
+    "ms": 40
+  },
+  {
+    "test": "Cross-tenant owner access",
+    "method": "GET",
+    "path": "/api/v1/tenants/6a4f571923bff861a6f43e36/items",
+    "status": 404,
+    "ms": 7,
+    "error": "Tenant not found or access denied."
+  },
+  {
+    "test": "Invalid item ID",
+    "method": "GET",
+    "path": "/api/v1/public/businesses/style/items/invalid",
+    "status": 400,
+    "ms": 7,
+    "error": "Invalid itemId."
+  },
+  {
+    "test": "Literal bracket search",
+    "method": "GET",
+    "path": "/api/v1/public/businesses/style/items?search=%5B",
+    "status": 500,
+    "ms": 51,
+    "error": "non-JSON response"
+  },
+  {
+    "test": "Normal search",
+    "method": "GET",
+    "path": "/api/v1/public/businesses/style/items?search=shirt",
+    "status": 200,
+    "ms": 36
+  },
+  {
+    "test": "Overlong login password",
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 500,
+    "ms": 60,
+    "error": "non-JSON response"
+  },
+  {
+    "test": "Public business fields",
+    "method": "GET",
+    "path": "/api/v1/public/businesses/style",
+    "status": 200,
+    "ms": 34
+  },
+  {
+    "test": "Public internal metadata",
+    "internalKeys": [
+      "ownerUserId",
+      "websiteApprovalCriteria",
+      "websiteApprovalRequestedAt",
+      "websiteApprovalRequestedBy",
+      "websiteApprovalStatus",
+      "websiteApprovalNote",
+      "websiteApprovalReviewedAt",
+      "websiteApprovalReviewedBy"
+    ],
+    "packageAccessVisible": true,
+    "planCode": "scale"
+  },
+  {
+    "test": "Customer orders",
+    "method": "GET",
+    "path": "/api/v1/customer/orders",
+    "status": 200,
+    "ms": 31
+  },
+  {
+    "test": "Order privacy",
+    "method": "GET",
+    "path": "/api/v1/customer/orders/6aa30ab1d48fbed61a2dffe9",
+    "status": 200,
+    "ms": 35
+  },
+  {
+    "test": "Order internal fields",
+    "orderId": "6aa30ab1d48fbed61a2dffe9",
+    "internalNotesPresent": true,
+    "internalNotesNonempty": false,
+    "inventoryMovementCount": 1,
+    "movementFieldNames": [
+      "actorUserId",
+      "createdAt",
+      "id",
+      "itemId",
+      "itemName",
+      "movementType",
+      "quantity",
+      "source",
+      "tenantId",
+      "transactionId",
+      "transactionNumber",
+      "variantIndex",
+      "variantName"
+    ]
+  },
+  {
+    "test": "Order privacy",
+    "method": "GET",
+    "path": "/api/v1/customer/orders/6aa30a9cd48fbed61a2dffe0",
+    "status": 200,
+    "ms": 15
+  },
+  {
+    "test": "Order internal fields",
+    "orderId": "6aa30a9cd48fbed61a2dffe0",
+    "internalNotesPresent": true,
+    "internalNotesNonempty": false,
+    "inventoryMovementCount": 1,
+    "movementFieldNames": [
+      "actorUserId",
+      "createdAt",
+      "id",
+      "itemId",
+      "itemName",
+      "movementType",
+      "quantity",
+      "source",
+      "tenantId",
+      "transactionId",
+      "transactionNumber",
+      "variantIndex",
+      "variantName"
+    ]
+  },
+  {
+    "test": "Public catalog",
+    "method": "GET",
+    "path": "/api/v1/public/businesses/style/items",
+    "status": 200,
+    "ms": 15
+  },
+  {
+    "test": "Public catalog data",
+    "name": "Grey Tracksuit",
+    "price": 4800.0,
+    "costPriceExposed": false,
+    "stockKeys": [
+      "inStock",
+      "status",
+      "tracked"
+    ],
+    "imageCount": 1
+  },
+  {
+    "test": "Local product image",
+    "status": 404,
+    "contentType": "application/json",
+    "bytes": 22
+  },
+  {
+    "test": "Public catalog data",
+    "name": "Kids Red Canvas Shoes",
+    "price": 2200.0,
+    "costPriceExposed": false,
+    "stockKeys": [
+      "inStock",
+      "status",
+      "tracked"
+    ],
+    "imageCount": 1
+  },
+  {
+    "test": "Local product image",
+    "status": 404,
+    "contentType": "application/json",
+    "bytes": 22
+  },
+  {
+    "test": "Public catalog data",
+    "name": "Blue Sports Shoes",
+    "price": 4200.0,
+    "costPriceExposed": false,
+    "stockKeys": [
+      "inStock",
+      "status",
+      "tracked"
+    ],
+    "imageCount": 1
+  },
+  {
+    "test": "Local product image",
+    "status": 404,
+    "contentType": "application/json",
+    "bytes": 22
+  },
+  {
+    "test": "Public catalog data",
+    "name": "Beige Block Heels",
+    "price": 3800.0,
+    "costPriceExposed": false,
+    "stockKeys": [
+      "inStock",
+      "status",
+      "tracked"
+    ],
+    "imageCount": 1
+  },
+  {
+    "test": "Local product image",
+    "status": 404,
+    "contentType": "application/json",
+    "bytes": 22
+  },
+  {
+    "test": "Frontend HTTP delivery (not rendered)",
+    "path": "/",
+    "status": 200,
+    "contentType": "text/html",
+    "bytes": 566
+  },
+  {
+    "test": "Frontend HTTP delivery (not rendered)",
+    "path": "/login",
+    "status": 200,
+    "contentType": "text/html",
+    "bytes": 566
+  },
+  {
+    "test": "Frontend HTTP delivery (not rendered)",
+    "path": "/customer/login",
+    "status": 200,
+    "contentType": "text/html",
+    "bytes": 566
+  },
+  {
+    "test": "Frontend HTTP delivery (not rendered)",
+    "path": "/dashboard",
+    "status": 200,
+    "contentType": "text/html",
+    "bytes": 566
+  },
+  {
+    "test": "Frontend HTTP delivery (not rendered)",
+    "path": "/admin",
+    "status": 200,
+    "contentType": "text/html",
+    "bytes": 566
+  },
+  {
+    "test": "Frontend HTTP delivery (not rendered)",
+    "path": "/businesses/style",
+    "status": 200,
+    "contentType": "text/html",
+    "bytes": 566
+  },
+  {
+    "test": "Frontend HTTP delivery (not rendered)",
+    "path": "/src/assets/bizxus-logo.png",
+    "status": 200,
+    "contentType": "image/png",
+    "bytes": 1470945
+  },
+  {
+    "test": "CORS preflight",
+    "status": 200,
+    "allowedOrigin": "http://localhost:5173"
+  },
+  {
+    "test": "WhatsApp settings",
+    "method": "GET",
+    "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/whatsapp/settings",
+    "status": 200,
+    "ms": 41
+  },
+  {
+    "test": "WhatsApp state",
+    "state": {
+      "isConnected": true,
+      "provider": "baileys",
+      "connectionStatus": "manual_connected",
+      "lastError": "",
+      "bridgeStatus": "ready"
+    }
+  },
+  {
+    "test": "Configured bridge health",
+    "url": "http://localhost:3005",
+    "error": "ConnectError"
+  },
+  {
+    "test": "Integration modes",
+    "smsProvider": "mock",
+    "emailProvider": "smtp",
+    "smtpHost": "smtp.gmail.com",
+    "smtpPort": 587,
+    "smtpUsernamePresent": true,
+    "smtpPasswordPresent": true,
+    "otpDemoMode": false,
+    "jazzcashMode": "simulator",
+    "easypaisaMode": "simulator",
+    "stripeKeyPresent": true,
+    "stripeUsesTestKey": true,
+    "groqModel": "openai/gpt-oss-20b"
+  },
+  {
+    "test": "SMTP connection/TLS/authentication; no message sent",
+    "statusCode": 235
+  },
+  {
+    "test": "AI preview",
+    "method": "POST",
+    "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/agent/preview",
+    "status": 200,
+    "ms": 2825
+  },
+  {
+    "test": "AI preview result",
+    "message": "Assalam o Alaikum",
+    "reply": "Wa Alaikum Salam!  \nStyle Fashion mein aap ka swagat hai.  \nAapko koi product dekhna hai ya order place karna hai?  \nAap mujh se pooch sakte hain.",
+    "meta": {
+      "intent": "greeting",
+      "confidence": 0.92,
+      "languageMode": "roman_urdu",
+      "responseSource": "groq",
+      "knowledgeCount": 6,
+      "retrievalConfidence": 0.1419,
+      "localizationScore": 0.75,
+      "safetyFlags": {
+        "promptInjection": false,
+        "medicalAdvice": false
+      },
+      "matchedItemCount": 0,
+      "agentLayer": "phase_24_smart_customer_ordering"
+    },
+    "ragSourceCount": 6,
+    "draftItemCount": 0
+  },
+  {
+    "test": "AI preview",
+    "method": "POST",
+    "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/agent/preview",
+    "status": 200,
+    "ms": 1723
+  },
+  {
+    "test": "AI preview result",
+    "message": "Grey Tracksuit ki price kya hai?",
+    "reply": "Grey Tracksuit ki price PKR\u202f4,800 hai.  \nStock available hai (16 pieces).  \n\nAgar aap order karna chahein, toh WhatsApp pe 03XXXXXXXXX pe message bhej sakte hain ya yahan hi draft order confirm karwa sakte hain. \ud83d\ude9a\ud83d\udcf2",
+    "meta": {
+      "intent": "ask_price",
+      "confidence": 0.79,
+      "languageMode": "mixed",
+      "responseSource": "groq",
+      "knowledgeCount": 6,
+      "retrievalConfidence": 0.2,
+      "localizationScore": 1.0,
+      "safetyFlags": {
+        "promptInjection": false,
+        "medicalAdvice": false
+      },
+      "matchedItemCount": 1,
+      "agentLayer": "phase_24_smart_customer_ordering"
+    },
+    "ragSourceCount": 6,
+    "draftItemCount": 0
+  },
+  {
+    "test": "AI preview",
+    "method": "POST",
+    "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/agent/preview",
+    "status": 200,
+    "ms": 2605
+  },
+  {
+    "test": "AI preview result",
+    "message": "I want 1 Grey Tracksuit",
+    "reply": "Sure! I\u2019ve added **1 Grey Tracksuit** (PKR\u202f4,800) to your draft order.  \n\nWould you like to proceed with this order?  \nIf yes, let me know whether you prefer **pickup** (default) or **delivery**.  \n\nOnce you confirm, I\u2019ll finalize the order and share payment details.",
+    "meta": {
+      "intent": "place_order",
+      "confidence": 0.75,
+      "languageMode": "english",
+      "responseSource": "groq",
+      "knowledgeCount": 6,
+      "retrievalConfidence": 0.1581,
+      "localizationScore": 1.0,
+      "safetyFlags": {
+        "promptInjection": false,
+        "medicalAdvice": false
+      },
+      "matchedItemCount": 1,
+      "agentLayer": "phase_24_smart_customer_ordering"
+    },
+    "ragSourceCount": 6,
+    "draftItemCount": 1
+  }
+]

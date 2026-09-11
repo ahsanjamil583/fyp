@@ -129,7 +129,7 @@ export function PublicBusinessChatPage() {
     <PublicWebsiteFrame business={business} currentPage="chat" siteModel={siteModel}>
       <div className="mx-auto max-w-7xl px-5 py-10">
         <BusinessAiChatExperience
-          accentClass="text-blue-700"
+          accentClass="text-brand-700"
           business={business}
           checkout={checkout}
           draftOrder={draftOrder}

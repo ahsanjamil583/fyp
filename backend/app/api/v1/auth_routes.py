@@ -14,7 +14,6 @@ from app.schemas.otp_schema import (
     EmailOtpVerifyRequest,
     EmailPasswordResetRequest,
     PhoneBusinessRegisterRequest,
-    PhoneOtpLoginRequest,
     PhoneOtpRequest,
     PhoneOtpVerifyRequest,
     PhonePasswordResetRequest,
@@ -23,7 +22,6 @@ from app.services.auth_service import (
     auth_payload,
     change_password,
     login_user,
-    login_user_with_phone_otp,
     refresh_auth_token,
     register_business_owner,
     register_business_owner_with_email_otp,
@@ -68,12 +66,6 @@ async def register_with_email_otp(payload: EmailBusinessRegisterRequest):
 async def login(payload: LoginRequest):
     data = await login_user(payload.email, payload.password, expected_account_type="business_owner")
     return success_response("Logged in successfully.", data)
-
-
-@router.post("/login/phone")
-async def login_with_phone_otp(payload: PhoneOtpLoginRequest):
-    data = await login_user_with_phone_otp(payload.phone, payload.code, expected_account_type="business_owner")
-    return success_response("Logged in with phone OTP successfully.", data)
 
 
 @router.post("/otp/request")

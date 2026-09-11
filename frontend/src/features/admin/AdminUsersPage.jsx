@@ -43,27 +43,27 @@ export function AdminUsersPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line pb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Admin Controls</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Users</h1>
+      <div className="border-b border-line-soft pb-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Admin Controls</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Users</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
           Review account health, suspend access when needed, and manage platform admin permissions.
         </p>
       </div>
 
-      {message ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       {isLoading ? <div className="text-sm text-muted">Loading users...</div> : null}
 
       <div className="space-y-4">
         {users.map((user) => (
-          <article key={user.id} className="rounded-md border border-line bg-white p-5 shadow-sm">
+          <article key={user.id} className="rounded-xl border border-line bg-white p-5 shadow-card">
             <div className="grid gap-4 xl:grid-cols-[1.4fr_repeat(4,minmax(0,1fr))]">
               <div>
-                <div className="text-lg font-semibold text-ink">{user.fullName}</div>
+                <div className="text-base font-bold text-ink">{user.fullName}</div>
                 <div className="mt-1 text-sm text-muted">{user.email}</div>
                 <div className="mt-1 text-sm text-muted">{user.phone}</div>
-                <div className="mt-3 text-xs uppercase tracking-wide text-muted">
+                <div className="mt-3 text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">
                   {user.accountType} / {user.ownedTenantCount || 0} tenants
                 </div>
               </div>
@@ -110,7 +110,7 @@ export function AdminUsersPage() {
             </div>
           </article>
         ))}
-        {!users.length && !isLoading ? <div className="rounded-md border border-dashed border-line bg-surface p-6 text-sm text-muted">No users found.</div> : null}
+        {!users.length && !isLoading ? <div className="rounded-xl border border-dashed border-line bg-surface p-6 text-sm text-muted">No users found.</div> : null}
       </div>
     </section>
   );

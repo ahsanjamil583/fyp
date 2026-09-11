@@ -50,4 +50,4 @@ class HealthApiTests(unittest.TestCase):
         payload = response.json()
         self.assertTrue(payload["success"])
         self.assertEqual(payload["data"]["mongodb"]["connected"], True)
-        self.assertEqual(payload["data"]["chroma"]["mode"], "persistent")
+        self.assertEqual(set(payload["data"]["chroma"]), {"connected"})

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getAdminReports } from "../../services/adminApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 function planLabel(planCode) {
   return { starter: "Basic", growth: "AI Ordering", scale: "Full Agent" }[planCode] || "Basic";
@@ -42,24 +43,24 @@ export function AdminReportsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line pb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Platform Insights</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Admin Reports</h1>
+      <div className="border-b border-line-soft pb-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Platform Insights</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Admin Reports</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
           Review platform-wide role distribution, website publication status, and the current module catalog in one reporting view.
         </p>
       </div>
 
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       {isLoading ? <div className="text-sm text-muted">Loading reports...</div> : null}
 
       {reports ? (
         <div className="grid gap-4 xl:grid-cols-3">
-          <article className="rounded-md border border-line bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-ink">User Roles</h2>
+          <article className="rounded-xl border border-line bg-white p-5 shadow-card">
+            <SectionTitle>User Roles</SectionTitle>
             <div className="mt-4 space-y-3">
               {(reports.userRoleBreakdown || []).map((row) => (
-                <div key={row.role} className="flex items-center justify-between rounded-md bg-surface px-3 py-2 text-sm">
+                <div key={row.role} className="flex items-center justify-between rounded-xl bg-surface px-3 py-2 text-sm">
                   <span className="font-medium text-ink">{row.role}</span>
                   <span className="text-muted">{row.count}</span>
                 </div>
@@ -67,11 +68,11 @@ export function AdminReportsPage() {
             </div>
           </article>
 
-          <article className="rounded-md border border-line bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-ink">Website Status</h2>
+          <article className="rounded-xl border border-line bg-white p-5 shadow-card">
+            <SectionTitle>Website Status</SectionTitle>
             <div className="mt-4 space-y-3">
               {(reports.websiteStatusBreakdown || []).map((row) => (
-                <div key={row.status} className="flex items-center justify-between rounded-md bg-surface px-3 py-2 text-sm">
+                <div key={row.status} className="flex items-center justify-between rounded-xl bg-surface px-3 py-2 text-sm">
                   <span className="font-medium text-ink">{row.status}</span>
                   <span className="text-muted">{row.count}</span>
                 </div>
@@ -79,11 +80,11 @@ export function AdminReportsPage() {
             </div>
           </article>
 
-          <article className="rounded-md border border-line bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-ink">Plan Mix</h2>
+          <article className="rounded-xl border border-line bg-white p-5 shadow-card">
+            <SectionTitle>Plan Mix</SectionTitle>
             <div className="mt-4 space-y-3">
               {Object.entries(reports.planBreakdown || {}).map(([planCode, count]) => (
-                <div key={planCode} className="flex items-center justify-between rounded-md bg-surface px-3 py-2 text-sm">
+                <div key={planCode} className="flex items-center justify-between rounded-xl bg-surface px-3 py-2 text-sm">
                   <span className="font-medium text-ink">{planLabel(planCode)}</span>
                   <span className="text-muted">{count}</span>
                 </div>
@@ -91,11 +92,11 @@ export function AdminReportsPage() {
             </div>
           </article>
 
-          <article className="rounded-md border border-line bg-white p-5 shadow-sm xl:col-span-3">
-            <h2 className="text-lg font-semibold text-ink">Module Catalog Snapshot</h2>
+          <article className="rounded-xl border border-line bg-white p-5 shadow-card xl:col-span-3">
+            <SectionTitle>Module Catalog Snapshot</SectionTitle>
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full text-left text-sm">
-                <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
+                <thead className="border-b border-line text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">
                   <tr>
                     <th className="py-2 pr-4">Module</th>
                     <th className="py-2 pr-4">Category</th>

@@ -81,112 +81,44 @@ def get_package_access_status(tenant: dict, plan_code: str | None) -> str:
         return "approved"
     if _get_tenant_plan_code(tenant) == plan["code"]:
         return "approved"
-    settings = tenant.get("settings", {}) or {}
-    access = ((settings.get("packageAccess") or {}).get(plan["code"]) or {})
+    access = (((tenant.get("settings") or {}).get("packageAccess") or {}).get(plan["code"]) or {})
     return str(access.get("status") or "locked").lower()
 
 
 def _get_included_plans(module: dict) -> list[str]:
-    availability = module.get("availability", {}) or {}
-    included_plans = availability.get("includedPlans") or PLAN_ORDER
-    return [plan for plan in included_plans if plan in PLAN_ORDER] or PLAN_ORDER
+    included = ((module.get("availability") or {}).get("includedPlans")) or PLAN_ORDER
+    return [plan for plan in included if plan in PLAN_ORDER] or PLAN_ORDER
 
 
 def _get_upgrade_plan_code(module: dict, current_plan: str) -> str | None:
     included_plans = _get_included_plans(module)
     if current_plan in included_plans:
         return None
-    for plan_code in PLAN_ORDER:
+    current_index = PLAN_ORDER.index(current_plan) if current_plan in PLAN_ORDER else 0
+    for plan_code in PLAN_ORDER[current_index + 1 :]:
         if plan_code in included_plans:
             return plan_code
-    return None
+    return included_plans[0] if included_plans else None
 
 
 def format_plan_name(plan_code: str | None) -> str:
     return get_plan_definition(plan_code).get("name", "Basic")
 
 
-def _get_usage_limit_config(module: dict, plan_code: str) -> dict | None:
-    usage_limits = module.get("usageLimits", {}) or {}
-    config = usage_limits.get(plan_code)
-    return config if isinstance(config, dict) else None
-
-
-async def _get_usage_current_value(db, tenant_oid, metric_code: str) -> int:
-    if metric_code == "customers":
-        return await db.customers.count_documents({"tenantId": tenant_oid})
-    if metric_code == "active_items":
-        return await db.items.count_documents({"tenantId": tenant_oid, "status": {"$ne": "archived"}})
-    if metric_code == "monthly_ai_messages":
-        now = datetime.now(timezone.utc)
-        month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
-        return await db.messages.count_documents(
-            {
-                "tenantId": tenant_oid,
-                "sender": "customer",
-                "createdAt": {"$gte": month_start},
-            }
-        )
-    if metric_code == "monthly_whatsapp_messages":
-        now = datetime.now(timezone.utc)
-        month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
-        return await db.whatsapp_message_logs.count_documents(
-            {
-                "tenantId": tenant_oid,
-                "direction": "inbound",
-                "createdAt": {"$gte": month_start},
-            }
-        )
-    return 0
-
-
-async def build_module_usage_summary(module: dict, tenant_oid, plan_code: str) -> dict | None:
-    config = _get_usage_limit_config(module, plan_code)
-    if not config:
-        return None
-    db = get_database()
-    current = await _get_usage_current_value(db, tenant_oid, str(config.get("metricCode", "")))
-    limit = config.get("limit")
-    unlimited = limit is None
-    remaining = None if unlimited else max(int(limit) - current, 0)
-    if unlimited:
-        status_label = "ok"
-    elif current >= int(limit):
-        status_label = "limit_reached"
-    elif current >= max(int(limit) - 5, int(limit * 0.8)):
-        status_label = "near_limit"
-    else:
-        status_label = "ok"
-    return {
-        "metricCode": config.get("metricCode", ""),
-        "label": config.get("label", "Usage"),
-        "current": current,
-        "limit": limit,
-        "remaining": remaining,
-        "status": status_label,
-    }
-
-
 async def ensure_module_usage_capacity(tenant_oid, module_code: str, increment: int = 1) -> None:
-    db = get_database()
-    tenant = await db.tenants.find_one({"_id": tenant_oid})
-    if not tenant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found.")
+    return None
 
-    module = await db.modules.find_one({"code": module_code, "isActive": True})
-    if not module:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found.")
 
-    plan_code = _get_tenant_plan_code(tenant)
-    usage = await build_module_usage_summary(module, tenant_oid, plan_code)
-    if not usage or usage.get("limit") is None:
+def _ensure_module_plan_access(tenant: dict, module: dict, plan_code: str) -> None:
+    included_plans = _get_included_plans(module)
+    if plan_code in included_plans:
         return
-
-    if usage["current"] + max(increment, 0) > int(usage["limit"]):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"{module.get('name', 'Module')} limit reached for the {plan_code} plan. Upgrade your workspace plan to continue.",
-        )
+    upgrade_plan = _get_upgrade_plan_code(module, plan_code)
+    upgrade_name = format_plan_name(upgrade_plan)
+    raise HTTPException(
+        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+        detail=f"{module.get('name', module.get('code', 'This module'))} is not included in the {format_plan_name(plan_code)} plan. Request or switch to {upgrade_name} to enable it.",
+    )
 
 
 async def create_module(payload) -> dict:
@@ -216,7 +148,6 @@ async def list_tenant_modules(tenant_id: str, user: dict) -> dict:
     hydrated_modules = []
     for module in modules:
         included_plans = _get_included_plans(module)
-        usage_summary = await build_module_usage_summary(module, tenant_oid, plan_code)
         hydrated_modules.append(
             {
                 **module,
@@ -237,7 +168,6 @@ async def list_tenant_modules(tenant_id: str, user: dict) -> dict:
                     "upgradePlanName": format_plan_name(_get_upgrade_plan_code(module, plan_code)),
                     "accessStatus": get_package_access_status(tenant, plan_code),
                 },
-                "usageSummary": usage_summary,
             }
         )
 
@@ -259,17 +189,11 @@ async def enable_tenant_module(tenant_id: str, module_code: str, user: dict) -> 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found.")
 
     plan_code = _get_tenant_plan_code(tenant)
+    _ensure_module_plan_access(tenant, module, plan_code)
     dependency_codes = _resolve_dependency_chain(module_code, module_map)
     codes_to_enable = dependency_codes + [module_code]
-    blocked_modules = [code for code in codes_to_enable if plan_code not in _get_included_plans(module_map[code])]
-    if blocked_modules:
-        blocked_names = [module_map[code]["name"] for code in blocked_modules]
-        upgrade_code = _get_upgrade_plan_code(module_map[blocked_modules[0]], plan_code)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"This feature is available in the {format_plan_name(upgrade_code)} plan. Please upgrade to continue. Locked modules: {', '.join(blocked_names)}.",
-        )
-
+    for dependency_code in dependency_codes:
+        _ensure_module_plan_access(tenant, module_map[dependency_code], plan_code)
     now = datetime.now(timezone.utc)
     for code in codes_to_enable:
         await db.tenant_modules.update_one(

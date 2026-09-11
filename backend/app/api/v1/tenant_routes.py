@@ -35,7 +35,7 @@ async def update(tenantId: str, payload: TenantUpdateRequest, current_user: dict
 @router.post("/{tenantId}/publish")
 async def publish(tenantId: str, current_user: dict = Depends(get_current_business_user)):
     data = await publish_tenant(tenantId, current_user)
-    return success_response("Tenant published successfully.", data)
+    return success_response("Website request submitted for admin review.", data)
 
 
 @router.post("/{tenantId}/unpublish")

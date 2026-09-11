@@ -30,6 +30,8 @@ from app.services.phase32_utils import is_short_confirmation
 
 def _safe_item_summary(item: dict[str, Any]) -> dict[str, Any]:
     variant = item.get("agentMatchedVariant") or None
+    if variant:
+        variant = {k: v for k, v in variant.items() if k not in {"stockQuantity", "reservedQuantity", "costPrice", "lowStockThreshold"}}
     return {
         "id": str(item.get("_id", item.get("id", ""))),
         "name": item.get("name", ""),
@@ -114,6 +116,9 @@ async def run_customer_agent(
     )
 
     state.knowledgeDocs = await retrieve_tenant_knowledge(state.tenant, effective_message, state.intentProfile)
+    if channel not in OWNER_CHANNELS:
+        # Product snapshots age as orders change stock. Use the live catalog instead.
+        state.knowledgeDocs = [doc for doc in state.knowledgeDocs if doc.get("sourceType") != "item"]
     state.add_event(
         agent="rag_agent",
         tool="hybrid_rag_retriever",

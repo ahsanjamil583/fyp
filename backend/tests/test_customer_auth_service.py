@@ -15,7 +15,7 @@ class CustomerAuthServiceTests(unittest.IsolatedAsyncioTestCase):
             "03070000001",
         )
 
-        self.assertEqual(detail, "Phone number already exists. Use phone OTP login instead.")
+        self.assertEqual(detail, "Phone number already exists. Sign in instead.")
 
     async def test_register_customer_links_existing_guest_customer_records(self):
         user_id = ObjectId()
@@ -25,7 +25,7 @@ class CustomerAuthServiceTests(unittest.IsolatedAsyncioTestCase):
         payload = type(
             "Payload",
             (),
-            {"fullName": "Danyal Khan", "email": "danyal@gmail.com", "phone": "03001234567", "password": "Str0ng!Secret"},
+            {"fullName": "Danyal Khan", "email": "danyal@gmail.com", "password": "Str0ng!Secret"},
         )()
 
         with (

@@ -39,3 +39,8 @@ export async function decideAdminPackageRequest(tenantId, planCode, payload) {
   const response = await apiClient.post(`/admin/tenants/${tenantId}/package-requests/${planCode}/decision`, payload);
   return response.data.data;
 }
+
+export async function decideAdminWebsiteRequest(tenantId, payload) {
+  const response = await apiClient.post(`/admin/tenants/${tenantId}/website-request/decision`, payload);
+  return response.data.data;
+}

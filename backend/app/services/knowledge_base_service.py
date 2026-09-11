@@ -255,6 +255,7 @@ async def list_knowledge_documents(
     if active_only:
         query["isActive"] = True
     if search:
+        search = re.escape(search[:200])
         query["$or"] = [
             {"title": {"$regex": search, "$options": "i"}},
             {"content": {"$regex": search, "$options": "i"}},

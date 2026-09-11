@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import re
 
 from fastapi import HTTPException, status
 
@@ -50,6 +51,7 @@ async def list_transactions(
     if source_filter:
         query["source"] = source_filter
     if search:
+        search = re.escape(search[:200])
         query["$or"] = [
             {"transactionNumber": {"$regex": search, "$options": "i"}},
             {"customerSnapshot.name": {"$regex": search, "$options": "i"}},
@@ -160,13 +162,28 @@ async def update_transaction(tenant_id: str, transaction_id: str, payload, user:
     update_doc = {"$set": updates}
     if history_entries:
         update_doc["$push"] = {"statusHistory": {"$each": history_entries}}
-    await db.transactions.update_one({"_id": transaction_oid}, update_doc)
-
-    updated = await db.transactions.find_one({"_id": transaction_oid, "tenantId": tenant_oid})
-    if updated and any(entry["field"] == "status" for entry in history_entries):
-        updated = await apply_transaction_inventory_transition(existing, updated, user.get("_id"))
-    if updated and any(entry["field"] == "paymentStatus" and entry["to"] == "refunded" for entry in history_entries):
-        updated = await restore_transaction_stock(updated, user.get("_id"))
+    update_doc["$set"]["workflowOperation"] = "updating"
+    result = await db.transactions.update_one(
+        {"_id": transaction_oid, "tenantId": tenant_oid, "status": existing.get("status"), "paymentStatus": existing.get("paymentStatus"), "workflowOperation": {"$exists": False}, "inventoryOperation": {"$exists": False}},
+        update_doc,
+    )
+    if not result.matched_count:
+        raise HTTPException(status_code=409, detail="This transaction changed or is being updated. Please reload.")
+    try:
+        updated = await db.transactions.find_one({"_id": transaction_oid, "tenantId": tenant_oid})
+        if updated and any(entry["field"] == "status" for entry in history_entries):
+            updated = await apply_transaction_inventory_transition(existing, updated, user.get("_id"))
+        if updated and any(entry["field"] == "paymentStatus" and entry["to"] == "refunded" for entry in history_entries):
+            updated = await restore_transaction_stock(updated, user.get("_id"))
+    except Exception:
+        rollback = {key: existing.get(key) for key in updates if key not in {"workflowOperation", "updatedAt"}}
+        await db.transactions.update_one(
+            {"_id": transaction_oid, "workflowOperation": "updating"},
+            {"$set": rollback, "$pull": {"statusHistory": {"changedAt": now}}},
+        )
+        raise
+    finally:
+        await db.transactions.update_one({"_id": transaction_oid}, {"$unset": {"workflowOperation": ""}})
     if updated and updated.get("customerId"):
         await sync_customer_stats_for_transaction(tenant, updated)
         updated = await db.transactions.find_one({"_id": transaction_oid, "tenantId": tenant_oid})

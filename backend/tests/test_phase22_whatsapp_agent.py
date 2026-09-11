@@ -6,13 +6,16 @@ actually exists: the bridge endpoints and their token authentication.
 """
 
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from bson import ObjectId
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from app.services import whatsapp_service
 from app.services.whatsapp_service import (
+    build_bridge_pairing_url,
+    list_bridge_tenants,
     build_whatsapp_deep_link,
     normalize_phone,
     process_bridge_inbound,
@@ -111,6 +114,106 @@ class BridgeAuthTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(HTTPException) as ctx:
                 await process_bridge_inbound(self._payload(), "good-token")
         self.assertEqual(ctx.exception.status_code, 403)
+
+
+class BridgePairingUrlTests(unittest.TestCase):
+    """The owner-facing link that opens their QR page on the bridge."""
+
+    def test_link_targets_the_tenants_own_pairing_page(self):
+        with patch.object(whatsapp_service.settings, "whatsapp_bridge_public_url", "http://localhost:3005"):
+            self.assertEqual(
+                build_bridge_pairing_url("6a4f571923bff861a6f43e36"),
+                "http://localhost:3005/pair/6a4f571923bff861a6f43e36",
+            )
+
+    def test_configured_base_url_is_used_without_a_double_slash(self):
+        with patch.object(whatsapp_service.settings, "whatsapp_bridge_public_url", "https://bridge.example.com/"):
+            self.assertEqual(build_bridge_pairing_url("abc"), "https://bridge.example.com/pair/abc")
+
+    def test_missing_base_url_falls_back_to_the_local_bridge(self):
+        with patch.object(whatsapp_service.settings, "whatsapp_bridge_public_url", ""):
+            self.assertEqual(build_bridge_pairing_url("abc"), "http://localhost:3005/pair/abc")
+
+    def test_owner_settings_expose_the_pairing_link(self):
+        data = whatsapp_service._serialize_owner_whatsapp_settings(None, {"_id": ObjectId("6a4f571923bff861a6f43e36")})
+        self.assertTrue(data["bridgePairingUrl"].endswith("/pair/6a4f571923bff861a6f43e36"))
+
+
+class _Cursor:
+    """Minimal async cursor stand-in for motor's find()."""
+
+    def __init__(self, docs):
+        self._docs = list(docs)
+
+    def __aiter__(self):
+        async def gen():
+            for doc in self._docs:
+                yield doc
+
+        return gen()
+
+
+class BridgeTenantDiscoveryTests(unittest.IsolatedAsyncioTestCase):
+    """The bridge asks the API which businesses it should connect."""
+
+    def _db(self, integrations, tenant=None, module_enabled=True):
+        db = MagicMock()
+        db.whatsapp_integrations.find = MagicMock(return_value=_Cursor(integrations))
+        db.tenants.find_one = AsyncMock(return_value=tenant)
+        db.tenant_modules.find_one = AsyncMock(return_value={"status": "enabled"} if module_enabled else None)
+        return db
+
+    async def test_discovery_is_disabled_until_a_key_is_configured(self):
+        with patch.object(whatsapp_service.settings, "whatsapp_bridge_admin_key", ""):
+            with self.assertRaises(HTTPException) as ctx:
+                await list_bridge_tenants("anything")
+        self.assertEqual(ctx.exception.status_code, 503)
+
+    async def test_a_wrong_key_is_rejected(self):
+        with patch.object(whatsapp_service.settings, "whatsapp_bridge_admin_key", "right-key"):
+            with self.assertRaises(HTTPException) as ctx:
+                await list_bridge_tenants("wrong-key")
+        self.assertEqual(ctx.exception.status_code, 401)
+
+    async def test_a_connected_business_is_returned_with_its_token(self):
+        tenant_oid = ObjectId()
+        db = self._db(
+            [{"tenantId": tenant_oid, "bridgeToken": "tok-1", "displayName": "Style"}],
+            tenant={"_id": tenant_oid, "name": "Style"},
+        )
+        with (
+            patch.object(whatsapp_service.settings, "whatsapp_bridge_admin_key", "right-key"),
+            patch.object(whatsapp_service, "get_database", return_value=db),
+        ):
+            data = await list_bridge_tenants("right-key")
+        self.assertEqual(data["tenants"], [{"tenantId": str(tenant_oid), "bridgeToken": "tok-1", "label": "Style"}])
+        # Only saved Baileys integrations that still hold a token are offered.
+        query = db.whatsapp_integrations.find.call_args[0][0]
+        self.assertEqual(query["provider"], "baileys")
+        self.assertTrue(query["isConnected"])
+
+    async def test_a_business_without_the_approved_module_is_skipped(self):
+        tenant_oid = ObjectId()
+        db = self._db(
+            [{"tenantId": tenant_oid, "bridgeToken": "tok-1", "displayName": "Style"}],
+            tenant={"_id": tenant_oid, "name": "Style"},
+            module_enabled=False,
+        )
+        with (
+            patch.object(whatsapp_service.settings, "whatsapp_bridge_admin_key", "right-key"),
+            patch.object(whatsapp_service, "get_database", return_value=db),
+        ):
+            data = await list_bridge_tenants("right-key")
+        self.assertEqual(data["tenants"], [])
+
+    async def test_a_missing_or_suspended_tenant_is_skipped(self):
+        db = self._db([{"tenantId": ObjectId(), "bridgeToken": "tok-1"}], tenant=None)
+        with (
+            patch.object(whatsapp_service.settings, "whatsapp_bridge_admin_key", "right-key"),
+            patch.object(whatsapp_service, "get_database", return_value=db),
+        ):
+            data = await list_bridge_tenants("right-key")
+        self.assertEqual(data["tenants"], [])
 
 
 class RetiredWebhookTests(unittest.TestCase):

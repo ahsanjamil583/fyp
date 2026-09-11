@@ -9,6 +9,7 @@ import { DynamicTable } from "../../components/dynamic/DynamicTable.jsx";
 import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { createCustomField, deleteCustomField, getCustomFields, updateCustomField, validateCustomValues } from "../../services/customFieldApi.js";
+import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 const BASIC_FIELD_LIMIT = 3;
 
@@ -450,9 +451,9 @@ export function CustomFieldsPage() {
   if (!selectedTenant) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold text-ink">Custom Fields</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Custom Fields</h1>
         <p className="text-sm text-muted">Create a business before defining custom fields.</p>
-        <Link className="inline-flex rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/business">
+        <Link className="inline-flex rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" to="/dashboard/business">
           Create Business
         </Link>
       </section>
@@ -461,9 +462,9 @@ export function CustomFieldsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-2xl border border-line bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">Business Workflow Builder</p>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Custom Fields</h1>
+      <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Business Workflow Builder</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Custom Fields</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-muted">
           Custom Fields let you collect extra information for customers, products, and orders without changing code.
           Use them only when the default fields like name, price, stock, and description are not enough.
@@ -477,26 +478,26 @@ export function CustomFieldsPage() {
       </div>
 
       {isBasicPlan ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Basic plan includes up to {BASIC_FIELD_LIMIT} active custom fields. You are using {activeFieldCount}. Upgrade to AI Ordering or Full Agent for unlimited templates and fields.
         </div>
       ) : null}
-      {serverMessage ? <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{serverMessage}</div> : null}
-      {serverError ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div> : null}
+      {serverMessage ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{serverMessage}</div> : null}
+      {serverError ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div> : null}
 
-      <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line bg-white p-5 shadow-card">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-ink">Recommended Templates</h2>
+            <SectionTitle>Recommended Templates</SectionTitle>
             <p className="mt-1 text-sm text-muted">Apply ready-made fields for your business type. Suggested for this business: <span className="font-semibold text-ink">{suggestedTemplate.label}</span>.</p>
           </div>
-          <button type="button" className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={() => resetBuilder()}>
+          <button type="button" className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={() => resetBuilder()}>
             Add field manually
           </button>
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
           {templateGroups.map((template) => (
-            <article key={template.code} className={template.code === suggestedTemplate.code ? "flex min-h-[230px] flex-col rounded-xl border border-blue-200 bg-blue-50 p-5" : "flex min-h-[230px] flex-col rounded-xl border border-line bg-surface p-5"}>
+            <article key={template.code} className={template.code === suggestedTemplate.code ? "flex min-h-[230px] flex-col rounded-xl border border-brand-200 bg-brand-50 p-5" : "flex min-h-[230px] flex-col rounded-xl border border-line bg-surface p-5"}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="font-semibold text-ink">{template.label}</h3>
@@ -511,7 +512,7 @@ export function CustomFieldsPage() {
               </div>
               <button
                 type="button"
-                className="mt-auto w-full rounded-md bg-ink px-3 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                className="mt-auto w-full rounded-xl bg-ink px-3 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                 disabled={Boolean(isApplyingTemplate)}
                 onClick={() => applyTemplate(template)}
               >
@@ -524,15 +525,15 @@ export function CustomFieldsPage() {
 
       <div className="grid gap-6">
         <div className="space-y-6">
-          <form className="space-y-6 rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6" onSubmit={form.handleSubmit(submit)}>
+          <form className="space-y-6 rounded-2xl border border-line bg-white p-5 shadow-card sm:p-6" onSubmit={form.handleSubmit(submit)}>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-2xl">
-                <h2 className="text-xl font-semibold text-ink">Create Custom Field</h2>
+                <SectionTitle>Create Custom Field</SectionTitle>
                 <p className="mt-1 text-sm text-muted">Simple mode hides technical settings. Advanced mode is available when you need more control.</p>
               </div>
-              <div className="flex w-fit rounded-md bg-surface p-1 text-sm">
-                <button type="button" className={mode === "simple" ? "rounded bg-white px-3 py-1.5 font-semibold text-ink shadow-sm" : "px-3 py-1.5 text-muted"} onClick={() => setMode("simple")}>Simple</button>
-                <button type="button" className={mode === "advanced" ? "rounded bg-white px-3 py-1.5 font-semibold text-ink shadow-sm" : "px-3 py-1.5 text-muted"} onClick={() => setMode("advanced")}>Advanced</button>
+              <div className="flex w-fit rounded-xl bg-surface p-1 text-sm">
+                <button type="button" className={mode === "simple" ? "rounded bg-white px-3 py-1.5 font-semibold text-ink shadow-card" : "px-3 py-1.5 text-muted"} onClick={() => setMode("simple")}>Simple</button>
+                <button type="button" className={mode === "advanced" ? "rounded bg-white px-3 py-1.5 font-semibold text-ink shadow-card" : "px-3 py-1.5 text-muted"} onClick={() => setMode("advanced")}>Advanced</button>
               </div>
             </div>
 
@@ -547,7 +548,7 @@ export function CustomFieldsPage() {
                       form.setValue("moduleCode", target.moduleCode, { shouldValidate: true });
                       form.setValue("entityType", target.entityType, { shouldValidate: true });
                     }}
-                    className={watchedModule === target.moduleCode ? "min-h-[132px] rounded-xl border border-brand bg-blue-50 p-4 text-left" : "min-h-[132px] rounded-xl border border-line bg-surface p-4 text-left hover:border-brand"}
+                    className={watchedModule === target.moduleCode ? "min-h-[132px] rounded-xl border border-brand bg-brand-50 p-4 text-left" : "min-h-[132px] rounded-xl border border-line bg-surface p-4 text-left hover:border-brand"}
                   >
                     <div className="font-semibold text-ink">{target.label}</div>
                     <div className="mt-2 text-sm leading-5 text-muted">{target.description}</div>
@@ -625,11 +626,11 @@ export function CustomFieldsPage() {
             ) : null}
 
             <div className="flex gap-2">
-              <button className="flex-1 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50" disabled={form.formState.isSubmitting || (!editingField && basicLimitReached)}>
+              <button className="flex-1 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50" disabled={form.formState.isSubmitting || (!editingField && basicLimitReached)}>
                 {form.formState.isSubmitting ? "Saving..." : editingField ? "Update Field" : "Create Field"}
               </button>
               {editingField ? (
-                <button type="button" className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={() => resetBuilder()}>
+                <button type="button" className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" onClick={() => resetBuilder()}>
                   Cancel
                 </button>
               ) : null}
@@ -648,26 +649,26 @@ export function CustomFieldsPage() {
         </div>
 
         <div className="grid gap-5 xl:grid-cols-2">
-          <div className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
+          <div className="rounded-2xl border border-line bg-white p-5 shadow-card sm:p-6">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-ink">Live Form Preview</h2>
+                <SectionTitle>Live Form Preview</SectionTitle>
                 <p className="mt-1 text-sm text-muted">How this field appears in the {titleForTarget(filters.moduleCode).toLowerCase()} form.</p>
               </div>
-              <button type="button" className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={validatePreview}>
+              <button type="button" className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={validatePreview}>
                 Validate
               </button>
             </div>
             <DynamicForm fields={previewFields} values={previewValues} onChange={setPreviewValues} errors={validationResult?.errors || []} columns="single" />
             {validationResult ? (
-              <div className={validationResult.valid ? "mt-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700" : "mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"}>
+              <div className={validationResult.valid ? "mt-4 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-700" : "mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"}>
                 {validationResult.valid ? "Preview values are valid." : "Preview has validation errors."}
               </div>
             ) : null}
           </div>
 
-          <div className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="mb-2 text-lg font-semibold text-ink">Table Preview</h2>
+          <div className="rounded-2xl border border-line bg-white p-5 shadow-card sm:p-6">
+            <SectionTitle className="mb-2">Table Preview</SectionTitle>
             <p className="mb-4 text-sm text-muted">How selected fields appear in list/table views.</p>
             <DynamicTable fields={previewFields} rows={sampleRows} />
           </div>
@@ -679,10 +680,10 @@ export function CustomFieldsPage() {
 
 function ExistingFields({ fields, filters, setFilters, editField, disableField, resetBuilder, applyTemplate }) {
   return (
-    <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-line bg-white p-5 shadow-card">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-ink">Existing Fields</h2>
+          <SectionTitle>Existing Fields</SectionTitle>
           <p className="mt-1 text-sm text-muted">Active and disabled fields for the selected area.</p>
         </div>
         <select className="form-input sm:w-56" value={filters.moduleCode} onChange={(event) => setFilters({ moduleCode: event.target.value, entityType: moduleEntityMap[event.target.value] })}>
@@ -699,10 +700,10 @@ function ExistingFields({ fields, filters, setFilters, editField, disableField, 
             Add fields like size, color, delivery time, spice level, or prescription required to customize your business workflow.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" className="rounded-md bg-brand px-3 py-2 text-sm font-semibold text-white" onClick={() => resetBuilder()}>
+            <button type="button" className="rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white" onClick={() => resetBuilder()}>
               Add field manually
             </button>
-            <button type="button" className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink" onClick={applyTemplate}>
+            <button type="button" className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink" onClick={applyTemplate}>
               Use template
             </button>
           </div>
@@ -710,7 +711,7 @@ function ExistingFields({ fields, filters, setFilters, editField, disableField, 
       ) : (
         <div className="mt-4 grid gap-3">
             {fields.map((field) => (
-              <article key={field.id} className="rounded-xl border border-line bg-white p-4 shadow-sm">
+              <article key={field.id} className="rounded-xl border border-line bg-white p-4 shadow-card">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -731,18 +732,18 @@ function ExistingFields({ fields, filters, setFilters, editField, disableField, 
                   </div>
                   <div className="flex flex-wrap gap-2 lg:justify-end">
                     {field.isActive ? (
-                      <button type="button" className="rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => editField(field)}>
+                      <button type="button" className="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => editField(field)}>
                         Edit
                       </button>
                     ) : null}
                     {field.isActive ? (
-                      <button type="button" className="rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => disableField(field.id)}>
+                      <button type="button" className="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface" onClick={() => disableField(field.id)}>
                         Disable
                       </button>
                     ) : null}
                     <button
                       type="button"
-                      className="rounded-md border border-red-100 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50"
+                      className="rounded-xl border border-red-100 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50"
                       onClick={() => {
                         if (window.confirm("Delete this custom field from active use? Existing saved data will not be removed.")) {
                           disableField(field.id);
@@ -782,7 +783,7 @@ function Field({ label, error, children }) {
 
 function Check({ label, register }) {
   return (
-    <label className="flex min-h-[56px] items-center gap-2 rounded-md border border-line px-3 py-2 text-sm leading-5 text-muted">
+    <label className="flex min-h-[56px] items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm leading-5 text-muted">
       <input type="checkbox" {...register} />
       {label}
     </label>

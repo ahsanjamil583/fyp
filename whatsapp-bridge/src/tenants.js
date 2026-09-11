@@ -16,10 +16,13 @@ import process from 'node:process';
  *
  * Each entry: { "tenantId": "...", "bridgeToken": "...", "label": "optional", "authPath": "optional" }
  */
-export function loadTenantConfigs(env = process.env) {
+export function loadTenantConfigs(env = process.env, { allowEmpty = false } = {}) {
   const entries = readTenantEntries(env);
 
   if (entries.length === 0) {
+    // An empty list is fine when the bridge discovers its tenants from the API; a
+    // malformed entry below is always fatal.
+    if (allowEmpty) return [];
     throw new Error(
       'No tenants configured. Set BIZXUS_TENANTS (JSON array), BIZXUS_TENANTS_FILE, ' +
         'or the single-tenant pair BIZXUS_TENANT_ID and BIZXUS_WHATSAPP_BRIDGE_TOKEN.',

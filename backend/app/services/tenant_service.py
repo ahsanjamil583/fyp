@@ -289,6 +289,9 @@ async def _resolve_active_business_category_id(category_id: str | None) -> Objec
 async def _validate_plan_change(tenant: dict, next_settings: dict) -> None:
     db = get_database()
     plan_code = _normalize_plan_code(next_settings.get("planCode"))
+    current_plan = _normalize_plan_code((tenant.get("settings") or {}).get("planCode"))
+    if plan_code == current_plan:
+        return
     enabled_codes = tenant.get("enabledModuleCodes", [])
     if not enabled_codes:
         return
@@ -327,39 +330,95 @@ def _ensure_plan_change_allowed(existing: dict, next_settings: dict, user: dict)
         )
 
 
-async def _validate_tenant_publish_ready(tenant: dict) -> None:
+async def build_business_formation_criteria(tenant: dict) -> dict:
     db = get_database()
-    if not tenant.get("name"):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Business name is required before publishing.")
-
     contact = tenant.get("contact", {})
-    if not contact.get("phone") and not contact.get("email"):
+    address = tenant.get("address", {})
+    website_settings = tenant.get("websiteSettings", {})
+    public_items = await db.items.count_documents(
+        {
+            "tenantId": tenant["_id"],
+            "status": "active",
+            "$or": [{"isSellable": True}, {"isBookable": True}],
+        }
+    )
+    enabled_modules = tenant.get("enabledModuleCodes", [])
+    checks = [
+        {
+            "key": "business_name",
+            "label": "Business name",
+            "message": "Business name is added.",
+            "passed": bool(str(tenant.get("name", "")).strip()),
+        },
+        {
+            "key": "business_category",
+            "label": "Business category",
+            "message": "Business category is selected.",
+            "passed": bool(tenant.get("businessCategoryId")),
+        },
+        {
+            "key": "business_description",
+            "label": "Business description",
+            "message": "Description has at least 30 characters.",
+            "passed": len(str(tenant.get("description", "")).strip()) >= 30,
+        },
+        {
+            "key": "contact",
+            "label": "Contact email or phone",
+            "message": "A customer contact email or phone is present.",
+            "passed": bool(str(contact.get("email", "")).strip() or str(contact.get("phone", "")).strip()),
+        },
+        {
+            "key": "location",
+            "label": "City and province",
+            "message": "Business city and province are present.",
+            "passed": bool(str(address.get("city", "")).strip() and str(address.get("province", "")).strip()),
+        },
+        {
+            "key": "website_template",
+            "label": "Website template",
+            "message": "Website template is configured.",
+            "passed": bool(str(website_settings.get("templateCode", "")).strip()),
+        },
+        {
+            "key": "public_item",
+            "label": "Sellable or bookable item",
+            "message": "At least one active sellable or bookable item is available.",
+            "passed": public_items > 0,
+            "value": public_items,
+        },
+        {
+            "key": "website_builder",
+            "label": "Website builder module",
+            "message": "Website Builder module is enabled.",
+            "passed": "website_builder" in enabled_modules,
+        },
+    ]
+    missing = [check for check in checks if not check["passed"]]
+    return {
+        "checks": checks,
+        "missing": missing,
+        "score": len(checks) - len(missing),
+        "total": len(checks),
+        "isComplete": not missing,
+    }
+
+
+async def _validate_tenant_publish_ready(tenant: dict) -> dict:
+    criteria = await build_business_formation_criteria(tenant)
+    if not criteria["isComplete"]:
+        missing_labels = ", ".join(check["label"] for check in criteria["missing"])
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Add a business phone or email before publishing.",
+            detail={
+                "message": f"Complete these requirements before requesting admin approval: {missing_labels}.",
+                "criteria": criteria,
+            },
         )
 
     website_settings = tenant.get("websiteSettings", {})
-    if not website_settings.get("templateCode"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Select website settings before publishing.",
-        )
     _normalize_website_settings(website_settings, tenant.get("name", "Business"))
-
-    if "items" in tenant.get("enabledModuleCodes", []):
-        public_items = await db.items.count_documents(
-            {
-                "tenantId": tenant["_id"],
-                "status": "active",
-                "$or": [{"isSellable": True}, {"isBookable": True}],
-            }
-        )
-        if public_items == 0:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Add at least one active sellable or bookable item before publishing.",
-            )
+    return criteria
 
 
 async def create_tenant(payload, owner: dict) -> dict:
@@ -471,10 +530,21 @@ async def publish_tenant(tenant_id: str, user: dict) -> dict:
     tenant_oid = parse_object_id(tenant_id, "tenantId")
     tenant = await get_owned_tenant_or_403(tenant_oid, user)
     await ensure_tenant_module_enabled(tenant_oid, "website_builder")
-    await _validate_tenant_publish_ready(tenant)
+    criteria = await _validate_tenant_publish_ready(tenant)
+    now = datetime.now(timezone.utc)
     await db.tenants.update_one(
         {"_id": tenant_oid},
-        {"$set": {"status": "active", "websiteStatus": "published", "updatedAt": datetime.now(timezone.utc)}},
+        {
+            "$set": {
+                "websiteStatus": "pending_review",
+                "websiteApprovalStatus": "pending",
+                "websiteApprovalRequestedAt": now,
+                "websiteApprovalRequestedBy": user.get("_id"),
+                "websiteApprovalCriteria": criteria,
+                "updatedAt": now,
+            },
+            "$unset": {"websiteApprovalReviewedAt": "", "websiteApprovalReviewedBy": "", "websiteApprovalNote": ""},
+        },
     )
     tenant = await get_owned_tenant_or_403(tenant_oid, user)
     await index_tenant_profile_for_rag(tenant)

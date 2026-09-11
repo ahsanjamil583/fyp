@@ -28,14 +28,14 @@ export function PublicBusinessAboutPage() {
     <PublicWebsiteFrame business={business} currentPage="about" siteModel={siteModel}>
       <div className="mx-auto max-w-6xl space-y-8 px-5 py-10">
         <section className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="rounded-[30px] border border-black/5 bg-white/92 p-6 shadow-sm">
+          <div className="rounded-[30px] border border-black/5 bg-white/92 p-6 shadow-card">
             <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: siteModel.theme.accent }}>About</div>
             <h1 className="mt-3 text-4xl font-semibold text-ink">{business.name}</h1>
             <p className="mt-4 text-base leading-8 text-slate-600">
               {business.description || "This business uses BizXusAI to present offers, guide customers, and move people into clear digital request flows."}
             </p>
           </div>
-          <div className="rounded-[30px] border border-black/5 bg-white/92 p-6 shadow-sm">
+          <div className="rounded-[30px] border border-black/5 bg-white/92 p-6 shadow-card">
             <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: siteModel.theme.accent }}>Positioning</div>
             <div className="mt-4 space-y-3">
               {[
@@ -52,7 +52,7 @@ export function PublicBusinessAboutPage() {
           </div>
         </section>
 
-        <section className="rounded-[30px] border border-black/5 bg-white/92 p-6 shadow-sm">
+        <section className="rounded-[30px] border border-black/5 bg-white/92 p-6 shadow-card">
           <div className="text-sm font-semibold uppercase tracking-[0.2em]" style={{ color: siteModel.theme.accent }}>Why this site structure works</div>
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {[
@@ -62,7 +62,7 @@ export function PublicBusinessAboutPage() {
               { title: "Scalability", text: "This category-based page structure can grow into a full website builder later." },
             ].map((card) => (
               <div key={card.title} className="rounded-2xl border border-black/5 bg-slate-50 p-4">
-                <div className="text-lg font-semibold text-ink">{card.title}</div>
+                <div className="text-base font-bold text-ink">{card.title}</div>
                 <div className="mt-2 text-sm leading-6 text-slate-600">{card.text}</div>
               </div>
             ))}
