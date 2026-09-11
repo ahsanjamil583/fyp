@@ -109,6 +109,17 @@ class InventoryMongoTests(unittest.IsolatedAsyncioTestCase):
         sender.assert_awaited_once()
         self.assertEqual({row["deliveryStatus"] for row in results}, {"queued", "already_processed"})
 
+    async def test_scheduler_resolves_the_business_owner_from_the_stored_schema(self):
+        from app.services.report_scheduler import run_due_reports
+        owner = {"_id": ObjectId(), "status": "active"}
+        await self.db.users.insert_one(owner)
+        await self.db.tenants.insert_one({"_id": self.tenant, "ownerUserId": owner["_id"], "status": "active"})
+        await self.db.report_delivery_settings.insert_one({"tenantId": self.tenant, "enabled": True, "deliveryTime": "00:00", "timezone": "Asia/Karachi"})
+        with patch("app.services.report_scheduler.get_database", return_value=self.db), patch("app.services.report_scheduler.run_scheduled_report_delivery", AsyncMock()) as sender:
+            await run_due_reports()
+        sender.assert_awaited_once()
+        self.assertEqual(sender.await_args.args[2]["_id"], owner["_id"])
+
     async def test_outbound_claim_is_atomic_and_ack_updates_report(self):
         from app.services.whatsapp_outbound_service import claim_outbound_message, acknowledge_outbound_message
         message_id = ObjectId()

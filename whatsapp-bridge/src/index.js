@@ -307,7 +307,7 @@ class TenantSession {
         if (!response.ok) break;
         const body = await readJsonResponse(response);
         const message = body?.data;
-        if (!message) break;
+        if (!message?.id) break;
         let deliveryStatus = 'sent';
         try {
           const digits = String(message.toPhone || '').replace(/\D/g, '');

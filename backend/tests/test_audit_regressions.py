@@ -1,14 +1,17 @@
 import unittest
+import tempfile
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlsplit
 
 from bson import ObjectId
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.core.private_uploads import _signature, payment_record_view
+from app.core.private_uploads import _signature, payment_record_view, ProtectedUploads
 from app.core.public_views import customer_order_view, public_business_view
 from app.core.security import create_access_token, create_refresh_token, decode_token, ensure_current_session, verify_password, hash_password, require_auth_in_production
 from app.services.reporting_service import _parse_summary_date
@@ -58,6 +61,24 @@ class AuditRegressionTests(unittest.TestCase):
         self.assertEqual(query["grant"][0], _signature(path, int(query["expires"][0])))
         other = payment_record_view({"tenantId": ObjectId(), "screenshotUrl": path})
         self.assertEqual(other["screenshotUrl"], "")
+
+    def test_private_upload_requires_a_valid_grant(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tenant = str(ObjectId())
+            file = Path(directory) / "payment-proofs" / tenant / "order" / "proof.png"
+            file.parent.mkdir(parents=True)
+            file.write_bytes(b"test-proof")
+            app = FastAPI()
+            app.mount("/uploads", ProtectedUploads(directory=directory))
+            path = f"/uploads/payment-proofs/{tenant}/order/proof.png"
+            signed = payment_record_view({"tenantId": tenant, "screenshotUrl": path})["screenshotUrl"]
+            with TestClient(app) as client:
+                self.assertEqual(client.get(path).status_code, 403)
+                valid = client.get(signed)
+                self.assertEqual(valid.status_code, 200)
+                self.assertEqual(valid.headers["cache-control"], "private, no-store")
+                self.assertEqual(client.get(signed.replace("proof.png", "other.png")).status_code, 403)
+                self.assertEqual(client.get(path + "?expires=1&grant=bad").status_code, 403)
 
     def test_daily_boundary_uses_pakistan_midnight(self):
         start = _parse_summary_date("2026-09-11")

@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from pymongo import ReturnDocument
 
 from app.core.module_guard import ensure_tenant_module_enabled
-from app.core.object_ids import parse_object_id, serialize_document
+from app.core.object_ids import parse_object_id
 from app.db.mongodb import get_database
 
 
@@ -46,4 +46,18 @@ async def acknowledge_outbound_message(tenant_id, message_id, token, delivery_st
         {"tenantId": tenant_oid, "providerLogId": str(message_oid)},
         {"$set": {"deliveryStatus": delivery_status, "updatedAt": now}},
     )
+    message = await db.whatsapp_message_logs.find_one({"_id": message_oid, "tenantId": tenant_oid})
+    summary_date = ((message or {}).get("rawContext") or {}).get("summaryDate")
+    if summary_date:
+        logs = await db.report_delivery_logs.find({"tenantId": tenant_oid, "summaryDate": summary_date}).to_list(length=None)
+        statuses = {row.get("deliveryStatus") for row in logs}
+        aggregate_status = "queued" if statuses & {"queued", "sending"} else "partial_failed" if "failed" in statuses and "sent" in statuses else "failed" if "failed" in statuses else "delivered"
+        await db.report_delivery_settings.update_one(
+            {"tenantId": tenant_oid, "lastSummaryDate": summary_date},
+            {"$set": {"lastDeliveryStatus": aggregate_status, "updatedAt": now}},
+        )
+        await db.report_delivery_runs.update_one(
+            {"_id": f"{tenant_oid}:{summary_date}"},
+            {"$set": {"status": aggregate_status, "finishedAt": now}},
+        )
     return {"deliveryStatus": delivery_status}

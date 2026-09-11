@@ -25,7 +25,7 @@ async def run_due_reports():
             tenant = await db.tenants.find_one({"_id": config["tenantId"], "status": "active"})
             if not tenant:
                 continue
-            owner = await db.users.find_one({"_id": tenant.get("ownerId"), "status": "active"})
+            owner = await db.users.find_one({"_id": tenant.get("ownerUserId"), "status": "active"})
             if not owner or owner.get("mustResetPassword"):
                 continue
             date_key = now.astimezone(ZoneInfo(config.get("timezone") or "Asia/Karachi")).strftime("%Y-%m-%d")

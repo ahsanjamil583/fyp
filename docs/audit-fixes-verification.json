@@ -1,0 +1,219 @@
+[
+  {
+    "test": "business login",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "customer login",
+    "path": "/api/v1/customer/auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "Owner tenants",
+    "path": "/api/v1/tenants/my",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "Anonymous diagnostics blocked",
+    "path": "/api/v1/health/readiness",
+    "status": 401,
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "test": "Owner diagnostics blocked",
+    "path": "/api/v1/health/readiness",
+    "status": 403,
+    "expected": 403,
+    "pass": true
+  },
+  {
+    "test": "Demo credentials blocked",
+    "path": "/api/v1/health/demo-accounts",
+    "status": 401,
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "test": "Literal bracket public search",
+    "path": "/api/v1/public/businesses/style/items?search=%5B",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "Literal bracket owner search",
+    "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/items?search=%5B",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "Overlong login password handled",
+    "path": "/api/v1/auth/login",
+    "status": 401,
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "test": "Public business",
+    "path": "/api/v1/public/businesses/style",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "Public metadata privacy",
+    "pass": true
+  },
+  {
+    "test": "Customer orders",
+    "path": "/api/v1/customer/orders",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "Customer order detail",
+    "path": "/api/v1/customer/orders/6aa30ab1d48fbed61a2dffe9",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "Order privacy",
+    "pass": true
+  },
+  {
+    "test": "Customer order detail",
+    "path": "/api/v1/customer/orders/6aa30a9cd48fbed61a2dffe0",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "Order privacy",
+    "pass": true
+  },
+  {
+    "test": "Owner WhatsApp status",
+    "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/whatsapp/settings",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "WhatsApp wiring",
+    "bridgeOnline": true,
+    "signedPairingLink": true,
+    "sameOriginLink": true
+  },
+  {
+    "test": "Authenticated dashboard pairing link",
+    "status": 200,
+    "pass": true
+  },
+  {
+    "test": "Anonymous pairing reset blocked",
+    "status": 403,
+    "pass": true
+  },
+  {
+    "test": "Live catalog AI answer",
+    "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/agent/preview",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "AI current-stock reply",
+    "reply": "Grey Tracksuit\nPrice: PKR 4800\nIn stock\nWould you like to order it?",
+    "meta": {
+      "intent": "ask_availability",
+      "confidence": 0.98,
+      "languageMode": "english",
+      "responseSource": "live_catalog",
+      "knowledgeCount": 1,
+      "retrievalConfidence": 0.1619,
+      "localizationScore": 1.0,
+      "safetyFlags": {
+        "promptInjection": false,
+        "medicalAdvice": false
+      },
+      "matchedItemCount": 1,
+      "agentLayer": "phase_24_smart_customer_ordering"
+    }
+  },
+  {
+    "test": "Report settings",
+    "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/reports/delivery/settings",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "Scheduler runtime",
+    "enabled": true
+  },
+  {
+    "test": "Report delivery logs",
+    "path": "/api/v1/tenants/6a4ce14726a6a933019b2b10/reports/delivery/logs",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "Recent report delivery",
+    "logs": [
+      {
+        "summaryDate": "2026-09-11",
+        "channel": "whatsapp",
+        "deliveryStatus": "sent"
+      }
+    ]
+  },
+  {
+    "test": "Unsigned proof blocked",
+    "path": "/uploads/payment-proofs/test/test.png",
+    "status": 403,
+    "expected": 403,
+    "pass": true
+  },
+  {
+    "test": "Frontend proxy/files",
+    "path": "/api/v1/health",
+    "status": 200,
+    "privateEnvExposed": false
+  },
+  {
+    "test": "Frontend proxy/files",
+    "path": "/",
+    "status": 200,
+    "privateEnvExposed": false
+  },
+  {
+    "test": "Frontend proxy/files",
+    "path": "/.env",
+    "status": 200,
+    "privateEnvExposed": false
+  },
+  {
+    "test": "Admin login",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "test": "Admin policy gate",
+    "mustResetPassword": true,
+    "role": "platform_admin"
+  }
+]

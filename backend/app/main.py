@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
@@ -28,6 +29,7 @@ async def lifespan(app: FastAPI):
     await seed_modules()
     await seed_business_categories()
     scheduler = asyncio.create_task(report_scheduler_loop()) if settings.report_scheduler_enabled else None
+    logging.getLogger(__name__).info("Automatic report scheduler: %s", "enabled" if scheduler else "disabled")
     try:
         yield
     finally:
