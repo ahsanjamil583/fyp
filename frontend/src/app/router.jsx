@@ -5,7 +5,7 @@ import { AdminLayout } from "../components/layout/AdminLayout.jsx";
 import { BusinessProtectedRoute, CustomerProtectedRoute } from "../components/common/ProtectedRoute.jsx";
 import { CustomerLayout } from "../components/layout/CustomerLayout.jsx";
 import { DashboardLayout } from "../components/layout/DashboardLayout.jsx";
-import { PublicLayout } from "../components/layout/PublicLayout.jsx";
+import { MarketingLayout } from "../components/layout/MarketingLayout.jsx";
 import { PlaceholderPage } from "../components/common/PlaceholderPage.jsx";
 import { NotFoundPage } from "../components/common/NotFoundPage.jsx";
 
@@ -76,7 +76,7 @@ export const router = createBrowserRouter([
   { path: "/customer/forgot-password", element: <PhonePasswordResetPage customer /> },
   { path: "/customer/update-password", element: <ForcedPasswordResetPage customer /> },
   {
-    element: <PublicLayout />,
+    element: <MarketingLayout />,
     children: [
       {
         path: "/",

@@ -31,7 +31,16 @@ function NavList({ navItems, onNavigate }) {
   );
 }
 
-export function Shell({ title, subtitle, navItems, asideExtra = null, asideFooter = null, headerActions = null, outletContext = null }) {
+export function Shell({
+  title,
+  subtitle,
+  navItems,
+  asideExtra = null,
+  asideFooter = null,
+  headerActions = null,
+  outletContext = null,
+  flowSteps = [],
+}) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
@@ -102,7 +111,7 @@ export function Shell({ title, subtitle, navItems, asideExtra = null, asideFoote
                 type="search"
                 placeholder="Search anything... (customers, items, transactions, etc.)"
                 aria-label="Search the workspace"
-                className="w-full rounded-full border border-line bg-surface py-2.5 pl-11 pr-4 text-sm text-ink outline-none transition placeholder:text-muted focus:border-brand-bright focus:bg-white focus:shadow-[0_0_0_3px_rgba(109,40,217,0.14)]"
+                className="w-full rounded-full border border-line bg-surface py-2.5 pl-11 pr-4 text-sm text-ink outline-none transition placeholder:text-muted focus:border-brand-bright focus:bg-white focus:shadow-[0_0_0_3px_rgba(15,118,110,0.14)]"
               />
             </div>
 
@@ -120,6 +129,25 @@ export function Shell({ title, subtitle, navItems, asideExtra = null, asideFoote
             <h1 className="text-2xl font-extrabold tracking-tight text-ink lg:text-[1.75rem]">{title}</h1>
             {subtitle ? <p className="mt-1 text-sm text-muted">{subtitle}</p> : null}
           </div>
+          {flowSteps.length ? (
+            <div className="mb-5 overflow-x-auto rounded-card border border-line bg-white px-3 py-3 shadow-card sm:px-4">
+              <ol className="workflow-strip flex min-w-max items-center gap-5">
+                {flowSteps.map((step, index) => {
+                  const Icon = step.icon;
+                  return (
+                    <li key={step.label} className="workflow-step flex items-center gap-2 pr-1">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-50 text-xs font-black text-brand">
+                        {Icon ? <Icon size={15} strokeWidth={2.4} /> : index + 1}
+                      </span>
+                      <span className="whitespace-nowrap text-xs font-bold text-muted">
+                        <span className="text-ink">{index + 1}.</span> {step.label}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          ) : null}
           {/* Most pages render straight into this panel rather than bringing their own
               card, so the workspace surface stays here rather than in each feature. */}
           <div className="ui-card p-5 sm:p-7">

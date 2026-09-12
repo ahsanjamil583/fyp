@@ -15,7 +15,7 @@ from app.services.localization_service import PAKISTAN_PROVINCES, get_language_m
 from app.services.rag_index_service import index_tenant_profile_for_rag
 
 PLAN_ORDER = ("starter", "growth", "scale")
-PAID_PLAN_CODES = {"growth", "scale"}
+PAID_PLAN_CODES = set()
 ALLOWED_WEBSITE_TEMPLATES = {"default", "catalog", "service"}
 ALLOWED_WEBSITE_SECTION_TYPES = {"hero", "metrics", "catalog", "services", "transaction_form", "testimonials", "faq", "contact"}
 ALLOWED_WEBSITE_PRESETS = {
@@ -287,47 +287,44 @@ async def _resolve_active_business_category_id(category_id: str | None) -> Objec
 
 
 async def _validate_plan_change(tenant: dict, next_settings: dict) -> None:
-    db = get_database()
-    plan_code = _normalize_plan_code(next_settings.get("planCode"))
-    current_plan = _normalize_plan_code((tenant.get("settings") or {}).get("planCode"))
-    if plan_code == current_plan:
-        return
-    enabled_codes = tenant.get("enabledModuleCodes", [])
-    if not enabled_codes:
-        return
-
-    blocked_modules = []
-    async for module in db.modules.find({"code": {"$in": enabled_codes}, "isActive": True}):
-        included_plans = ((module.get("availability") or {}).get("includedPlans")) or list(PLAN_ORDER)
-        if plan_code not in included_plans:
-            blocked_modules.append(module.get("name", module.get("code", "module")))
-
-    if blocked_modules:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Disable or upgrade restricted modules before switching to the {plan_code} plan: {', '.join(blocked_modules)}.",
-        )
+    return None
 
 
 def _paid_plan_access_status(tenant: dict, plan_code: str) -> str:
-    if plan_code not in PAID_PLAN_CODES:
-        return "approved"
-    access = (((tenant.get("settings") or {}).get("packageAccess") or {}).get(plan_code) or {})
-    return str(access.get("status") or "locked").lower()
+    return "approved"
 
 
 def _ensure_plan_change_allowed(existing: dict, next_settings: dict, user: dict) -> None:
-    current_plan = _normalize_plan_code((existing.get("settings") or {}).get("planCode"))
-    next_plan = _normalize_plan_code(next_settings.get("planCode"))
-    if next_plan == current_plan:
-        return
-    if user.get("globalRole") == "platform_admin":
-        return
-    if next_plan in PAID_PLAN_CODES and _paid_plan_access_status(existing, next_plan) != "approved":
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail="Paid packages require payment or admin approval before they can be activated.",
-        )
+    return None
+
+
+async def _enable_all_modules_for_new_tenant(tenant_oid: ObjectId, owner: dict, now: datetime) -> list[str]:
+    db = get_database()
+    modules = await db.modules.find({"isActive": True}).to_list(length=300)
+    module_codes = [module["code"] for module in modules]
+    if not module_codes:
+        return []
+    await db.tenant_modules.insert_many(
+        [
+            {
+                "tenantId": tenant_oid,
+                "moduleCode": code,
+                "status": "enabled",
+                "config": {},
+                "enabledBy": owner["_id"],
+                "enabledAt": now,
+                "updatedAt": now,
+            }
+            for code in module_codes
+        ],
+        ordered=False,
+    )
+    await db.tenants.update_one(
+        {"_id": tenant_oid},
+        {"$set": {"enabledModuleCodes": module_codes, "updatedAt": now}},
+    )
+    await audit_log("tenant_all_modules_enabled", owner["_id"], tenant_oid, {"moduleCodes": module_codes})
+    return module_codes
 
 
 async def build_business_formation_criteria(tenant: dict) -> dict:
@@ -452,6 +449,7 @@ async def create_tenant(payload, owner: dict) -> dict:
 
     result = await db.tenants.insert_one(tenant)
     tenant["_id"] = result.inserted_id
+    tenant["enabledModuleCodes"] = await _enable_all_modules_for_new_tenant(tenant["_id"], owner, now)
     await apply_category_default_custom_fields(tenant["_id"], category)
     await index_tenant_profile_for_rag(tenant)
     return serialize_document(tenant)

@@ -5,6 +5,8 @@ from app.db.mongodb import get_database, get_mongo_status
 
 logger = logging.getLogger(__name__)
 
+ALL_PLANS = ["starter", "growth", "scale"]
+
 DEFAULT_MODULES = [
     {
         "code": "items",
@@ -14,7 +16,7 @@ DEFAULT_MODULES = [
         "apiPrefix": "/items",
         "frontendRoutes": ["/dashboard/items", "/dashboard/items/import"],
         "dependencies": [],
-        "availability": {"includedPlans": ["starter", "growth", "scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
         "usageLimits": {
             "starter": {"metricCode": "active_items", "label": "Active items", "limit": 50},
             "growth": {"metricCode": "active_items", "label": "Active items", "limit": 500},
@@ -29,7 +31,7 @@ DEFAULT_MODULES = [
         "apiPrefix": "/customers",
         "frontendRoutes": ["/dashboard/customers"],
         "dependencies": [],
-        "availability": {"includedPlans": ["starter", "growth", "scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
         "usageLimits": {
             "starter": {"metricCode": "customers", "label": "Customer records", "limit": 200},
             "growth": {"metricCode": "customers", "label": "Customer records", "limit": 2000},
@@ -44,7 +46,7 @@ DEFAULT_MODULES = [
         "apiPrefix": "/public",
         "frontendRoutes": ["/dashboard/public-website"],
         "dependencies": [],
-        "availability": {"includedPlans": ["starter", "growth", "scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
     },
     {
         "code": "customer_portal",
@@ -54,7 +56,7 @@ DEFAULT_MODULES = [
         "apiPrefix": "/customer",
         "frontendRoutes": ["/customer/marketplace"],
         "dependencies": ["website_builder", "items"],
-        "availability": {"includedPlans": ["growth", "scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
     },
     {
         "code": "ai_chat",
@@ -64,7 +66,7 @@ DEFAULT_MODULES = [
         "apiPrefix": "/chat",
         "frontendRoutes": ["/dashboard/ai-conversations", "/dashboard/knowledge-base", "/dashboard/agent-tools"],
         "dependencies": ["website_builder"],
-        "availability": {"includedPlans": ["growth", "scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
         "usageLimits": {
             "growth": {"metricCode": "monthly_ai_messages", "label": "Monthly AI chats", "limit": 300},
             "scale": {"metricCode": "monthly_ai_messages", "label": "Monthly AI chats", "limit": None},
@@ -79,7 +81,7 @@ DEFAULT_MODULES = [
         "apiPrefix": "/whatsapp",
         "frontendRoutes": ["/dashboard/whatsapp-agent"],
         "dependencies": ["ai_chat"],
-        "availability": {"includedPlans": ["scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
         "usageLimits": {
             "growth": {"metricCode": "monthly_whatsapp_messages", "label": "Monthly WhatsApp messages", "limit": 300},
             "scale": {"metricCode": "monthly_whatsapp_messages", "label": "Monthly WhatsApp messages", "limit": None},
@@ -94,7 +96,7 @@ DEFAULT_MODULES = [
         "apiPrefix": "/owner-agent",
         "frontendRoutes": ["/dashboard/owner-agent"],
         "dependencies": ["ai_chat", "analytics", "reports", "notifications"],
-        "availability": {"includedPlans": ["scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
         "usageLimits": {
             "scale": {"metricCode": "monthly_owner_agent_messages", "label": "Monthly owner assistant messages", "limit": None}
         },
@@ -107,7 +109,7 @@ DEFAULT_MODULES = [
         "apiPrefix": "/analytics",
         "frontendRoutes": ["/dashboard/analytics"],
         "dependencies": [],
-        "availability": {"includedPlans": ["starter", "growth", "scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
     },
     {
         "code": "payments",
@@ -117,7 +119,7 @@ DEFAULT_MODULES = [
         "apiPrefix": "/payments",
         "frontendRoutes": ["/dashboard/payments"],
         "dependencies": ["customer_portal"],
-        "availability": {"includedPlans": ["growth", "scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
     },
     {
         "code": "reports",
@@ -127,7 +129,7 @@ DEFAULT_MODULES = [
         "apiPrefix": "/reports",
         "frontendRoutes": ["/dashboard/reports"],
         "dependencies": ["analytics"],
-        "availability": {"includedPlans": ["scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
     },
     {
         "code": "admin",
@@ -136,7 +138,7 @@ DEFAULT_MODULES = [
         "category": "admin",
         "apiPrefix": "/admin",
         "frontendRoutes": ["/admin"],
-        "availability": {"includedPlans": ["scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
     },
     {
         "code": "notifications",
@@ -146,7 +148,7 @@ DEFAULT_MODULES = [
         "apiPrefix": "/notifications",
         "frontendRoutes": ["/dashboard/notifications"],
         "dependencies": [],
-        "availability": {"includedPlans": ["starter", "growth", "scale"]},
+        "availability": {"includedPlans": ALL_PLANS},
     },
 ]
 

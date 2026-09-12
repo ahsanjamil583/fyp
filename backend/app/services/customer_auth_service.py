@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from bson import ObjectId
 from fastapi import HTTPException, status
+from pymongo.errors import DuplicateKeyError
 
 from app.core.password_policy import validate_password_strength
 from app.core.security import hash_password
@@ -9,6 +10,7 @@ from app.db.mongodb import get_database
 from app.services.auth_service import auth_payload, duplicate_account_detail, find_user_by_email_or_phone
 from app.services.customer_service import sync_registered_customer_records
 from app.services.localization_service import normalize_optional_email, normalize_optional_pk_phone
+from app.services.otp_service import verify_email_otp
 
 
 def profile_public(profile: dict) -> dict:
@@ -35,41 +37,62 @@ async def register_customer(payload) -> dict:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=duplicate_account_detail(existing, normalized_email, normalized_phone))
 
     validate_password_strength(payload.password, normalized_email, normalized_phone, payload.fullName)
+    await verify_email_otp(
+        email=normalized_email,
+        code=payload.code,
+        account_type="customer",
+        purpose="register",
+        consume=False,
+    )
 
     user = {
         "fullName": payload.fullName,
         "email": normalized_email,
-        "phone": normalized_phone,
         "passwordHash": hash_password(payload.password),
         "accountType": "customer",
         "globalRole": "user",
         "status": "active",
-        "isEmailVerified": False,
+        "isEmailVerified": True,
+        "emailVerifiedAt": now,
         "isPhoneVerified": False,
         "lastLoginAt": None,
         "createdAt": now,
         "updatedAt": now,
     }
-    user["_id"] = (await db.users.insert_one(user)).inserted_id
-    await db.customer_profiles.insert_one(
-        {
-            "userId": str(user["_id"]),
-            "phone": user["phone"],
-            "defaultAddress": {},
-            "savedAddresses": [],
-            "preferences": {},
-            "createdAt": now,
-            "updatedAt": now,
-        }
+    if normalized_phone:
+        user["phone"] = normalized_phone
+    try:
+        user["_id"] = (await db.users.insert_one(user)).inserted_id
+        await db.customer_profiles.insert_one(
+            {
+                "userId": str(user["_id"]),
+                "phone": normalized_phone,
+                "defaultAddress": {},
+                "savedAddresses": [],
+                "preferences": {},
+                "createdAt": now,
+                "updatedAt": now,
+            }
+        )
+    except DuplicateKeyError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This email is already registered. Please login.") from exc
+    verification = await verify_email_otp(
+        email=normalized_email,
+        code=payload.code,
+        account_type="customer",
+        purpose="register",
+        consume=True,
     )
     await sync_registered_customer_records(
         customer_user_id=user["_id"],
         name=user["fullName"],
-        phone=user["phone"],
+        phone=user.get("phone", ""),
         email=user.get("email", ""),
         source_tag="customer_portal",
     )
-    return auth_payload(user)
+    data = auth_payload(user)
+    data["otp"] = verification
+    return data
 
 
 async def get_customer_profile(user_id: str) -> dict:

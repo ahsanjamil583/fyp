@@ -19,18 +19,18 @@ PLAN_DEFINITIONS = [
     {
         "code": "growth",
         "name": "AI Ordering",
-        "displayName": "AI Ordering Paid",
-        "priceLabel": "Paid",
-        "isPaid": True,
-        "description": "Adds customer portal, AI chat, RAG knowledge base, smart ordering, payments, and stock-aware ordering.",
+        "displayName": "AI Ordering Free",
+        "priceLabel": "Free",
+        "isPaid": False,
+        "description": "Customer portal, AI chat, RAG knowledge base, smart ordering, payments, and stock-aware ordering.",
     },
     {
         "code": "scale",
         "name": "Full Agent",
-        "displayName": "Full Agent Paid",
-        "priceLabel": "Paid",
-        "isPaid": True,
-        "description": "Adds WhatsApp agent, owner AI assistant, daily reports, advanced agent tools, and full automation demo features.",
+        "displayName": "Full Agent Free",
+        "priceLabel": "Free",
+        "isPaid": False,
+        "description": "WhatsApp agent, owner AI assistant, daily reports, advanced agent tools, and full automation demo features.",
     },
 ]
 PLAN_ORDER = [plan["code"] for plan in PLAN_DEFINITIONS]
@@ -76,18 +76,11 @@ def get_plan_definition(plan_code: str | None) -> dict:
 
 
 def get_package_access_status(tenant: dict, plan_code: str | None) -> str:
-    plan = get_plan_definition(plan_code)
-    if not plan.get("isPaid"):
-        return "approved"
-    if _get_tenant_plan_code(tenant) == plan["code"]:
-        return "approved"
-    access = (((tenant.get("settings") or {}).get("packageAccess") or {}).get(plan["code"]) or {})
-    return str(access.get("status") or "locked").lower()
+    return "approved"
 
 
 def _get_included_plans(module: dict) -> list[str]:
-    included = ((module.get("availability") or {}).get("includedPlans")) or PLAN_ORDER
-    return [plan for plan in included if plan in PLAN_ORDER] or PLAN_ORDER
+    return list(PLAN_ORDER)
 
 
 def _get_upgrade_plan_code(module: dict, current_plan: str) -> str | None:
@@ -110,15 +103,36 @@ async def ensure_module_usage_capacity(tenant_oid, module_code: str, increment: 
 
 
 def _ensure_module_plan_access(tenant: dict, module: dict, plan_code: str) -> None:
-    included_plans = _get_included_plans(module)
-    if plan_code in included_plans:
-        return
-    upgrade_plan = _get_upgrade_plan_code(module, plan_code)
-    upgrade_name = format_plan_name(upgrade_plan)
-    raise HTTPException(
-        status_code=status.HTTP_402_PAYMENT_REQUIRED,
-        detail=f"{module.get('name', module.get('code', 'This module'))} is not included in the {format_plan_name(plan_code)} plan. Request or switch to {upgrade_name} to enable it.",
+    return None
+
+
+async def _enable_missing_free_modules(tenant: dict, modules: list[dict], user: dict) -> dict:
+    db = get_database()
+    tenant_oid = tenant["_id"]
+    now = datetime.now(timezone.utc)
+    active_codes = [module["code"] for module in modules]
+    existing_codes = {
+        row["moduleCode"]
+        async for row in db.tenant_modules.find({"tenantId": tenant_oid, "moduleCode": {"$in": active_codes}})
+    }
+    missing_codes = [code for code in active_codes if code not in existing_codes]
+    if not missing_codes:
+        return tenant
+
+    for code in missing_codes:
+        await db.tenant_modules.update_one(
+            {"tenantId": tenant_oid, "moduleCode": code},
+            {
+                "$set": {"status": "enabled", "updatedAt": now},
+                "$setOnInsert": {"config": {}, "enabledBy": user["_id"], "enabledAt": now},
+            },
+            upsert=True,
+        )
+    await db.tenants.update_one(
+        {"_id": tenant_oid},
+        {"$addToSet": {"enabledModuleCodes": {"$each": missing_codes}}, "$set": {"updatedAt": now}},
     )
+    return await db.tenants.find_one({"_id": tenant_oid}) or tenant
 
 
 async def create_module(payload) -> dict:
@@ -138,6 +152,7 @@ async def list_tenant_modules(tenant_id: str, user: dict) -> dict:
     tenant_oid = parse_object_id(tenant_id, "tenantId")
     tenant = await get_owned_tenant_or_403(tenant_oid, user)
     modules = await list_modules()
+    tenant = await _enable_missing_free_modules(tenant, modules, user)
     tenant_rows = {
         row["moduleCode"]: row
         async for row in db.tenant_modules.find({"tenantId": tenant_oid})

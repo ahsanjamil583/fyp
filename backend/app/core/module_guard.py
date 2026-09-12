@@ -6,9 +6,6 @@ from fastapi import HTTPException, status
 from app.core.config import settings
 from app.db.mongodb import get_database
 
-PLAN_ORDER = ("starter", "growth", "scale")
-
-
 async def ensure_tenant_module_enabled(tenant_id: ObjectId, module_code: str) -> None:
     db = get_database()
     module = await db.modules.find_one({"code": module_code, "isActive": True})
@@ -21,18 +18,8 @@ async def ensure_tenant_module_enabled(tenant_id: ObjectId, module_code: str) ->
     if not tenant_module:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Module is disabled for this tenant.")
 
-    tenant = await db.tenants.find_one({"_id": tenant_id})
-    if not tenant:
+    if not await db.tenants.find_one({"_id": tenant_id}):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found.")
-
-    plan_code = str(((tenant.get("settings") or {}).get("planCode") or "starter")).lower()
-    plan_code = plan_code if plan_code in PLAN_ORDER else "starter"
-    included_plans = ((module.get("availability") or {}).get("includedPlans")) or list(PLAN_ORDER)
-    if plan_code not in included_plans:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"{module.get('name', module_code)} is not included in the {plan_code} plan.",
-        )
 
 
 async def ensure_tenant_ai_budget(tenant_id: ObjectId) -> None:

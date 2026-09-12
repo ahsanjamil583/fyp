@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, call, patch
 
 from bson import ObjectId
 
@@ -25,18 +25,28 @@ class CustomerAuthServiceTests(unittest.IsolatedAsyncioTestCase):
         payload = type(
             "Payload",
             (),
-            {"fullName": "Danyal Khan", "email": "danyal@gmail.com", "password": "Str0ng!Secret"},
+            {"fullName": "Danyal Khan", "email": "danyal@gmail.com", "code": "123456", "password": "Str0ng!Secret"},
         )()
 
         with (
             patch("app.services.customer_auth_service.get_database", return_value=fake_db),
             patch("app.services.customer_auth_service.find_user_by_email_or_phone", AsyncMock(return_value=None)),
+            patch("app.services.customer_auth_service.verify_email_otp", AsyncMock(return_value={"verified": True, "consumed": True})) as verify_email_otp,
             patch("app.services.customer_auth_service.hash_password", return_value="hashed"),
             patch("app.services.customer_auth_service.sync_registered_customer_records", AsyncMock()) as sync_mock,
         ):
             session = await register_customer(payload)
 
         self.assertEqual(session["user"]["fullName"], "Danyal Khan")
+        self.assertTrue(session["user"]["isEmailVerified"])
+        inserted_user = fake_users.insert_one.await_args.args[0]
+        self.assertNotIn("phone", inserted_user)
+        verify_email_otp.assert_has_awaits(
+            [
+                call(email="danyal@gmail.com", code="123456", account_type="customer", purpose="register", consume=False),
+                call(email="danyal@gmail.com", code="123456", account_type="customer", purpose="register", consume=True),
+            ]
+        )
         sync_mock.assert_awaited_once()
         self.assertEqual(sync_mock.await_args.kwargs["customer_user_id"], user_id)
         self.assertEqual(sync_mock.await_args.kwargs["source_tag"], "customer_portal")

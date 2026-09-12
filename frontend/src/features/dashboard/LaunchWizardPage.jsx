@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useTenant } from "../../context/TenantContext.jsx";
-import { applyLaunchProfile, finalizeLaunch, getLaunchStatus, requestPackageUpgrade } from "../../services/onboardingApi.js";
+import { applyLaunchProfile, finalizeLaunch, getLaunchStatus } from "../../services/onboardingApi.js";
 import { formatApiError } from "../../utils/apiErrors.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
@@ -100,15 +100,12 @@ export function LaunchWizardPage() {
     setMessage("");
     setError("");
     try {
-      const needsRequest = profile.isPaid && profile.accessStatus !== "approved";
-      const data = needsRequest
-        ? await requestPackageUpgrade(selectedTenant.id, { profileCode })
-        : await applyLaunchProfile(selectedTenant.id, { profileCode, autoUpgradePlan: true });
+      const data = await applyLaunchProfile(selectedTenant.id, { profileCode, autoUpgradePlan: true });
       setStatus(data);
       const tenants = await refreshTenants();
       const latest = tenants.find((tenant) => tenant.id === selectedTenant.id);
       if (latest) selectTenant(latest);
-      setMessage(needsRequest ? `${profile.name} request sent for admin approval.` : `${profile.name} package applied.`);
+      setMessage(`${profile.name} setup applied.`);
     } catch (err) {
       setError(formatApiError(err.response?.data?.detail, "Unable to apply launch package."));
     } finally {
@@ -179,8 +176,6 @@ export function LaunchWizardPage() {
         <div className="grid gap-4 lg:grid-cols-3">
           {profiles.map(([code, profile]) => {
             const selected = summary.profileCode === code;
-            const pending = profile.accessStatus === "pending_approval";
-            const locked = profile.isPaid && profile.accessStatus !== "approved";
             return (
               <article key={code} className={selected ? "rounded-xl border border-brand bg-brand-50 p-5 shadow-card" : "rounded-xl border border-line bg-white p-5 shadow-card"}>
                 <div className="flex items-start justify-between gap-3">
@@ -188,8 +183,8 @@ export function LaunchWizardPage() {
                     <SectionTitle>{profile.name}</SectionTitle>
                     <p className="mt-2 text-sm leading-6 text-muted">{profile.description}</p>
                   </div>
-                  <span className={profile.isPaid ? "rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-200" : "rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700 ring-1 ring-green-200"}>
-                    {profile.priceLabel || (profile.isPaid ? "Paid" : "Free")}
+                  <span className="rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700 ring-1 ring-green-200">
+                    {profile.priceLabel || "Free"}
                   </span>
                 </div>
                 <div className="mt-4 text-sm font-semibold text-ink">Plan: {profile.targetPlanDisplayName || profile.targetPlanName}</div>
@@ -201,10 +196,10 @@ export function LaunchWizardPage() {
                 <button
                   type="button"
                   onClick={() => handleProfile(code, profile)}
-                  disabled={loading || pending}
-                  className={locked ? "mt-4 w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50" : "mt-4 w-full rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"}
+                  disabled={loading}
+                  className="mt-4 w-full rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
                 >
-                  {pending ? "Pending admin approval" : locked ? "Request admin approval" : selected ? "Reapply package" : "Apply this package"}
+                  {selected ? "Reapply setup" : "Apply setup"}
                 </button>
               </article>
             );

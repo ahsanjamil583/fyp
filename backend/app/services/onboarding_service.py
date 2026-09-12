@@ -25,8 +25,8 @@ LAUNCH_PROFILES: dict[str, dict[str, Any]] = {
     },
     "ai_ordering": {
         "name": "AI Ordering",
-        "priceLabel": "Paid",
-        "isPaid": True,
+        "priceLabel": "Free",
+        "isPaid": False,
         "description": "Customer portal, AI chat, RAG, smart ordering, payments, and stock-aware ordering.",
         "targetPlan": "growth",
         "features": ["Everything in Basic", "Customer portal", "AI chat", "RAG knowledge base", "Smart order drafts", "Payments", "Stock-aware ordering"],
@@ -34,8 +34,8 @@ LAUNCH_PROFILES: dict[str, dict[str, Any]] = {
     },
     "full_agent_demo": {
         "name": "Full Agent",
-        "priceLabel": "Paid",
-        "isPaid": True,
+        "priceLabel": "Free",
+        "isPaid": False,
         "description": "WhatsApp agent, owner AI assistant, daily reports, advanced agent tools, and full automation demo features.",
         "targetPlan": "scale",
         "features": ["Everything in AI Ordering", "WhatsApp agent", "Owner AI assistant", "Daily WhatsApp/SMS reports", "Agent tools", "Advanced reports", "Full automation demo"],

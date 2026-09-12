@@ -5,6 +5,16 @@ export async function registerCustomer(payload) {
   return response.data.data;
 }
 
+export async function requestCustomerEmailOtp(payload) {
+  const response = await apiClient.post("/customer/auth/otp/email/request", payload);
+  return response.data.data;
+}
+
+export async function verifyCustomerEmailOtp(payload) {
+  const response = await apiClient.post("/customer/auth/otp/email/verify", payload);
+  return response.data.data;
+}
+
 export async function loginCustomer(payload) {
   const response = await apiClient.post("/customer/auth/login", payload);
   return response.data.data;

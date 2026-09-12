@@ -69,6 +69,12 @@ export function CustomerLayout() {
       navItems={navItems}
       asideFooter={asideFooter}
       headerActions={headerActions}
+      flowSteps={[
+        { label: "Browse", icon: Store },
+        { label: "Add to cart", icon: ShoppingCart },
+        { label: "Place order", icon: Receipt },
+        { label: "Track updates", icon: Bell },
+      ]}
       outletContext={{ setCustomerSidebarPanel: setSidebarPanel }}
     />
   );

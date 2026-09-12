@@ -1,4 +1,4 @@
-import { Check, Lock, Puzzle, Sparkles, TrendingUp } from "lucide-react";
+import { Check, Puzzle, Sparkles, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Alert, Badge, Card, EmptyState, IconTile, PageHeader } from "../../components/ui/index.jsx";
@@ -8,7 +8,6 @@ import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getPublicBusinessCategories } from "../../services/businessCategoryApi.js";
 import { disableTenantModule, enableTenantModule } from "../../services/moduleApi.js";
-import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 export function ModuleMarketplace() {
   const { selectedTenant, refreshTenants, selectTenant } = useTenant();
@@ -77,7 +76,7 @@ export function ModuleMarketplace() {
         icon={Puzzle}
         eyebrow="Module Registry"
         title={`Modules for ${selectedTenant.name}`}
-        description="Enable the tools included in this business plan. Modules outside the current plan stay locked until the plan is approved or upgraded."
+        description="All BizXusAI modules are available freely for this business. Enable the tools you want to use."
       />
 
       {availablePlans.length ? (
@@ -97,7 +96,7 @@ export function ModuleMarketplace() {
                 ) : null}
                 <div className="flex items-start justify-between gap-3">
                   <div className="text-lg font-bold text-ink">{plan.name}</div>
-                  <Badge tone={plan.isPaid ? "orange" : "green"}>{plan.priceLabel}</Badge>
+                  <Badge tone="green">{plan.priceLabel || "Free"}</Badge>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-muted">{plan.description}</p>
                 {active ? (
@@ -160,8 +159,6 @@ export function ModuleMarketplace() {
         {tenantModules.map((module) => {
           const suggested = selectedCategory?.suggestedModules.includes(module.code);
           const enabled = module.tenantStatus === "enabled";
-          const included = module.planAccess?.isIncluded !== false;
-          const disabledByPlan = !enabled && !included;
           const meta = moduleMeta(module.code);
           return (
             <Card
@@ -169,16 +166,15 @@ export function ModuleMarketplace() {
               key={module.code}
               className={`flex flex-col transition ${
                 enabled ? "ring-1 ring-brand-200" : ""
-              } ${included ? "hover:shadow-lift" : "opacity-75"}`}
+              } hover:shadow-lift`}
             >
               <div className="flex items-start gap-4">
-                <IconTile icon={meta.icon} tone={included ? meta.tone : "slate"} size={46} />
+                <IconTile icon={meta.icon} tone={meta.tone} size={46} />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <SectionTitle>{module.name}</SectionTitle>
+                    <h2 className="text-base font-bold text-ink">{module.name}</h2>
                     {enabled ? <Badge tone="green" icon={Check}>Enabled</Badge> : null}
                     {suggested && !enabled ? <Badge tone="purple" icon={Sparkles}>Suggested</Badge> : null}
-                    {!included ? <Badge tone="orange" icon={Lock}>Locked</Badge> : null}
                   </div>
                   <p className="mt-1.5 text-sm leading-6 text-muted">{module.description}</p>
                 </div>
@@ -190,10 +186,8 @@ export function ModuleMarketplace() {
                   <dd className="font-medium text-muted">{humanizeModuleCode(module.category)}</dd>
                 </div>
                 <div className="flex gap-2">
-                  <dt className="w-32 shrink-0 font-semibold text-subtle">Included in</dt>
-                  <dd className="font-medium text-muted">
-                    {module.planAccess?.includedPlanNames?.join(", ") || "All plans"}
-                  </dd>
+                  <dt className="w-32 shrink-0 font-semibold text-subtle">Access</dt>
+                  <dd className="font-medium text-muted">Free for every business</dd>
                 </div>
                 {module.dependencies?.length ? (
                   <div className="flex gap-2">
@@ -213,27 +207,18 @@ export function ModuleMarketplace() {
                 ) : null}
               </dl>
 
-              {!included ? (
-                <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-orange-600">
-                  <Lock size={13} />
-                  Not included in the {module.planAccess?.currentPlanName || "current"} plan.
-                </p>
-              ) : null}
-
               <div className="mt-4 flex justify-end">
                 <button
                   type="button"
                   className={enabled ? "ui-btn-secondary" : "ui-btn-primary"}
-                  disabled={busyModule === module.code || disabledByPlan}
+                  disabled={busyModule === module.code}
                   onClick={() => toggleModule(module)}
                 >
                   {busyModule === module.code
                     ? "Saving..."
                     : enabled
                       ? "Disable"
-                      : disabledByPlan
-                        ? "Locked"
-                        : "Enable"}
+                      : "Enable"}
                 </button>
               </div>
             </Card>

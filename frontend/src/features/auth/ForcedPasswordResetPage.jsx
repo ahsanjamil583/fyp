@@ -5,12 +5,12 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 
-import { BrandLogo } from "../../components/common/BrandLogo.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useCustomer } from "../../context/CustomerContext.jsx";
 import { getApiErrorMessage } from "../../services/apiError.js";
 import { changeBusinessPassword } from "../../services/authApi.js";
 import { changeCustomerPassword } from "../../services/customerAuthApi.js";
+import { AuthAlert, AuthField, AuthLayout, AuthSubmit } from "./AuthLayout.jsx";
 
 const schema = Joi.object({
   currentPassword: Joi.string().required().label("Current password"),
@@ -54,80 +54,50 @@ export function ForcedPasswordResetPage({ customer = false }) {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-surface px-4 py-10">
-      <div className="w-full max-w-md rounded-xl border border-line bg-white p-7 shadow-soft">
-        <BrandLogo showWordmark={false} className="mb-5 h-12 w-12 rounded-xl bg-white" imageClassName="h-12 w-12 rounded-xl object-contain" />
+    <AuthLayout
+      audience={customer ? "customer" : "business"}
+      icon={ShieldAlert}
+      title="Choose a new password"
+      subtitle="Use at least 8 characters with three of: lowercase, uppercase, number, symbol. Avoid common passwords and anything containing your name, email or phone number."
+    >
+      <AuthAlert tone="orange">
+        Your current password does not meet the security requirements for this account. Set a stronger
+        one to regain access.
+      </AuthAlert>
 
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
-          <ShieldAlert className="mt-0.5 shrink-0 text-amber-600" size={19} />
-          <div className="text-sm leading-6 text-amber-900">
-            <div className="font-semibold">Update your password to continue</div>
-            Your current password does not meet the security requirements for this account. Set a
-            stronger one to regain access.
-          </div>
-        </div>
+      <AuthAlert tone="red">{serverError}</AuthAlert>
 
-        <h1 className="mt-5 text-2xl font-semibold text-ink">Choose a new password</h1>
-        <p className="mt-2 text-sm leading-6 text-muted">
-          Use at least 8 characters with three of: lowercase, uppercase, number, symbol. Avoid common
-          passwords and anything containing your name, email, or phone number.
-        </p>
+      <form className="space-y-4" onSubmit={form.handleSubmit(submit)} noValidate>
+        <AuthField icon={<LockKeyhole size={17} />} label="Current password" htmlFor="currentPassword" error={form.formState.errors.currentPassword?.message}>
+          <input id="currentPassword" {...form.register("currentPassword")} type="password" className="auth-input" placeholder="Your existing password" autoComplete="current-password" aria-invalid={Boolean(form.formState.errors.currentPassword)} />
+        </AuthField>
+        <AuthField icon={<LockKeyhole size={17} />} label="New password" htmlFor="newPassword" error={form.formState.errors.newPassword?.message}>
+          <input id="newPassword" {...form.register("newPassword")} type="password" className="auth-input" placeholder="Minimum 8 characters" autoComplete="new-password" aria-invalid={Boolean(form.formState.errors.newPassword)} />
+        </AuthField>
+        <AuthField icon={<LockKeyhole size={17} />} label="Confirm new password" htmlFor="confirmPassword" error={form.formState.errors.confirmPassword?.message}>
+          <input id="confirmPassword" {...form.register("confirmPassword")} type="password" className="auth-input" placeholder="Re-enter new password" autoComplete="new-password" aria-invalid={Boolean(form.formState.errors.confirmPassword)} />
+        </AuthField>
+        <AuthSubmit isSubmitting={form.formState.isSubmitting}>Update password and continue</AuthSubmit>
+      </form>
 
-        {serverError ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</div>
-        ) : null}
-
-        <form className="mt-5 space-y-4" onSubmit={form.handleSubmit(submit)}>
-          <Field icon={<LockKeyhole size={17} />} label="Current password" error={form.formState.errors.currentPassword?.message}>
-            <input {...form.register("currentPassword")} type="password" className="auth-input" placeholder="Your existing password" autoComplete="current-password" />
-          </Field>
-          <Field icon={<LockKeyhole size={17} />} label="New password" error={form.formState.errors.newPassword?.message}>
-            <input {...form.register("newPassword")} type="password" className="auth-input" placeholder="Minimum 8 characters" autoComplete="new-password" />
-          </Field>
-          <Field icon={<LockKeyhole size={17} />} label="Confirm new password" error={form.formState.errors.confirmPassword?.message}>
-            <input {...form.register("confirmPassword")} type="password" className="auth-input" placeholder="Re-enter new password" autoComplete="new-password" />
-          </Field>
-          <button
-            type="submit"
-            disabled={form.formState.isSubmitting}
-            className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
-          >
-            {form.formState.isSubmitting ? "Updating..." : "Update password and continue"}
-          </button>
-        </form>
-
-        <div className="mt-5 text-center text-sm text-muted">
-          Forgot your current password?{" "}
-          <button
-            type="button"
-            className="font-semibold text-brand"
-            onClick={() => {
-              if (customer) {
-                customerSession.clearCustomerSession();
-                navigate("/customer/forgot-password", { replace: true });
-                return;
-              }
-              auth.clearSession();
-              navigate("/forgot-password", { replace: true });
-            }}
-          >
-            Reset it with an OTP
-          </button>
-        </div>
+      <div className="mt-5 border-t border-line-soft pt-5 text-center text-sm text-muted">
+        Forgot your current password?{" "}
+        <button
+          type="button"
+          className="font-bold text-brand hover:text-brand-hover"
+          onClick={() => {
+            if (customer) {
+              customerSession.clearCustomerSession();
+              navigate("/customer/forgot-password", { replace: true });
+              return;
+            }
+            auth.clearSession();
+            navigate("/forgot-password", { replace: true });
+          }}
+        >
+          Reset it with a code
+        </button>
       </div>
-    </div>
-  );
-}
-
-function Field({ icon, label, error, children }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>
-      <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15">
-        <span className="text-muted">{icon}</span>
-        {children}
-      </div>
-      {error ? <span className="mt-1 block text-sm text-red-600">{error}</span> : null}
-    </label>
+    </AuthLayout>
   );
 }

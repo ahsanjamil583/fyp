@@ -30,35 +30,35 @@ export default {
 
         // ---- Brand ------------------------------------------------------------
         brand: {
-          DEFAULT: "#6D28D9", // --primary
-          bright: "#7C3AED", // --primary-bright
-          hover: "#5B21B6", // --primary-hover
-          50: "#F3E8FF", // --primary-light
-          100: "#EDE9FE", // --primary-soft
-          200: "#DDD6FE",
-          300: "#C4B5FD",
-          400: "#A78BFA",
-          500: "#7C3AED",
-          600: "#6D28D9",
-          700: "#5B21B6",
-          800: "#4C1D95",
-          900: "#3B1578",
+          DEFAULT: "#0F766E", // --primary
+          bright: "#14B8A6", // --primary-bright
+          hover: "#115E59", // --primary-hover
+          50: "#ECFDF9", // --primary-light
+          100: "#CCFBF1", // --primary-soft
+          200: "#99F6E4",
+          300: "#5EEAD4",
+          400: "#2DD4BF",
+          500: "#14B8A6",
+          600: "#0F766E",
+          700: "#115E59",
+          800: "#134E4A",
+          900: "#0F3F3A",
         },
         primary: {
-          DEFAULT: "#6D28D9",
-          dark: "#5B21B6",
+          DEFAULT: "#0F766E",
+          dark: "#115E59",
         },
 
         // ---- Sidebar ----------------------------------------------------------
         sidebar: {
-          top: "#11152F",
-          mid: "#151638",
-          bottom: "#0B1530",
-          card: "#1C2345",
-          text: "#D8DDF2",
-          muted: "#929AB8",
-          "active-start": "#6541D8",
-          "active-end": "#742DF2",
+          top: "#102A43",
+          mid: "#123047",
+          bottom: "#081827",
+          card: "#173954",
+          text: "#DCE9F5",
+          muted: "#9CB4CA",
+          "active-start": "#0F766E",
+          "active-end": "#2563EB",
           hover: "rgba(255, 255, 255, 0.06)",
         },
 
@@ -186,18 +186,18 @@ export default {
       },
 
       backgroundImage: {
-        "sidebar-rail": "linear-gradient(180deg, #11152F 0%, #151638 45%, #0B1530 100%)",
-        "sidebar-active": "linear-gradient(90deg, #6541D8 0%, #742DF2 100%)",
-        cta: "linear-gradient(90deg, #6D28D9, #7C3AED)",
-        "ai-card": "linear-gradient(135deg, #25145F 0%, #352080 45%, #241452 100%)",
+        "sidebar-rail": "linear-gradient(180deg, #102A43 0%, #123047 45%, #081827 100%)",
+        "sidebar-active": "linear-gradient(90deg, #0F766E 0%, #2563EB 100%)",
+        cta: "linear-gradient(90deg, #0F766E, #2563EB)",
+        "ai-card": "linear-gradient(135deg, #0B2F35 0%, #123047 48%, #172554 100%)",
       },
 
       boxShadow: {
         card: "0 4px 18px rgba(16, 22, 51, 0.04)",
         soft: "0 4px 18px rgba(16, 22, 51, 0.04)",
         lift: "0 10px 30px rgba(16, 22, 51, 0.08)",
-        "nav-active": "0 6px 18px rgba(109, 40, 217, 0.35)",
-        brand: "0 6px 18px rgba(109, 40, 217, 0.35)",
+        "nav-active": "0 6px 18px rgba(15, 118, 110, 0.28)",
+        brand: "0 6px 18px rgba(15, 118, 110, 0.28)",
         rail: "0 24px 60px rgba(11, 21, 48, 0.45)",
       },
 

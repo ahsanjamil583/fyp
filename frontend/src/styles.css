@@ -10,20 +10,20 @@
     sans-serif;
 
   /* Main Brand */
-  --primary: #6d28d9;
-  --primary-bright: #7c3aed;
-  --primary-hover: #5b21b6;
-  --primary-light: #f3e8ff;
-  --primary-soft: #ede9fe;
+  --primary: #0f766e;
+  --primary-bright: #14b8a6;
+  --primary-hover: #115e59;
+  --primary-light: #ecfdf9;
+  --primary-soft: #ccfbf1;
 
   /* Sidebar */
-  --sidebar-top: #11152f;
-  --sidebar-bottom: #0b1530;
-  --sidebar-card: #1c2345;
-  --sidebar-active-start: #6541d8;
-  --sidebar-active-end: #742df2;
-  --sidebar-text: #d8ddf2;
-  --sidebar-muted: #929ab8;
+  --sidebar-top: #102a43;
+  --sidebar-bottom: #081827;
+  --sidebar-card: #173954;
+  --sidebar-active-start: #0f766e;
+  --sidebar-active-end: #2563eb;
+  --sidebar-text: #dce9f5;
+  --sidebar-muted: #9cb4ca;
 
   /* Main Dashboard */
   --page-bg: #f8faff;
@@ -42,12 +42,12 @@
   --border-soft: #eef1f7;
 
   /* Purple / AI */
-  --purple: #6c20f6;
+  --purple: #2563eb;
   --purple-light: #eee7ff;
-  --purple-glow: #a477ff;
+  --purple-glow: #38bdf8;
 
   /* Blue */
-  --blue: #1677ff;
+  --blue: #2563eb;
   --blue-light: #eaf3ff;
 
   /* Green / Success */
@@ -127,7 +127,232 @@ textarea {
 
 .form-input:focus {
   border-color: var(--primary-bright);
-  box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.14);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+}
+
+/* --------------------------------------------------------------- auth -- */
+
+.auth-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(248, 250, 255, 0.96)),
+    radial-gradient(circle at 18% 12%, rgba(20, 184, 166, 0.14), transparent 34%),
+    radial-gradient(circle at 84% 14%, rgba(37, 99, 235, 0.09), transparent 30%),
+    var(--page-bg);
+}
+
+.auth-ambient {
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.4), transparent 42%),
+    radial-gradient(ellipse at 20% 20%, rgba(20, 184, 166, 0.14), transparent 46%),
+    radial-gradient(ellipse at 78% 28%, rgba(37, 99, 235, 0.11), transparent 42%),
+    radial-gradient(ellipse at 48% 92%, rgba(245, 158, 11, 0.09), transparent 38%);
+  animation: authAmbientShift 18s ease-in-out infinite alternate;
+}
+
+.auth-grid {
+  background-image:
+    linear-gradient(rgba(15, 118, 110, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 118, 110, 0.08) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+
+.auth-card {
+  border-radius: 1.5rem;
+  animation: authCardIn 460ms ease-out both;
+}
+
+.auth-icon,
+.auth-preview-card {
+  box-shadow: 0 18px 44px rgba(15, 118, 110, 0.11);
+}
+
+.auth-preview {
+  animation: authCardIn 620ms ease-out both;
+}
+
+.auth-float-one {
+  animation: authSoftFloat 7s ease-in-out infinite;
+}
+
+.auth-float-two {
+  animation: authSoftFloat 8s ease-in-out 0.8s infinite;
+}
+
+.auth-field {
+  box-shadow: 0 1px 0 rgba(16, 22, 51, 0.02);
+}
+
+.auth-field:hover {
+  border-color: #d9def0;
+}
+
+.auth-field:focus-within {
+  box-shadow: 0 10px 24px rgba(15, 118, 110, 0.08);
+}
+
+.auth-primary-btn {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 14px 28px rgba(15, 118, 110, 0.22);
+}
+
+/* -------------------------------------------------------- motion system -- */
+
+.calm-motion-field {
+  background:
+    linear-gradient(120deg, rgba(15, 118, 110, 0.92), rgba(37, 99, 235, 0.72), rgba(245, 158, 11, 0.38)),
+    linear-gradient(180deg, rgba(8, 24, 39, 0.2), rgba(8, 24, 39, 0.8));
+  background-size: 180% 180%;
+  animation: calmFieldDrift 18s ease-in-out infinite alternate;
+}
+
+.calm-motion-field::before,
+.calm-motion-field::after {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  background-image:
+    linear-gradient(115deg, transparent 0 26%, rgba(255, 255, 255, 0.11) 27% 28%, transparent 29% 100%),
+    linear-gradient(65deg, transparent 0 34%, rgba(255, 255, 255, 0.09) 35% 36%, transparent 37% 100%);
+  background-size: 190px 190px, 260px 260px;
+  opacity: 0.65;
+  animation: calmLines 28s linear infinite;
+}
+
+.calm-motion-field::after {
+  opacity: 0.34;
+  animation-direction: reverse;
+  animation-duration: 36s;
+}
+
+.kinetic-word {
+  display: inline-block;
+  animation: kineticWord 8s ease-in-out infinite;
+}
+
+.kinetic-word:nth-child(2) {
+  animation-delay: 0.35s;
+}
+
+.kinetic-word:nth-child(3) {
+  animation-delay: 0.7s;
+}
+
+.workflow-strip {
+  scrollbar-width: none;
+}
+
+.workflow-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.workflow-step {
+  position: relative;
+}
+
+.workflow-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: calc(100% + 0.5rem);
+  top: 50%;
+  width: 1.25rem;
+  height: 1px;
+  background: var(--border);
+}
+
+@keyframes calmFieldDrift {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes calmLines {
+  from {
+    transform: translate3d(-2%, -2%, 0);
+  }
+  to {
+    transform: translate3d(2%, 2%, 0);
+  }
+}
+
+@keyframes kineticWord {
+  0%,
+  100% {
+    opacity: 0.82;
+    transform: translateY(0);
+  }
+  42% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+.auth-primary-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.25) 42%, transparent 72%);
+  transform: translateX(-120%);
+  transition: transform 0.55s ease;
+}
+
+.auth-primary-btn:hover::after {
+  transform: translateX(120%);
+}
+
+@keyframes authAmbientShift {
+  from {
+    transform: translate3d(-1.5%, -1%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(1.5%, 1%, 0) scale(1.03);
+  }
+}
+
+@keyframes authCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes authSoftFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-ambient,
+  .auth-card,
+  .auth-preview,
+  .auth-float-one,
+  .auth-float-two {
+    animation: none;
+  }
+
+  .auth-primary-btn::after {
+    display: none;
+  }
+
+  .calm-motion-field,
+  .calm-motion-field::before,
+  .calm-motion-field::after,
+  .kinetic-word {
+    animation: none;
+  }
 }
 
 :where(a, button, [role="button"], input, select, textarea):focus-visible {
@@ -190,7 +415,7 @@ button.bg-primary,
 a.bg-brand,
 a.bg-primary,
 .bg-cta {
-  background-image: linear-gradient(90deg, var(--primary), var(--primary-bright));
+  background-image: linear-gradient(90deg, var(--primary), #2563eb);
 }
 
 button.bg-brand:hover,

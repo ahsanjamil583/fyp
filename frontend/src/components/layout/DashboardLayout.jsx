@@ -208,6 +208,13 @@ export function DashboardLayout() {
       asideExtra={asideExtra}
       asideFooter={asideFooter}
       headerActions={headerActions}
+      flowSteps={[
+        { label: "Profile", icon: Building2 },
+        { label: "Modules", icon: SquareStack },
+        { label: "Catalog", icon: Boxes },
+        { label: "Website", icon: Globe },
+        { label: "Orders", icon: Receipt },
+      ]}
     />
   );
 }

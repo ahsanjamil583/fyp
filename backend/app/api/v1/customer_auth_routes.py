@@ -6,6 +6,7 @@ from app.schemas.auth_schema import LoginRequest, PasswordChangeRequest, Refresh
 from app.schemas.customer_auth_schema import CustomerProfileUpdateRequest, CustomerRegisterRequest
 from app.schemas.otp_schema import (
     EmailOtpRequest,
+    EmailOtpVerifyRequest,
     EmailPasswordResetRequest,
     PhoneOtpRequest,
     PhoneOtpVerifyRequest,
@@ -20,7 +21,7 @@ from app.services.auth_service import (
     user_public,
 )
 from app.services.customer_auth_service import get_customer_profile, register_customer, update_customer_profile
-from app.services.otp_service import mark_user_phone_verified, request_email_otp, request_phone_otp, verify_phone_otp
+from app.services.otp_service import mark_user_phone_verified, request_email_otp, request_phone_otp, verify_email_otp, verify_phone_otp
 
 router = APIRouter(prefix="/customer/auth", tags=["customer-auth"])
 
@@ -58,6 +59,28 @@ async def verify_otp(payload: PhoneOtpVerifyRequest):
         consume=False,
     )
     return success_response("OTP verified successfully.", data)
+
+
+@router.post("/otp/email/request")
+async def request_email_verification_otp(payload: EmailOtpRequest):
+    data = await request_email_otp(
+        email=payload.email,
+        account_type="customer",
+        purpose=payload.purpose,
+    )
+    return success_response("Verification code sent successfully.", data)
+
+
+@router.post("/otp/email/verify")
+async def verify_email_verification_otp(payload: EmailOtpVerifyRequest):
+    data = await verify_email_otp(
+        email=payload.email,
+        code=payload.code,
+        account_type="customer",
+        purpose=payload.purpose,
+        consume=False,
+    )
+    return success_response("Verification code verified successfully.", data)
 
 
 @router.post("/password/phone/request")
