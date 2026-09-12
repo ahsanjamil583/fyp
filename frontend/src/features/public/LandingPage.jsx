@@ -14,8 +14,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { Professional3DBackground } from "../../components/common/Professional3DBackground.jsx";
-
 /**
  * Public landing page.
  *
@@ -126,8 +124,11 @@ export function LandingPage() {
     <>
       {/* ------------------------------------------------------------ hero -- */}
       <section className="relative isolate overflow-hidden bg-sidebar-bottom text-white">
-        <Professional3DBackground intensity="hero" />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,23,0.9),rgba(8,24,39,0.5),rgba(3,12,28,0.78))]" />
+        <div
+          aria-hidden="true"
+          className="calm-motion-field pointer-events-none absolute inset-0"
+        />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(8,24,39,0.84),rgba(8,24,39,0.48),rgba(8,24,39,0.74))]" />
         <div className="relative mx-auto max-w-7xl px-5 pb-16 pt-14 lg:px-8 lg:pb-24 lg:pt-20">
           <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
             <div>
