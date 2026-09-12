@@ -2,6 +2,7 @@ import { BarChart3, Bot, Check, Globe2, LockKeyhole, MessageCircle, PackageCheck
 import { Link } from "react-router-dom";
 
 import { BrandLogo } from "../../components/common/BrandLogo.jsx";
+import { Professional3DBackground } from "../../components/common/Professional3DBackground.jsx";
 
 /**
  * The single shell for every authentication screen.
@@ -44,8 +45,8 @@ export function AuthLayout({ audience = "business", icon: Icon, title, subtitle,
   return (
     <div className="auth-shell min-h-screen overflow-hidden bg-page lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(460px,540px)]">
       <section className="relative hidden overflow-hidden bg-sidebar-bottom p-10 text-white lg:flex lg:flex-col xl:p-14">
-        <div aria-hidden="true" className="calm-motion-field absolute inset-0 opacity-80" />
-        <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,24,39,0.86),rgba(8,24,39,0.62),rgba(8,24,39,0.7))]" />
+        <Professional3DBackground intensity="auth" />
+        <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,23,0.9),rgba(8,24,39,0.66),rgba(3,12,28,0.82))]" />
         <div
           aria-hidden="true"
           className="auth-ambient pointer-events-none absolute inset-0 opacity-35"
