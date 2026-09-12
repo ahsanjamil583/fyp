@@ -203,7 +203,7 @@ export function Shell({
                 type="search"
                 placeholder="Search anything... (customers, items, transactions, etc.)"
                 aria-label="Search the workspace"
-                className="w-full rounded-full border border-line bg-surface py-2.5 pl-11 pr-4 text-sm text-ink outline-none transition placeholder:text-muted focus:border-brand-bright focus:bg-white focus:shadow-[0_0_0_3px_rgba(15,118,110,0.14)]"
+                className="w-full rounded-full border border-line bg-surface py-2.5 pl-11 pr-4 text-sm text-ink outline-none transition placeholder:text-muted focus:border-brand-bright focus:bg-white focus:shadow-[0_0_0_3px_rgba(37,99,235,0.14)]"
               />
             </div>
 

@@ -22,7 +22,7 @@ export default {
         // code uses `bg-surface` for inset blocks *inside* white cards; pointing it at
         // pure white would make those blocks disappear. Pure white is `bg-white`.
         surface: "#F8F9FD", // --surface-soft
-        "surface-purple": "#FAF8FF",
+        "surface-purple": "#F0F7FF",
 
         // ---- Borders ----------------------------------------------------------
         line: "#E5E9F3", // --border
@@ -30,23 +30,23 @@ export default {
 
         // ---- Brand ------------------------------------------------------------
         brand: {
-          DEFAULT: "#0F766E", // --primary
-          bright: "#14B8A6", // --primary-bright
-          hover: "#115E59", // --primary-hover
-          50: "#ECFDF9", // --primary-light
-          100: "#CCFBF1", // --primary-soft
-          200: "#99F6E4",
-          300: "#5EEAD4",
-          400: "#2DD4BF",
-          500: "#14B8A6",
-          600: "#0F766E",
-          700: "#115E59",
-          800: "#134E4A",
-          900: "#0F3F3A",
+          DEFAULT: "#2563EB", // --primary
+          bright: "#38BDF8", // --primary-bright
+          hover: "#1D4ED8", // --primary-hover
+          50: "#EFF6FF", // --primary-light
+          100: "#DBEAFE", // --primary-soft
+          200: "#BFDBFE",
+          300: "#93C5FD",
+          400: "#60A5FA",
+          500: "#3B82F6",
+          600: "#2563EB",
+          700: "#1D4ED8",
+          800: "#1E40AF",
+          900: "#1E3A8A",
         },
         primary: {
-          DEFAULT: "#0F766E",
-          dark: "#115E59",
+          DEFAULT: "#2563EB",
+          dark: "#1D4ED8",
         },
 
         // ---- Sidebar ----------------------------------------------------------
@@ -57,25 +57,25 @@ export default {
           card: "#173954",
           text: "#DCE9F5",
           muted: "#9CB4CA",
-          "active-start": "#0F766E",
+          "active-start": "#1D4ED8",
           "active-end": "#2563EB",
           hover: "rgba(255, 255, 255, 0.06)",
         },
 
-        // ---- AI / purple ------------------------------------------------------
+        // ---- AI accents mapped into the blue system ---------------------------
         purple: {
-          DEFAULT: "#6C20F6",
-          glow: "#A477FF",
-          50: "#F6F1FF",
-          100: "#EEE7FF", // --purple-light
-          200: "#DFD1FF",
-          300: "#C6ADFF",
-          400: "#A477FF",
-          500: "#8B4CFA",
-          600: "#6C20F6",
-          700: "#5A16D0",
-          800: "#4A14AB",
-          900: "#3C1187",
+          DEFAULT: "#2563EB",
+          glow: "#38BDF8",
+          50: "#EFF6FF",
+          100: "#DBEAFE",
+          200: "#BFDBFE",
+          300: "#93C5FD",
+          400: "#60A5FA",
+          500: "#3B82F6",
+          600: "#2563EB",
+          700: "#1D4ED8",
+          800: "#1E40AF",
+          900: "#1E3A8A",
         },
 
         // ---- Blue -------------------------------------------------------------
@@ -93,36 +93,36 @@ export default {
           900: "#0A3370",
         },
 
-        // ---- Green / success --------------------------------------------------
+        // ---- Blue success/info aliases ----------------------------------------
         green: {
-          DEFAULT: "#10B968",
-          50: "#E6F9F0", // --green-light
-          100: "#CFF3E1",
-          200: "#A3E8C6",
-          300: "#6FDAA6",
-          400: "#37C985",
-          500: "#10B968",
-          600: "#059653", // --green-dark
-          700: "#047C45",
-          800: "#046237",
-          900: "#03502E",
+          DEFAULT: "#2563EB",
+          50: "#EFF6FF",
+          100: "#DBEAFE",
+          200: "#BFDBFE",
+          300: "#93C5FD",
+          400: "#60A5FA",
+          500: "#3B82F6",
+          600: "#2563EB",
+          700: "#1D4ED8",
+          800: "#1E40AF",
+          900: "#1E3A8A",
         },
-        // Plenty of pages reach for emerald-*; keep it a synonym of the success ramp
+        // Plenty of pages reach for emerald-*; keep it a synonym of the blue ramp
         // rather than leaving a second, off-scheme green in the UI.
         emerald: {
-          DEFAULT: "#10B968",
-          50: "#E6F9F0",
-          100: "#CFF3E1",
-          200: "#A3E8C6",
-          300: "#6FDAA6",
-          400: "#37C985",
-          500: "#10B968",
-          600: "#059653",
-          700: "#047C45",
-          800: "#046237",
-          900: "#03502E",
+          DEFAULT: "#2563EB",
+          50: "#EFF6FF",
+          100: "#DBEAFE",
+          200: "#BFDBFE",
+          300: "#93C5FD",
+          400: "#60A5FA",
+          500: "#3B82F6",
+          600: "#2563EB",
+          700: "#1D4ED8",
+          800: "#1E40AF",
+          900: "#1E3A8A",
         },
-        accent: "#10B968",
+        accent: "#2563EB",
 
         // ---- Orange / warning -------------------------------------------------
         orange: {
@@ -187,17 +187,17 @@ export default {
 
       backgroundImage: {
         "sidebar-rail": "linear-gradient(180deg, #102A43 0%, #123047 45%, #081827 100%)",
-        "sidebar-active": "linear-gradient(90deg, #0F766E 0%, #2563EB 100%)",
-        cta: "linear-gradient(90deg, #0F766E, #2563EB)",
-        "ai-card": "linear-gradient(135deg, #0B2F35 0%, #123047 48%, #172554 100%)",
+        "sidebar-active": "linear-gradient(90deg, #1D4ED8 0%, #38BDF8 100%)",
+        cta: "linear-gradient(90deg, #1D4ED8, #2563EB)",
+        "ai-card": "linear-gradient(135deg, #071A3D 0%, #123047 48%, #172554 100%)",
       },
 
       boxShadow: {
         card: "0 4px 18px rgba(16, 22, 51, 0.04)",
         soft: "0 4px 18px rgba(16, 22, 51, 0.04)",
         lift: "0 10px 30px rgba(16, 22, 51, 0.08)",
-        "nav-active": "0 6px 18px rgba(15, 118, 110, 0.28)",
-        brand: "0 6px 18px rgba(15, 118, 110, 0.28)",
+        "nav-active": "0 6px 18px rgba(37, 99, 235, 0.28)",
+        brand: "0 6px 18px rgba(37, 99, 235, 0.28)",
         rail: "0 24px 60px rgba(11, 21, 48, 0.45)",
       },
 

@@ -53,7 +53,7 @@ export const WEBSITE_PRESET_OPTIONS = {
     { value: "harbor", label: "Harbor", description: "Soft blue editorial feel for mixed storefronts.", background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 48%, #ffffff 100%)", surface: "#ffffff", accent: "#2563eb", secondary: "#1d4ed8" },
   ],
   catalog: [
-    { value: "market", label: "Market", description: "Dense retail-inspired layout with crisp contrast.", background: "linear-gradient(135deg, #fafaf9 0%, #f5f5f4 40%, #ffffff 100%)", surface: "#ffffff", accent: "#0f766e", secondary: "#115e59" },
+    { value: "market", label: "Market", description: "Dense retail-inspired layout with crisp contrast.", background: "linear-gradient(135deg, #fafaf9 0%, #f5f5f4 40%, #ffffff 100%)", surface: "#ffffff", accent: "#2563eb", secondary: "#1d4ed8" },
     { value: "bazaar", label: "Bazaar", description: "Lively storefront style for discovery and offers.", background: "linear-gradient(135deg, #fefce8 0%, #fef3c7 42%, #ffffff 100%)", surface: "#ffffff", accent: "#ca8a04", secondary: "#a16207" },
   ],
   service: [
@@ -193,4 +193,3 @@ export function buildBusinessHighlights(business, items = []) {
 export function getVisibleSections(websiteSettings = {}) {
   return normalizeSections(websiteSettings.sections, websiteSettings.templateCode || "default").filter((section) => section.visible !== false);
 }
-

@@ -113,10 +113,10 @@ const FAQ = [
 
 const TILE = {
   violet: "bg-brand-100 text-brand",
-  purple: "bg-purple-100 text-purple-600",
-  green: "bg-green-50 text-green-600",
+  purple: "bg-blue-100 text-blue-700",
+  green: "bg-blue-50 text-blue-600",
   blue: "bg-blue-50 text-blue-500",
-  orange: "bg-orange-100 text-orange-600",
+  orange: "bg-sky-100 text-sky-700",
 };
 
 export function LandingPage() {
@@ -139,9 +139,9 @@ export function LandingPage() {
 
               <h1 className="mt-5 text-4xl font-black leading-[1.08] tracking-tight text-white md:text-[3.4rem]">
                 BizXusAI helps your shop{" "}
-                <span className="kinetic-word text-teal-200">publish,</span>{" "}
+                <span className="kinetic-word text-blue-200">publish,</span>{" "}
                 <span className="kinetic-word text-blue-200">answer,</span>{" "}
-                <span className="kinetic-word text-orange-100">sell.</span>
+                <span className="kinetic-word text-sky-100">sell.</span>
               </h1>
 
               <p className="mt-5 max-w-xl text-lg leading-8 text-white/78">
@@ -163,7 +163,7 @@ export function LandingPage() {
               <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2">
                 {["Free plan available", "No card required", "Live in one day"].map((t) => (
                   <li key={t} className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/78">
-                    <Check size={15} className="text-teal-200" strokeWidth={3} />
+                    <Check size={15} className="text-blue-200" strokeWidth={3} />
                     {t}
                   </li>
                 ))}
@@ -174,9 +174,9 @@ export function LandingPage() {
             <div className="relative">
               <div className="rounded-card border border-white/18 bg-white/12 p-5 shadow-lift backdrop-blur-md">
                 <div className="flex items-center gap-2 border-b border-white/15 pb-3">
-                  <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-orange-400" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-green-400" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-blue-300" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-blue-400" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-sky-300" />
                   <span className="ml-2 truncate text-xs font-semibold text-white/60">
                     bizxus.ai/your-shop
                   </span>
@@ -216,7 +216,7 @@ export function LandingPage() {
               </div>
 
               <div className="absolute -bottom-4 -left-4 hidden items-center gap-2 rounded-xl border border-white/18 bg-white px-3.5 py-2.5 shadow-card sm:flex">
-                <span className="grid h-8 w-8 place-items-center rounded-lg bg-green-50 text-green-600">
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50 text-blue-600">
                   <Zap size={16} />
                 </span>
                 <div>
@@ -407,7 +407,7 @@ function PerkCard({ icon: Icon, tone, eyebrow, title, perks, cta, secondary, hig
       <ul className="mt-5 grid gap-2.5">
         {perks.map((p) => (
           <li key={p} className="flex items-start gap-2.5 text-sm leading-6 text-muted">
-            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-green-50 text-green-600">
+            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-blue-50 text-blue-600">
               <Check size={12} strokeWidth={3.5} />
             </span>
             {p}

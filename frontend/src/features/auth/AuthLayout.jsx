@@ -86,7 +86,7 @@ export function AuthLayout({ audience = "business", icon: Icon, title, subtitle,
           <ProductPreview audience={audience} />
 
           <div className="mt-auto flex items-center gap-2 pt-10 text-sm font-semibold text-white/70">
-            <ShieldCheck size={16} className="text-teal-200" />
+            <ShieldCheck size={16} className="text-blue-200" />
             {copy.footnote}
           </div>
         </div>
@@ -141,7 +141,7 @@ export function AuthLayout({ audience = "business", icon: Icon, title, subtitle,
 }
 
 function SparkleDot() {
-  return <span className="h-2 w-2 rounded-full bg-brand shadow-[0_0_18px_rgba(15,118,110,0.55)]" />;
+  return <span className="h-2 w-2 rounded-full bg-brand shadow-[0_0_18px_rgba(37,99,235,0.55)]" />;
 }
 
 function ProductPreview({ audience }) {
@@ -151,7 +151,7 @@ function ProductPreview({ audience }) {
         <div className="auth-preview-card rounded-card border border-white/16 bg-white/12 p-5 shadow-lift backdrop-blur">
         <div className="flex items-center justify-between gap-3 border-b border-white/14 pb-4">
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-teal-200">Live Workspace</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-200">Live Workspace</div>
             <div className="mt-1 text-sm font-bold text-white">{isCustomer ? "Smart customer journey" : "Business operations cockpit"}</div>
           </div>
           <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-brand">Online</span>
@@ -188,7 +188,7 @@ function ProductPreview({ audience }) {
       <ul className="mt-5 grid grid-cols-2 gap-3">
         {(AUDIENCE[audience]?.perks || AUDIENCE.business.perks).slice(0, 4).map((perk) => (
           <li key={perk} className="flex items-start gap-2 rounded-2xl border border-white/16 bg-white/10 px-3 py-2.5 text-xs font-semibold leading-5 text-white/74 shadow-card backdrop-blur">
-            <Check size={14} className="mt-0.5 shrink-0 text-teal-200" strokeWidth={3} />
+            <Check size={14} className="mt-0.5 shrink-0 text-blue-200" strokeWidth={3} />
             {perk}
           </li>
         ))}
@@ -201,7 +201,7 @@ function MiniMetric({ icon: Icon, label, value }) {
   return (
     <div className="rounded-2xl border border-white/14 bg-white/12 px-4 py-3 shadow-card">
       <div className="flex items-center gap-2 text-xs font-bold text-white/60">
-        <Icon size={14} className="text-teal-200" />
+        <Icon size={14} className="text-blue-200" />
         {label}
       </div>
       <div className="mt-2 text-xl font-black text-white">{value}</div>
@@ -213,7 +213,7 @@ function ActivityRow({ icon: Icon, label, value }) {
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
       <span className="flex items-center gap-2 font-semibold text-white">
-        <Icon size={15} className="text-teal-200" />
+        <Icon size={15} className="text-blue-200" />
         {label}
       </span>
       <span className="text-xs font-bold text-white/62">{value}</span>

@@ -6,17 +6,17 @@
  * draw real coordinate-space SVG instead, sized by viewBox so they stay sharp and
  * responsive without pulling in a charting library.
  *
- * Colours come from the scheme: purple #6C20F6, blue #1677FF, orange #FF9800,
+ * Colours come from the scheme: blue shades, orange #FF9800 for warnings,
  * grid #E9EDF5.
  */
 
 import { useId, useMemo, useState } from "react";
 
 export const SERIES_COLORS = {
-  purple: "#6C20F6",
+  purple: "#1D4ED8",
   blue: "#1677FF",
   orange: "#FF9800",
-  green: "#10B968",
+  green: "#2563EB",
   red: "#EF4444",
 };
 
