@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getFinalQaChecklist, recordFinalQaDemoRun } from "../../services/qaApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { formatDisplayValue, withoutSecrets } from "../../utils/displaySafety.js";
 
 const badgeStyles = {
   pass: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -166,9 +167,9 @@ export function FinalQAPage() {
                         {check.route ? <div className="mt-2 text-xs font-semibold">Fix/Test route: {check.route}</div> : null}
                         {Object.keys(check.evidence || {}).length ? (
                           <div className="mt-2 grid gap-1 text-xs opacity-90 md:grid-cols-2">
-                            {Object.entries(check.evidence).slice(0, 6).map(([key, value]) => (
+                            {Object.entries(withoutSecrets(check.evidence)).slice(0, 6).map(([key, value]) => (
                               <div key={key}>
-                                <span className="font-semibold">{key}:</span> {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                                <span className="font-semibold">{key}:</span> {formatDisplayValue(value)}
                               </div>
                             ))}
                           </div>

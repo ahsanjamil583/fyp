@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
+import { isDebugMode } from "../../utils/displaySafety.js";
 import { getOwnerAgentHistory, getOwnerAgentInsights, sendOwnerAgentMessage } from "../../services/ownerAgentApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
@@ -201,9 +202,9 @@ export function OwnerAgentPage() {
             </button>
           </form>
 
-          {lastContext?.toolCalls?.length ? (
+          {isDebugMode && lastContext?.toolCalls?.length ? (
             <div className="mt-4 rounded-xl bg-surface p-3 text-xs text-muted">
-              Last tool: {lastContext.toolCalls.map((tool) => tool.tool).join(", ")}
+              {`Last tool: ${lastContext.toolCalls.map((tool) => tool.tool).join(", ")}`}
             </div>
           ) : null}
         </div>

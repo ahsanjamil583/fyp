@@ -1,3 +1,5 @@
+import { formatDisplayValue } from "../../utils/displaySafety.js";
+
 export function DynamicTable({ fields, rows }) {
   const visibleFields = fields.filter((field) => field.isActive && field.showInTable).sort((a, b) => a.order - b.order);
 
@@ -34,8 +36,6 @@ export function DynamicTable({ fields, rows }) {
 }
 
 function formatValue(value) {
-  if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (value === null || value === undefined || value === "") return "-";
-  return String(value);
+  // A plain object used to fall through to String(value) and render "[object Object]".
+  return formatDisplayValue(value, { fallback: "-" });
 }

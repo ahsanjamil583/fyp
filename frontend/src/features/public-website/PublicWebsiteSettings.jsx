@@ -48,7 +48,10 @@ export function PublicWebsiteSettings() {
   useEffect(() => {
     if (!selectedTenant) return;
     setForm(buildEditorState(selectedTenant));
-  }, [selectedTenant]);
+    // Keyed on the tenant id, not the tenant object: background refreshes hand back a
+    // new object reference, and re-running this reset discarded unsaved edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTenant?.id]);
 
   const selectedCategory = categories.find((category) => category.id === selectedTenant?.businessCategoryId);
   const presetOptions = useMemo(() => getTemplatePresetOptions(form.templateCode), [form.templateCode]);

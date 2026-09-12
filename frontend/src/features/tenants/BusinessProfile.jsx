@@ -104,7 +104,10 @@ export function BusinessProfile() {
     });
     const savedStep = Number(localStorage.getItem(stepStorageKey) || 1);
     setCurrentStep(Math.min(3, Math.max(1, savedStep)));
-  }, [form, selectedTenant, stepStorageKey, user?.email, user?.phone]);
+    // Keyed on the tenant id, not the tenant object: background refreshes hand back a
+    // new object reference, and re-running this reset wiped whatever was being typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTenant?.id, stepStorageKey, user?.email, user?.phone]);
 
   useEffect(() => {
     localStorage.setItem(stepStorageKey, String(currentStep));

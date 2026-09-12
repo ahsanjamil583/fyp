@@ -75,11 +75,29 @@ async function refreshBusinessAccessToken() {
 
 const PASSWORD_RESET_REQUIRED = "password_reset_required";
 
+/**
+ * Router-driven navigation for the interceptor.
+ *
+ * This module cannot import the router (the router imports pages, which import this
+ * module), so App registers a handler instead. Falling back to window.location would
+ * be a full document reload, which throws away everything the user has typed.
+ */
+let navigationHandler = null;
+
+export function setApiNavigationHandler(handler) {
+  navigationHandler = typeof handler === "function" ? handler : null;
+}
+
 function redirectToForcedPasswordReset(isCustomerRequest) {
   const target = isCustomerRequest ? "/customer/update-password" : "/update-password";
-  if (window.location.pathname !== target) {
-    window.location.assign(target);
+  if (window.location.pathname === target) {
+    return;
   }
+  if (navigationHandler) {
+    navigationHandler(target);
+    return;
+  }
+  window.location.assign(target);
 }
 
 apiClient.interceptors.response.use(

@@ -2,6 +2,7 @@ import { ProductImage } from "../common/ProductImage.jsx";
 import { useEffect, useMemo, useRef } from "react";
 
 import { CustomerPaymentInstructions } from "../payments/CustomerPaymentInstructions.jsx";
+import { formatDisplayValue } from "../../utils/displaySafety.js";
 import { getDefaultPaymentMethod } from "../payments/paymentMethods.js";
 
 function formatTime(value) {
@@ -25,9 +26,12 @@ function splitReply(text = "") {
 }
 
 function optionText(options = {}) {
-  const entries = Object.entries(options || {}).filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "");
+  // Customer-facing: an object value here previously printed "[object Object]".
+  const entries = Object.entries(options || {})
+    .map(([key, value]) => [key, formatDisplayValue(value, { fallback: "" })])
+    .filter(([, text]) => text.trim() !== "");
   if (!entries.length) return "";
-  return entries.map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`).join(" | ");
+  return entries.map(([key, text]) => `${key}: ${text}`).join(" | ");
 }
 
 function inferCategoryName(business = {}) {

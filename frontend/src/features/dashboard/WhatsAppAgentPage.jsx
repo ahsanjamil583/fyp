@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
+import { isDebugMode } from "../../utils/displaySafety.js";
 import {
   disconnectWhatsApp,
   getWhatsAppConversations,
@@ -78,6 +79,17 @@ export function WhatsAppAgentPage() {
   const bridgeQrUrl =
     settings?.bridgePairingUrl ||
     (selectedTenant ? `http://localhost:3005/pair/${encodeURIComponent(selectedTenant.id)}` : "http://localhost:3005");
+  // Shown on screen with the token masked; `bridgeEnv` (with the real token) is only
+  // ever written to the clipboard by the Copy env button.
+  const bridgeEnvRedacted = selectedTenant
+    ? [
+        `BIZXUS_API_BASE_URL=${apiBaseUrl}`,
+        `BIZXUS_TENANT_ID=${selectedTenant.id}`,
+        "BIZXUS_WHATSAPP_BRIDGE_TOKEN=********  (use Copy env)",
+        `WHATSAPP_AUTH_PATH=.baileys_auth/${selectedTenant.id}`,
+        "PORT=3005",
+      ].join("\n")
+    : "";
   const bridgeEnv = selectedTenant
     ? [
         `BIZXUS_API_BASE_URL=${apiBaseUrl}`,
@@ -366,10 +378,29 @@ export function WhatsAppAgentPage() {
           </label>
 
           <div className="rounded-xl bg-surface p-4 text-sm text-muted">
-            <div className="font-semibold text-ink">Generic webhook URL</div>
-            <div className="mt-1 break-all">{webhookUrl}</div>
+            <div className="font-semibold text-ink">WhatsApp connection</div>
+            {isDebugMode ? (
+              <div className="mt-1 break-all">{webhookUrl}</div>
+            ) : (
+              <div className="mt-1">Configured automatically for this workspace.</div>
+            )}
             <div className="mt-3 font-semibold text-ink">Verify token</div>
-            <div className="mt-1 break-all">{settings?.webhookVerifyToken || "Save settings to use the configured verify token."}</div>
+            <div className="mt-1">
+              {settings?.webhookVerifyToken ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="font-semibold text-ink">Configured</span>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-line bg-white px-2 py-1 text-xs font-bold text-brand"
+                    onClick={() => copyText(settings.webhookVerifyToken, "Verify token copied.")}
+                  >
+                    Copy
+                  </button>
+                </span>
+              ) : (
+                "Save settings to generate the verify token."
+              )}
+            </div>
             <div className="mt-3 rounded-xl border border-line bg-white p-3 text-xs leading-5">
               This endpoint is kept as a provider-neutral placeholder for your new WhatsApp method.
             </div>
@@ -381,58 +412,77 @@ export function WhatsAppAgentPage() {
                 <div>
                   <div className="font-semibold">Baileys bridge setup</div>
                   <p className="mt-1 leading-6">
-                    Save your settings first, then open the connection page below and scan the QR from
-                    WhatsApp or WhatsApp Business Linked Devices. BizXusAI then handles replies through this tenant.
+                    Save your settings first. When the bridge is connected, BizXusAI handles replies through this tenant.
                   </p>
                 </div>
-                <button className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800" onClick={() => copyText(bridgeEnv, "Bridge environment copied.")} type="button">
+                {isDebugMode ? (
+                  <button className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800" onClick={() => copyText(bridgeEnv, "Bridge environment copied.")} type="button">
                   Copy env
-                </button>
+                  </button>
+                ) : null}
               </div>
 
               <div className="mt-3 rounded-xl border border-emerald-300 bg-white p-4">
                 <div className="text-sm font-bold text-ink">Connect this business&apos;s WhatsApp</div>
                 <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Opens the pairing page for this business in a new tab. Keep the bridge running while you scan.
+                  {isDebugMode
+                    ? "Opens the pairing page for this business in a new tab. Keep the bridge running while you scan."
+                    : "Connection details are handled by the workspace setup. Save settings and check the connected number below."}
                 </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <a
-                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700"
-                    href={bridgeQrUrl}
-                    rel="noreferrer noopener"
-                    target="_blank"
-                  >
-                    Open WhatsApp connection page
-                  </a>
-                  <button className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800" onClick={() => copyText(bridgeQrUrl, "Connection page link copied.")} type="button">
-                    Copy link
-                  </button>
-                </div>
-                <div className="mt-2 break-all text-xs text-slate-500">{bridgeQrUrl}</div>
+                {isDebugMode ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <a
+                      className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700"
+                      href={bridgeQrUrl}
+                      rel="noreferrer noopener"
+                      target="_blank"
+                    >
+                      Open WhatsApp connection page
+                    </a>
+                    <button className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800" onClick={() => copyText(bridgeQrUrl, "Connection page link copied.")} type="button">
+                      Copy link
+                    </button>
+                  </div>
+                ) : null}
+                {isDebugMode ? (
+                  <div className="mt-2 break-all text-xs text-slate-500">{bridgeQrUrl}</div>
+                ) : null}
               </div>
 
-              <pre className="mt-3 overflow-x-auto rounded-xl bg-white p-3 text-xs leading-5 text-ink">{bridgeEnv}</pre>
+              {/* The env block carries the bridge token, so it is never rendered as
+                  text. "Copy env" still puts the real values on the clipboard. */}
+              {isDebugMode ? (
+                <pre className="mt-3 overflow-x-auto rounded-xl bg-white p-3 text-xs leading-5 text-ink">{bridgeEnvRedacted}</pre>
+              ) : null}
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <div className="rounded-xl bg-white p-3">
                   <div className="text-xs font-bold uppercase tracking-wide text-emerald-700">Connected number</div>
                   <div className="mt-1 font-semibold text-ink">{settings?.bridgeConnectedNumber || settings?.businessWhatsAppNumber || "Not connected yet"}</div>
                 </div>
-                <div className="rounded-xl bg-white p-3">
-                  <div className="text-xs font-bold uppercase tracking-wide text-emerald-700">Status endpoint</div>
-                  <div className="mt-1 break-all text-xs font-semibold text-ink">{bridgeStatusUrl}</div>
-                </div>
-                <div className="rounded-xl bg-white p-3">
-                  <div className="text-xs font-bold uppercase tracking-wide text-emerald-700">Inbound endpoint</div>
-                  <div className="mt-1 break-all text-xs font-semibold text-ink">{bridgeInboundUrl}</div>
-                </div>
+                {isDebugMode ? (
+                  <>
+                    <div className="rounded-xl bg-white p-3">
+                      <div className="text-xs font-bold uppercase tracking-wide text-emerald-700">Status endpoint</div>
+                      <div className="mt-1 break-all text-xs font-semibold text-ink">{bridgeStatusUrl}</div>
+                    </div>
+                    <div className="rounded-xl bg-white p-3">
+                      <div className="text-xs font-bold uppercase tracking-wide text-emerald-700">Inbound endpoint</div>
+                      <div className="mt-1 break-all text-xs font-semibold text-ink">{bridgeInboundUrl}</div>
+                    </div>
+                  </>
+                ) : null}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800" onClick={() => copyText(`cd whatsapp-bridge\nnpm install\nnpm run dev`, "Bridge run commands copied.")} type="button">
-                  Copy run commands
-                </button>
-                <button className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800" disabled={isRefreshingToken} onClick={handleRefreshToken} type="button">
-                  {isRefreshingToken ? "Refreshing..." : "Refresh bridge token"}
-                </button>
+                {isDebugMode ? (
+                  <button className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800" onClick={() => copyText(`cd whatsapp-bridge\nnpm install\nnpm run dev`, "Bridge run commands copied.")} type="button">
+                    Copy run commands
+                  </button>
+                ) : null}
+                {isDebugMode ? (
+                  <button className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800" disabled={isRefreshingToken} onClick={handleRefreshToken} type="button">
+                    {isRefreshingToken ? "Refreshing..." : "Refresh bridge token"}
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : null}

@@ -14,6 +14,7 @@ import {
 } from "../../services/knowledgeBaseApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
+import { humanizeInternalName, isDebugMode } from "../../utils/displaySafety.js";
 
 const sourceLabels = {
   owner_text: "Owner text",
@@ -384,7 +385,7 @@ export function KnowledgeBasePage() {
           <div>
             <SectionTitle>Ask a test question from this knowledge base</SectionTitle>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">
-              Preview how BizXus AI will answer using this business&apos;s RAG, catalog, category, and order tools. Sources and tool trace are visible only here for owner debugging.
+              Preview how BizXus AI will answer using this business&apos;s RAG, catalog, category, and order tools. Answers use your knowledge base, catalog and order tools.
             </p>
           </div>
           <button className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60" disabled={isTesting || !testForm.question.trim()} type="submit">
@@ -403,9 +404,9 @@ export function KnowledgeBasePage() {
               <div className="text-xs font-semibold uppercase tracking-wide text-brand">AI answer preview</div>
               <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink">{testResult.reply || "No answer generated."}</div>
               <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
-                <span className="rounded-full bg-white px-2 py-1">Intent: {testResult.meta?.intent || "general_info"}</span>
+                {isDebugMode ? <span className="rounded-full bg-white px-2 py-1">Intent: {testResult.meta?.intent || "general_info"}</span> : null}
                 <span className="rounded-full bg-white px-2 py-1">Knowledge: {testResult.meta?.knowledgeCount || 0}</span>
-                <span className="rounded-full bg-white px-2 py-1">Source: {testResult.meta?.responseSource || "preview"}</span>
+                {isDebugMode ? <span className="rounded-full bg-white px-2 py-1">Source: {testResult.meta?.responseSource || "preview"}</span> : null}
               </div>
             </div>
             <div className="space-y-3">
@@ -422,16 +423,18 @@ export function KnowledgeBasePage() {
                   {!testResult.ragSources?.length ? <div className="text-xs text-muted">No RAG source matched this question.</div> : null}
                 </div>
               </div>
+              {isDebugMode ? (
               <div className="rounded-xl border border-line p-3">
                 <div className="text-sm font-semibold text-ink">Tool trace</div>
                 <div className="mt-2 max-h-44 space-y-1 overflow-auto text-xs text-muted">
                   {(testResult.toolCalls || []).map((tool) => (
                     <div className="rounded bg-surface px-2 py-1" key={`${tool.agent}-${tool.tool}`}>
-                      {tool.tool}: {tool.status}
+                      {humanizeInternalName(tool.tool)}: {tool.status}
                     </div>
                   ))}
                 </div>
               </div>
+              ) : null}
             </div>
           </div>
         ) : null}

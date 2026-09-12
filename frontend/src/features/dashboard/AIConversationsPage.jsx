@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
+import { formatAnswerSource, formatDisplayValue, getUserFacingSourceTitles, isDebugMode } from "../../utils/displaySafety.js";
 import { getOwnerConversationDetail, getOwnerConversations, getTenantRagStatus, reindexTenantRag } from "../../services/aiConversationApi.js";
 
 export function AIConversationsPage() {
@@ -128,8 +129,8 @@ export function AIConversationsPage() {
               <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-subtle">{conversation.status}</div>
               <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide text-muted">
                 {conversation.languageDetected ? <span>{conversation.languageDetected}</span> : null}
-                {conversation.lastIntent ? <span>{conversation.lastIntent.replaceAll("_", " ")}</span> : null}
-                {conversation.lastAssistantSource ? <span>{conversation.lastAssistantSource}</span> : null}
+                {isDebugMode && conversation.lastIntent ? <span>{conversation.lastIntent.replaceAll("_", " ")}</span> : null}
+                {conversation.lastAssistantSource ? <span>{formatAnswerSource(conversation.lastAssistantSource)}</span> : null}
               </div>
               <div className="mt-2 line-clamp-2 text-sm text-muted">{conversation.summary || "No summary yet."}</div>
             </button>
@@ -146,9 +147,9 @@ export function AIConversationsPage() {
               <div className="text-sm text-muted">Last activity: {detail.conversation.lastMessageAt ? new Date(detail.conversation.lastMessageAt).toLocaleString() : "n/a"}</div>
               <div className="flex flex-wrap gap-2 pt-2 text-xs text-muted">
                 {detail.conversation.languageDetected ? <span className="rounded-full bg-surface px-2 py-1">{detail.conversation.languageDetected}</span> : null}
-                {detail.conversation.lastIntent ? <span className="rounded-full bg-surface px-2 py-1">Intent: {detail.conversation.lastIntent.replaceAll("_", " ")}</span> : null}
-                {detail.conversation.lastIntentConfidence ? <span className="rounded-full bg-surface px-2 py-1">Confidence: {detail.conversation.lastIntentConfidence}</span> : null}
-                {detail.conversation.lastAssistantSource ? <span className="rounded-full bg-surface px-2 py-1">Provider: {detail.conversation.lastAssistantSource}</span> : null}
+                {isDebugMode && detail.conversation.lastIntent ? <span className="rounded-full bg-surface px-2 py-1">Intent: {detail.conversation.lastIntent.replaceAll("_", " ")}</span> : null}
+                {isDebugMode && detail.conversation.lastIntentConfidence ? <span className="rounded-full bg-surface px-2 py-1">Confidence: {detail.conversation.lastIntentConfidence}</span> : null}
+                {detail.conversation.lastAssistantSource ? <span className="rounded-full bg-surface px-2 py-1">Answered by: {formatAnswerSource(detail.conversation.lastAssistantSource)}</span> : null}
                 <span className="rounded-full bg-surface px-2 py-1">Knowledge: {detail.conversation.lastKnowledgeCount || 0}</span>
                 {detail.conversation.lastLocalizationScore ? <span className="rounded-full bg-surface px-2 py-1">Localization: {detail.conversation.lastLocalizationScore}</span> : null}
               </div>
@@ -161,20 +162,32 @@ export function AIConversationsPage() {
                     <div className="text-xs text-muted">{new Date(message.createdAt).toLocaleString()}</div>
                   </div>
                   <div className="mt-2 text-sm leading-6 text-ink">{message.messageText}</div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
-                    {message.intent ? <span className="rounded-full bg-surface px-2 py-1">Intent: {message.intent.replaceAll("_", " ")}</span> : null}
-                    {message.confidence ? <span className="rounded-full bg-surface px-2 py-1">Confidence: {message.confidence}</span> : null}
-                  </div>
-                  {message.ragSources?.length ? (
-                    <div className="mt-3 text-xs text-muted">
-                      Sources: {message.ragSources.map((source) => source.title).filter(Boolean).join(", ")}
+                  {isDebugMode ? (
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+                      {message.intent ? <span className="rounded-full bg-surface px-2 py-1">Intent: {message.intent.replaceAll("_", " ")}</span> : null}
+                      {message.confidence ? <span className="rounded-full bg-surface px-2 py-1">Confidence: {message.confidence}</span> : null}
                     </div>
                   ) : null}
-                  {message.toolCalls?.length ? (
+                  {/* Only show sources that name a real knowledge document. Previously this
+                      rendered for any result, producing bare labels like "Sources: Style". */}
+                  {(() => {
+                    const titles = getUserFacingSourceTitles(message.ragSources || []);
+                    if (!titles.length) return null;
+                    return (
+                      <div className="mt-3 text-xs text-muted">
+                        Answered using: {[...new Set(titles)].join(", ")}
+                      </div>
+                    );
+                  })()}
+                  {/* String(value) on a nested object rendered "[object Object]" here.
+                      Tool traces are a developer aid, so they are gated entirely. */}
+                  {isDebugMode && message.toolCalls?.length ? (
                     <div className="mt-3 rounded-xl bg-surface p-3 text-xs text-muted">
                       {message.toolCalls.map((toolCall, index) => (
                         <div key={`${message.id}-tool-${index}`}>
-                          {Object.entries(toolCall).map(([key, value]) => `${key}: ${String(value)}`).join(" | ")}
+                          {Object.entries(toolCall)
+                            .map(([key, value]) => `${key}: ${formatDisplayValue(value, { fallback: "-" })}`)
+                            .join(" | ")}
                         </div>
                       ))}
                     </div>

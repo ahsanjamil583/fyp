@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, RefreshCw, ShieldCheck, XCircle } from "lu
 
 import { getDemoAccounts, getReadinessReport } from "../../services/readinessApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { formatDisplayValue, isDebugMode, withoutSecrets } from "../../utils/displaySafety.js";
 
 const statusStyles = {
   pass: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -96,12 +97,16 @@ export function DeploymentReadinessPage() {
             <div className="rounded-2xl border border-line bg-white p-6 shadow-card">
               <SectionTitle>Runtime</SectionTitle>
               <dl className="mt-4 space-y-3 text-sm">
-                {Object.entries(report?.runtime || {}).map(([key, value]) => (
-                  <div key={key} className="flex justify-between gap-4 border-b border-line pb-2 last:border-0">
-                    <dt className="font-semibold text-muted">{key}</dt>
-                    <dd className="text-right text-ink">{String(value)}</dd>
-                  </div>
-                ))}
+                {/* Runtime keys can carry URLs, ports and paths, so the raw block is
+                    developer-only and secret-like keys are dropped either way. */}
+                {isDebugMode
+                  ? Object.entries(withoutSecrets(report?.runtime || {})).map(([key, value]) => (
+                      <div key={key} className="flex justify-between gap-4 border-b border-line pb-2 last:border-0">
+                        <dt className="font-semibold text-muted">{key}</dt>
+                        <dd className="text-right text-ink">{formatDisplayValue(value)}</dd>
+                      </div>
+                    ))
+                  : <div className="text-sm text-muted">Runtime configuration is verified automatically.</div>}
               </dl>
             </div>
             <div className="rounded-2xl border border-line bg-white p-6 shadow-card">

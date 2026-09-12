@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
+import { getUserFacingSourceTitles, humanizeInternalName, isDebugMode } from "../../utils/displaySafety.js";
 import { getAgentTools, previewAgentRun } from "../../services/agentApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
@@ -10,14 +11,15 @@ function ToolEventCard({ event }) {
     <div className="rounded-xl border border-line bg-surface p-3 text-sm">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="font-semibold text-ink">{event.agent} / {event.tool}</div>
+          <div className="font-semibold text-ink">{humanizeInternalName(event.tool) || "Step"}</div>
           <div className="mt-1 text-muted">{event.summary}</div>
         </div>
         <span className={event.status === "success" ? "rounded-full bg-green-50 px-2 py-1 text-xs font-semibold text-green-700" : "rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"}>
           {event.status || "success"}
         </span>
       </div>
-      {event.output ? (
+      {/* Raw tool output is a developer aid, not owner-facing information. */}
+      {isDebugMode && event.output ? (
         <pre className="mt-3 max-h-44 overflow-auto rounded bg-white p-3 text-xs text-muted">{JSON.stringify(event.output, null, 2)}</pre>
       ) : null}
     </div>
@@ -37,6 +39,7 @@ export function AgentToolsPage() {
   const [isPreviewing, setIsPreviewing] = useState(false);
 
   const aiEnabled = enabledModules.includes("ai_chat");
+  const previewSourceTitles = getUserFacingSourceTitles(preview?.ragSources || []);
 
   async function loadCatalog() {
     if (!selectedTenant || !aiEnabled) {
@@ -113,8 +116,8 @@ export function AgentToolsPage() {
           <div className="space-y-3">
             {(catalog?.tools || []).map((tool) => (
               <div key={`${tool.agent}-${tool.tool}`} className="rounded-xl border border-line p-3">
-                <div className="text-sm font-semibold text-ink">{tool.agent}</div>
-                <div className="mt-1 text-sm font-medium text-brand">{tool.tool}</div>
+                <div className="text-sm font-semibold text-ink">{humanizeInternalName(tool.tool)}</div>
+                {isDebugMode ? <div className="mt-1 text-xs font-medium text-muted">{tool.agent}</div> : null}
                 <p className="mt-2 text-sm leading-5 text-muted">{tool.purpose}</p>
               </div>
             ))}
@@ -160,30 +163,41 @@ export function AgentToolsPage() {
               {preview.draftOrder?.items?.length ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-card">
                   <h2 className="text-lg font-semibold text-amber-900">Draft order prepared</h2>
-                  <pre className="mt-3 max-h-64 overflow-auto rounded bg-white p-3 text-xs text-amber-900">{JSON.stringify(preview.draftOrder, null, 2)}</pre>
+                  {isDebugMode ? (
+                    <pre className="mt-3 max-h-64 overflow-auto rounded bg-white p-3 text-xs text-amber-900">{JSON.stringify(preview.draftOrder, null, 2)}</pre>
+                  ) : null}
                 </div>
               ) : null}
 
-              <div className="rounded-xl border border-line bg-white p-5 shadow-card">
-                <SectionTitle>Tool trace</SectionTitle>
-                <div className="mt-4 space-y-3">
-                  {(preview.toolCalls || []).map((event, index) => (
-                    <ToolEventCard key={`${event.tool}-${index}`} event={event} />
-                  ))}
-                </div>
-              </div>
-
-              {preview.ragSources?.length ? (
+              {/* Internal agent/tool names, summaries and timings are developer output. */}
+              {isDebugMode ? (
                 <div className="rounded-xl border border-line bg-white p-5 shadow-card">
-                  <SectionTitle>RAG sources</SectionTitle>
+                  <SectionTitle>Tool trace</SectionTitle>
                   <div className="mt-4 space-y-3">
-                    {preview.ragSources.map((source, index) => (
-                      <div key={`${source.documentId}-${index}`} className="rounded-xl border border-line p-3 text-sm">
-                        <div className="font-semibold text-ink">{source.title || "Knowledge"}</div>
-                        <div className="mt-1 text-xs text-muted">{source.sourceType} / confidence {source.confidence}</div>
-                        <p className="mt-2 text-muted">{source.excerpt}</p>
-                      </div>
+                    {(preview.toolCalls || []).map((event, index) => (
+                      <ToolEventCard key={`${event.tool}-${index}`} event={event} />
                     ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {previewSourceTitles.length || (isDebugMode && preview.ragSources?.length) ? (
+                <div className="rounded-xl border border-line bg-white p-5 shadow-card">
+                  <SectionTitle>{isDebugMode ? "RAG sources" : "Knowledge used"}</SectionTitle>
+                  <div className="mt-4 space-y-3">
+                    {isDebugMode
+                      ? preview.ragSources.map((source, index) => (
+                          <div key={`${source.documentId}-${index}`} className="rounded-xl border border-line p-3 text-sm">
+                            <div className="font-semibold text-ink">{source.title || "Knowledge"}</div>
+                            <div className="mt-1 text-xs text-muted">{source.sourceType} / confidence {source.confidence}</div>
+                            <p className="mt-2 text-muted">{source.excerpt}</p>
+                          </div>
+                        ))
+                      : previewSourceTitles.map((title) => (
+                          <div key={title} className="rounded-xl border border-line p-3 text-sm font-semibold text-ink">
+                            {title}
+                          </div>
+                        ))}
                   </div>
                 </div>
               ) : null}

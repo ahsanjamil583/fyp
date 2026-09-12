@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { getBusinessMe, refreshBusinessAuth } from "../services/authApi.js";
 
@@ -38,6 +38,12 @@ export function AuthProvider({ children }) {
   });
   const [token, setTokenState] = useState(() => readBusinessSessionValue(accessKey));
   const [isAuthReady, setIsAuthReady] = useState(false);
+
+  // Lets refreshSession read the latest user without taking it as a dependency.
+  const userRef = useRef(null);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const setSession = useCallback((session) => {
     sessionStorage.setItem(accessKey, session.accessToken);
@@ -81,13 +87,13 @@ export function AuthProvider({ children }) {
     } catch (error) {
       if (error.response?.status === 403 && error.response?.data?.detail === PASSWORD_RESET_REQUIRED) {
         const saved = readBusinessSessionValue(userKey);
-        let blockedUser = user;
+        let blockedUser = userRef.current;
         if (saved) {
           try {
             blockedUser = { ...JSON.parse(saved), mustResetPassword: true };
             sessionStorage.setItem(userKey, JSON.stringify(blockedUser));
           } catch {
-            blockedUser = user ? { ...user, mustResetPassword: true } : null;
+            blockedUser = userRef.current ? { ...userRef.current, mustResetPassword: true } : null;
           }
         }
         setTokenState(currentToken);
@@ -105,8 +111,14 @@ export function AuthProvider({ children }) {
         } catch {
           clearSession();
         }
-      } else {
+      } else if (error.response?.status === 401 || error.response?.status === 403) {
         clearSession();
+      } else {
+        // A network blip, timeout or 5xx is not proof the session ended. Clearing it
+        // here logged the user out mid-typing during the background refresh, which read
+        // as the page reloading by itself. Keep the session and let the next poll retry.
+        setIsAuthReady(true);
+        return userRef.current;
       }
       setIsAuthReady(true);
       return null;
