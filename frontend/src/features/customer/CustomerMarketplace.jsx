@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ArrowRight, Bot, MapPin, Search, ShoppingBag, Store } from "lucide-react";
 
 import { WhatsAppAgentCta } from "../../components/whatsapp/WhatsAppAgentCta.jsx";
 import { getCustomerFavorites, getMarketplaceBusinesses, removeCustomerFavorite } from "../../services/customerPortalApi.js";
@@ -30,16 +31,40 @@ export function CustomerMarketplace() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line-soft pb-5">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Marketplace</p>
-        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Published Businesses</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">Browse published businesses, compare offerings, and order from your customer portal.</p>
+      <div className="rounded-2xl border border-line bg-surface-purple p-5 shadow-card">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Marketplace</p>
+            <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Find a business and start ordering</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
+              Search by name or city, open a business, browse products or services, then use cart or AI chat to place an order.
+            </p>
+          </div>
+          <div className="grid gap-2 text-xs font-bold text-muted sm:grid-cols-3 lg:min-w-[420px]">
+            {[
+              ["1", "Browse"],
+              ["2", "Choose"],
+              ["3", "Order"],
+            ].map(([n, label]) => (
+              <div key={label} className="rounded-xl border border-line bg-white px-3 py-3">
+                <span className="mr-2 inline-grid h-6 w-6 place-items-center rounded-full bg-brand text-xs text-white">{n}</span>
+                {label}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <form className="grid gap-3 rounded-xl border border-line bg-white p-5 shadow-card md:grid-cols-[1fr_240px_120px]" onSubmit={(event) => { event.preventDefault(); loadBusinesses(); }}>
-        <input className="form-input" placeholder="Search businesses" value={search} onChange={(event) => setSearch(event.target.value)} />
-        <input className="form-input" placeholder="City" value={city} onChange={(event) => setCity(event.target.value)} />
-        <button className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white">Search</button>
+      <form className="grid gap-3 rounded-xl border border-line bg-white p-5 shadow-card md:grid-cols-[1fr_220px_130px]" onSubmit={(event) => { event.preventDefault(); loadBusinesses(); }}>
+        <label className="block">
+          <span className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-ink"><Search size={15} /> Business or item</span>
+          <input className="form-input" placeholder="Search businesses" value={search} onChange={(event) => setSearch(event.target.value)} />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-ink"><MapPin size={15} /> City</span>
+          <input className="form-input" placeholder="Lahore, Karachi..." value={city} onChange={(event) => setCity(event.target.value)} />
+        </label>
+        <button className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white md:mt-6">Search</button>
       </form>
 
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
@@ -82,9 +107,17 @@ export function CustomerMarketplace() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {businesses.map((business) => (
-          <div key={business.id} className="rounded-xl border border-line bg-white p-5 shadow-card transition hover:border-brand-200">
+          <div key={business.id} className="rounded-xl border border-line bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-lift">
             <Link className="block" to={`/customer/businesses/${business.slug}`}>
-              <div className="text-lg font-bold text-ink">{business.name}</div>
+              <div className="flex items-start gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand">
+                  <Store size={20} />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-lg font-bold text-ink">{business.name}</div>
+                  <div className="mt-1 text-xs font-semibold capitalize text-muted">{business.websiteStatus}</div>
+                </div>
+              </div>
             </Link>
             <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted">{business.description || "No description added."}</p>
             <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted">
@@ -96,14 +129,23 @@ export function CustomerMarketplace() {
             <div className="mt-5 flex flex-wrap gap-2">
               <Link className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink" to={`/customer/businesses/${business.slug}`}>
                 Open business
+                <ArrowRight className="ml-1 inline" size={14} />
               </Link>
+              {business.enabledModuleCodes?.includes("ai_chat") ? (
+                <Link className="rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white" to={`/customer/businesses/${business.slug}/chat`}>
+                  <Bot className="mr-1 inline" size={14} />
+                  Ask AI
+                </Link>
+              ) : null}
               <WhatsAppAgentCta agent={business.whatsappAgent} compact />
             </div>
           </div>
         ))}
         {!businesses.length ? (
-          <div className="rounded-xl border border-dashed border-line bg-surface p-6 text-sm text-muted md:col-span-2 xl:col-span-3">
-            No published businesses available yet.
+          <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center md:col-span-2 xl:col-span-3">
+            <ShoppingBag className="mx-auto text-brand" size={30} />
+            <div className="mt-3 font-bold text-ink">No businesses found</div>
+            <p className="mt-1 text-sm text-muted">Try a different search or clear the city filter.</p>
           </div>
         ) : null}
       </div>

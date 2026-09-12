@@ -213,6 +213,7 @@ export function PublicWebsiteSettings() {
   const approvalStatus = selectedTenant.websiteApprovalStatus || (selectedTenant.websiteStatus === "published" ? "approved" : "not_requested");
   const approvalCriteria = selectedTenant.websiteApprovalCriteria;
   const approvalChecks = approvalCriteria?.checks || [];
+  const websiteIsPublished = selectedTenant.websiteStatus === "published";
 
   return (
     <section className="space-y-6">
@@ -221,21 +222,47 @@ export function PublicWebsiteSettings() {
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Website Builder</p>
           <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Public Website</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-            Choose a template direction, apply a category visual preset, reorder sections, and publish a category-aware public website.
+            Work from top to bottom: choose the look, write the first message, arrange sections, save, preview, then publish.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface" to={previewUrl}>
-            Preview
+            {websiteIsPublished ? "View live website" : "Preview website"}
           </Link>
           <button className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700" onClick={togglePublish}>
-            {selectedTenant.websiteStatus === "published" ? "Unpublish" : approvalStatus === "pending" ? "Resubmit review" : "Submit for admin review"}
+            {websiteIsPublished ? "Unpublish website" : approvalStatus === "pending" ? "Resubmit for review" : "Submit for review"}
           </button>
         </div>
       </div>
 
       {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+
+      <div className="rounded-2xl border border-brand-100 bg-brand-50 p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Website flow</div>
+            <h2 className="mt-1 text-xl font-extrabold text-ink">
+              {websiteIsPublished ? "Your website is published" : "Preview before you publish"}
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-brand-900">
+              Save your edits first. Preview opens the public page exactly as customers will see it. Publishing sends the website for review or makes it live after approval.
+            </p>
+          </div>
+          <div className="grid gap-2 text-sm font-bold text-brand-900 sm:grid-cols-3 lg:min-w-[420px]">
+            {[
+              ["1", "Edit content"],
+              ["2", "Preview website"],
+              ["3", websiteIsPublished ? "Keep updated" : "Submit review"],
+            ].map(([number, label]) => (
+              <div key={label} className="rounded-xl border border-brand-100 bg-white px-3 py-3">
+                <span className="mr-2 inline-grid h-6 w-6 place-items-center rounded-full bg-brand text-xs text-white">{number}</span>
+                {label}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
       <div className="rounded-xl border border-line bg-white p-5 shadow-card">
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">

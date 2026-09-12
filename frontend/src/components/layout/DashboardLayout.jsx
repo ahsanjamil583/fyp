@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   CreditCard,
   Crown,
+  ExternalLink,
   FileText,
   Globe,
   LayoutDashboard,
@@ -25,7 +26,7 @@ import {
 } from "lucide-react";
 import { Shell } from "./Shell.jsx";
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useModules } from "../../context/ModuleContext.jsx";
@@ -33,28 +34,30 @@ import { useTenant } from "../../context/TenantContext.jsx";
 import { logoutBusiness } from "../../services/authApi.js";
 
 const navItems = [
-  { to: "/dashboard", label: "Overview", end: true, icon: LayoutDashboard },
-  { to: "/dashboard/business", label: "Business", icon: Building2 },
-  { to: "/dashboard/launch-wizard", label: "Launch Wizard", icon: Rocket },
-  { to: "/dashboard/modules", label: "Modules", icon: SquareStack },
-  { to: "/dashboard/custom-fields", label: "Custom Fields", icon: Settings2 },
-  { to: "/dashboard/transactions", label: "Transactions", icon: Receipt },
-  { to: "/dashboard/customers", label: "Customers", moduleCode: "customers", icon: Users },
-  { to: "/dashboard/items", label: "Items", moduleCode: "items", icon: Boxes },
-  { to: "/dashboard/public-website", label: "Website", moduleCode: "website_builder", icon: Globe },
-  { to: "/dashboard/analytics", label: "Analytics", moduleCode: "analytics", icon: BarChart3 },
-  { to: "/dashboard/ai-conversations", label: "AI Chat", moduleCode: "ai_chat", icon: MessageSquare },
-  { to: "/dashboard/knowledge-base", label: "Knowledge Base", moduleCode: "ai_chat", icon: FileText },
-  { to: "/dashboard/agent-tools", label: "Agent Tools", moduleCode: "ai_chat", icon: Sparkles },
-  { to: "/dashboard/owner-agent", label: "Owner AI Assistant", moduleCode: "owner_agent", icon: Bot },
-  { to: "/dashboard/whatsapp-agent", label: "WhatsApp Agent", moduleCode: "whatsapp_agent", icon: MessageCircle },
-  { to: "/dashboard/payments", label: "Payments", moduleCode: "payments", icon: CreditCard },
-  { to: "/dashboard/reports", label: "Reports", moduleCode: "reports", icon: ClipboardCheck },
-  { to: "/dashboard/notifications", label: "Notifications", moduleCode: "notifications", icon: Bell },
-  { to: "/dashboard/deployment-readiness", label: "Deployment Readiness", icon: Activity },
-  { to: "/dashboard/final-qa", label: "Final QA", icon: ListChecks },
-  { to: "/dashboard/submission-center", label: "Submission Center", icon: SendHorizonal },
+  { to: "/dashboard", label: "Home", end: true, icon: LayoutDashboard, section: "Start here" },
+  { to: "/dashboard/business", label: "Business Profile", icon: Building2, section: "Start here" },
+  { to: "/dashboard/launch-wizard", label: "Launch Guide", icon: Rocket, section: "Start here", hideWhenPublished: true },
+  { to: "/dashboard/public-website", label: "Website Builder", moduleCode: "website_builder", icon: Globe, section: "Start here" },
+  { to: "/dashboard/items", label: "Catalog & Stock", moduleCode: "items", icon: Boxes, section: "Sell" },
+  { to: "/dashboard/transactions", label: "Orders", icon: Receipt, section: "Sell" },
+  { to: "/dashboard/customers", label: "Customers", moduleCode: "customers", icon: Users, section: "Sell" },
+  { to: "/dashboard/payments", label: "Payments", moduleCode: "payments", icon: CreditCard, section: "Sell" },
+  { to: "/dashboard/whatsapp-agent", label: "WhatsApp Agent", moduleCode: "whatsapp_agent", icon: MessageCircle, section: "Automation" },
+  { to: "/dashboard/ai-conversations", label: "AI Conversations", moduleCode: "ai_chat", icon: MessageSquare, section: "Automation" },
+  { to: "/dashboard/knowledge-base", label: "Knowledge Base", moduleCode: "ai_chat", icon: FileText, section: "Automation" },
+  { to: "/dashboard/agent-tools", label: "Agent Tools", moduleCode: "ai_chat", icon: Sparkles, section: "Automation" },
+  { to: "/dashboard/analytics", label: "Analytics", moduleCode: "analytics", icon: BarChart3, section: "Insights" },
+  { to: "/dashboard/reports", label: "Reports", moduleCode: "reports", icon: ClipboardCheck, section: "Insights" },
+  { to: "/dashboard/owner-agent", label: "Owner Assistant", moduleCode: "owner_agent", icon: Bot, section: "Insights" },
+  { to: "/dashboard/notifications", label: "Notifications", moduleCode: "notifications", icon: Bell, section: "Insights" },
+  { to: "/dashboard/modules", label: "Modules", icon: SquareStack, section: "Settings" },
+  { to: "/dashboard/custom-fields", label: "Custom Fields", icon: Settings2, section: "Settings" },
+  { to: "/dashboard/deployment-readiness", label: "Deployment Readiness", icon: Activity, section: "Review & handoff", hideWhenPublished: true },
+  { to: "/dashboard/final-qa", label: "Final QA", icon: ListChecks, section: "Review & handoff", hideWhenPublished: true },
+  { to: "/dashboard/submission-center", label: "Submission Center", icon: SendHorizonal, section: "Review & handoff", hideWhenPublished: true },
 ];
+
+const NAV_SECTION_ORDER = ["Start here", "Sell", "Automation", "Insights", "Settings", "Review & handoff"];
 
 export function DashboardLayout() {
   const navigate = useNavigate();
@@ -101,7 +104,17 @@ export function DashboardLayout() {
         .filter((module) => module.tenantStatus === "enabled" && module.planAccess?.isIncluded !== false)
         .map((module) => module.code)
     : enabledModules;
-  const visibleNav = navItems.filter((item) => !item.moduleCode || accessibleModules.includes(item.moduleCode));
+  const websiteIsPublished = selectedTenant?.websiteStatus === "published";
+  const visibleNav = navItems.filter((item) => {
+    if (websiteIsPublished && item.hideWhenPublished) return false;
+    return !item.moduleCode || accessibleModules.includes(item.moduleCode);
+  });
+  const navSections = NAV_SECTION_ORDER.map((title) => ({
+    title,
+    collapsedByDefault: title === "Settings" || title === "Review & handoff",
+    items: visibleNav.filter((item) => item.section === title),
+  })).filter((section) => section.items.length);
+  const websiteUrl = selectedTenant?.slug ? `/businesses/${selectedTenant.slug}` : "";
 
   // Rendered inside the dark rail, so these controls are tinted rather than white.
   const asideExtra = (
@@ -129,6 +142,22 @@ export function DashboardLayout() {
           </div>
           <div className="mt-2 inline-flex rounded-full bg-sidebar-active px-2.5 py-1 text-[11px] font-bold text-white">
             {tenantPlan?.displayName || "Basic Free"}
+          </div>
+          <div className="mt-3 grid gap-2">
+            <Link
+              to="/dashboard/public-website"
+              className="rounded-lg border border-white/10 px-3 py-2 text-center text-[11px] font-bold text-white transition hover:bg-sidebar-hover"
+            >
+              {websiteIsPublished ? "Manage website" : "Prepare website"}
+            </Link>
+            {websiteUrl ? (
+              <Link
+                to={websiteUrl}
+                className="rounded-lg bg-white px-3 py-2 text-center text-[11px] font-bold text-sidebar-bottom transition hover:bg-white/90"
+              >
+                View public site
+              </Link>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -169,6 +198,16 @@ export function DashboardLayout() {
 
   const headerActions = (
     <div className="flex items-center gap-2 sm:gap-3">
+      {websiteUrl ? (
+        <Link
+          to={websiteUrl}
+          className="hidden items-center gap-1.5 rounded-full border border-line bg-white px-3.5 py-2 text-xs font-bold text-ink transition hover:bg-surface md:inline-flex"
+        >
+          <ExternalLink size={14} />
+          {websiteIsPublished ? "View website" : "Preview site"}
+        </Link>
+      ) : null}
+
       {selectedTenant ? (
         <span className="hidden items-center gap-1.5 rounded-full bg-brand-100 px-3.5 py-1.5 text-xs font-bold text-brand xl:inline-flex">
           <Crown size={13} strokeWidth={2.4} />
@@ -205,16 +244,27 @@ export function DashboardLayout() {
       title="Business Dashboard"
       subtitle={selectedTenant ? selectedTenant.name : "Create your first business"}
       navItems={visibleNav}
+      navSections={navSections}
       asideExtra={asideExtra}
       asideFooter={asideFooter}
       headerActions={headerActions}
-      flowSteps={[
-        { label: "Profile", icon: Building2 },
-        { label: "Modules", icon: SquareStack },
-        { label: "Catalog", icon: Boxes },
-        { label: "Website", icon: Globe },
-        { label: "Orders", icon: Receipt },
-      ]}
+      flowSteps={
+        websiteIsPublished
+          ? [
+              { label: "View Site", icon: Globe },
+              { label: "Catalog", icon: Boxes },
+              { label: "Orders", icon: Receipt },
+              { label: "Customers", icon: Users },
+              { label: "Reports", icon: ClipboardCheck },
+            ]
+          : [
+              { label: "Profile", icon: Building2 },
+              { label: "Catalog", icon: Boxes },
+              { label: "Website", icon: Globe },
+              { label: "Publish", icon: Rocket },
+              { label: "Orders", icon: Receipt },
+            ]
+      }
     />
   );
 }

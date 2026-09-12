@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
+import { ArrowRight, CheckCircle2, CreditCard, PackageCheck } from "lucide-react";
 
 import { CustomerPaymentInstructions } from "../../components/payments/CustomerPaymentInstructions.jsx";
 import { getDefaultPaymentMethod } from "../../components/payments/paymentMethods.js";
@@ -141,23 +142,44 @@ export function CustomerOrderDetailPage() {
   const canSubmitProof = selectedMethod && !isOnlineMethod && selectedMethod !== "cod" && !settledStatuses.includes(order.paymentStatus);
   const selectedMethodDetails = paymentMethods.find((method) => method.code === selectedMethod) || null;
   const onlineMethodLabel = selectedMethodDetails?.label || "the payment page";
+  const nextAction =
+    canPayOnline
+      ? `Pay online with ${onlineMethodLabel}`
+      : canSubmitProof
+        ? "Submit payment proof"
+        : order.paymentStatus === "paid"
+          ? "Payment complete"
+          : selectedMethod === "cod"
+            ? "Pay cash on delivery"
+            : "Track status";
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line-soft pb-5">
+      <div className="rounded-2xl border border-line bg-surface-purple p-5 shadow-card">
         <Link className="text-sm font-semibold text-brand" to="/customer/orders">Back to orders</Link>
-        <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Transaction Detail</p>
+        <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Order detail</p>
         <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">{order.transactionNumber}</h1>
-        <button
-          type="button"
-          className="mt-4 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink"
-          onClick={async () => {
-            const result = await reorderCustomerTransaction(order.id);
-            setMessage(`Items were added back to your cart for ${result.tenantSlug}.`);
-          }}
-        >
-          Reorder these items
-        </button>
+        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="rounded-xl border border-line bg-white p-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-ink">
+              {order.paymentStatus === "paid" ? <CheckCircle2 size={17} className="text-green-600" /> : <CreditCard size={17} className="text-brand" />}
+              Next step: {nextAction}
+            </div>
+            <p className="mt-1 text-sm leading-6 text-muted">
+              Check the status, payment method, and proof section below. If payment is pending, finish it from this page.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="rounded-xl border border-line bg-white px-4 py-2 text-sm font-semibold text-ink"
+            onClick={async () => {
+              const result = await reorderCustomerTransaction(order.id);
+              setMessage(`Items were added back to your cart for ${result.tenantSlug}.`);
+            }}
+          >
+            Reorder these items
+          </button>
+        </div>
       </div>
       {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
@@ -205,11 +227,12 @@ export function CustomerOrderDetailPage() {
                 ) : null}
                 <button
                   type="button"
-                  className="mt-3 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  className="mt-3 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   disabled={isStartingStripe}
                   onClick={() => startOnlineCheckout(selectedMethod)}
                 >
                   {isStartingStripe ? "Opening payment page..." : `Pay with ${onlineMethodLabel}`}
+                  <ArrowRight size={15} />
                 </button>
               </div>
             ) : null}
@@ -292,6 +315,12 @@ export function CustomerOrderDetailPage() {
         </div>
         <div className="rounded-xl border border-line bg-white p-5 shadow-card">
           <SectionTitle>Summary</SectionTitle>
+          <div className="mt-4 rounded-xl bg-brand-50 p-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-brand-900">
+              <PackageCheck size={17} />
+              {nextAction}
+            </div>
+          </div>
           <div className="mt-4 space-y-3 text-sm">
             <InfoRow label="Type" value={capitalize(formatTransactionType(order.transactionType))} />
             <InfoRow label="Status" value={order.status} />

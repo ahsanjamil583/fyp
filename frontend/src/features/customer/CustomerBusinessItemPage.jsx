@@ -1,6 +1,7 @@
 import { ProductImage } from "../../components/common/ProductImage.jsx";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { ArrowRight, Heart, MessageCircle, ShoppingCart } from "lucide-react";
 
 import { WhatsAppAgentCta, WhatsAppAgentInfo } from "../../components/whatsapp/WhatsAppAgentCta.jsx";
 import { addCartItem, addCustomerFavorite, getCustomerFavorites, getMarketplaceBusiness, getMarketplaceItem, removeCustomerFavorite, resolveUploadUrl } from "../../services/customerPortalApi.js";
@@ -64,7 +65,7 @@ export function CustomerBusinessItemPage() {
   }
 
   return (
-    <section className="grid gap-8 lg:grid-cols-[1fr_360px]">
+    <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div>
         <Link className="text-sm font-semibold text-brand" to={`/customer/businesses/${tenantSlug}`}>Back to {business.name}</Link>
         {item.images?.[0]?.url ? (
@@ -72,8 +73,20 @@ export function CustomerBusinessItemPage() {
         ) : (
           <div className="mt-5 h-80 rounded-xl bg-surface" />
         )}
-        <h1 className="mt-6 text-4xl font-semibold text-ink">{item.name}</h1>
+        <h1 className="mt-6 text-3xl font-black tracking-tight text-ink md:text-4xl">{item.name}</h1>
         <p className="mt-4 text-base leading-7 text-muted">{item.description || "No description added."}</p>
+        <div className="mt-6 grid gap-2 text-xs font-bold text-muted sm:grid-cols-3">
+          {[
+            ["1", "Check details"],
+            ["2", "Choose quantity"],
+            ["3", "Add to cart"],
+          ].map(([n, label]) => (
+            <div key={label} className="rounded-xl border border-line bg-white px-3 py-3 shadow-card">
+              <span className="mr-2 inline-grid h-6 w-6 place-items-center rounded-full bg-brand text-xs text-white">{n}</span>
+              {label}
+            </div>
+          ))}
+        </div>
       </div>
       <div className="h-fit rounded-xl border border-line bg-white p-5 shadow-card">
         {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
@@ -83,12 +96,18 @@ export function CustomerBusinessItemPage() {
           <label className="mb-1.5 block text-sm font-medium text-ink">Quantity</label>
           <input className="form-input" min="1" type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
         </div>
-        <button className="mt-4 w-full rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink" onClick={toggleFavorite}>
+        <button type="button" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink" onClick={toggleFavorite}>
+          <Heart size={15} />
           {favorites.some((favorite) => favorite.item?.id === itemId && favorite.tenant?.id === business.id) ? "Saved to favorites" : "Save to favorites"}
         </button>
-        <button className="mt-4 w-full rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" onClick={handleAdd}>
+        <button type="button" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" onClick={handleAdd}>
+          <ShoppingCart size={15} />
           Add to cart
         </button>
+        <Link className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink" to="/customer/cart">
+          Go to cart
+          <ArrowRight size={15} />
+        </Link>
         <div className="mt-4">
           <WhatsAppAgentCta
             agent={business.whatsappAgent}
@@ -99,6 +118,12 @@ export function CustomerBusinessItemPage() {
         <div className="mt-4">
           <WhatsAppAgentInfo agent={business.whatsappAgent} />
         </div>
+        {business.enabledModuleCodes?.includes("ai_chat") ? (
+          <Link className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white" to={`/customer/businesses/${tenantSlug}/chat`}>
+            <MessageCircle size={15} />
+            Ask AI about this item
+          </Link>
+        ) : null}
       </div>
     </section>
   );

@@ -1,4 +1,4 @@
-import { Menu, Search, X } from "lucide-react";
+import { ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -6,27 +6,64 @@ import { BrandLogo } from "../common/BrandLogo.jsx";
 
 // On the dark rail the active item is the brand gradient with its glow; everything else
 // sits at --sidebar-text and lifts to white on hover.
-function navClass({ isActive }) {
+function navClass({ isActive }, collapsed = false) {
   return [
-    "group flex items-center gap-3 rounded-rail px-3.5 py-2.5 text-sm font-semibold transition-all duration-200",
+    "group flex items-center rounded-rail text-sm font-semibold transition-all duration-200",
+    collapsed ? "justify-center px-2.5 py-2.5" : "gap-3 px-3.5 py-2.5",
     isActive
       ? "bg-sidebar-active text-white shadow-nav-active"
       : "text-sidebar-text hover:bg-sidebar-hover hover:text-white",
   ].join(" ");
 }
 
-function NavList({ navItems, onNavigate }) {
+function buildSections(navItems) {
+  const grouped = [];
+  for (const item of navItems) {
+    const title = item.section || "Workspace";
+    let section = grouped.find((candidate) => candidate.title === title);
+    if (!section) {
+      section = { title, items: [] };
+      grouped.push(section);
+    }
+    section.items.push(item);
+  }
+  return grouped;
+}
+
+function NavList({ navItems, navSections, onNavigate, collapsed = false }) {
+  const sections = navSections?.length ? navSections : buildSections(navItems);
   return (
-    <nav className="flex flex-col gap-1">
-      {navItems.map((item) => {
-        const Icon = item.icon;
-        return (
-          <NavLink key={item.to} to={item.to} end={item.end} className={navClass} onClick={onNavigate}>
-            {Icon ? <Icon size={18} className="shrink-0" strokeWidth={2} /> : <span className="h-[18px] w-[18px] shrink-0" />}
-            <span className="truncate">{item.label}</span>
-          </NavLink>
-        );
-      })}
+    <nav className="flex flex-col gap-3">
+      {sections.map((section) => (
+        <details key={section.title} className="group/section" open={collapsed || !section.collapsedByDefault}>
+          <summary
+            className={`mb-1 flex cursor-pointer list-none items-center justify-between rounded-rail px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-sidebar-muted transition hover:text-white [&::-webkit-details-marker]:hidden ${
+              collapsed ? "sr-only" : ""
+            }`}
+          >
+            {section.title}
+            <ChevronDown size={13} className="transition group-open/section:rotate-180" />
+          </summary>
+          <div className="flex flex-col gap-1">
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={(state) => navClass(state, collapsed)}
+                  onClick={onNavigate}
+                  title={collapsed ? item.label : undefined}
+                >
+                  {Icon ? <Icon size={18} className="shrink-0" strokeWidth={2} /> : <span className="h-[18px] w-[18px] shrink-0" />}
+                  {collapsed ? null : <span className="truncate">{item.label}</span>}
+                </NavLink>
+              );
+            })}
+          </div>
+        </details>
+      ))}
     </nav>
   );
 }
@@ -35,6 +72,7 @@ export function Shell({
   title,
   subtitle,
   navItems,
+  navSections = null,
   asideExtra = null,
   asideFooter = null,
   headerActions = null,
@@ -42,6 +80,8 @@ export function Shell({
   flowSteps = [],
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("bizxus_sidebar_collapsed") === "true");
+  const [focusMode, setFocusMode] = useState(() => localStorage.getItem("bizxus_focus_mode") === "true");
 
   useEffect(() => {
     if (!mobileNavOpen) {
@@ -67,31 +107,73 @@ export function Shell({
     setMobileNavOpen(false);
   }
 
+  function toggleCollapsed() {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      localStorage.setItem("bizxus_sidebar_collapsed", String(next));
+      return next;
+    });
+  }
+
+  function toggleFocusMode() {
+    setFocusMode((current) => {
+      const next = !current;
+      localStorage.setItem("bizxus_focus_mode", String(next));
+      return next;
+    });
+  }
+
   const railContent = (
     <>
-      <div className="flex items-center gap-3 px-2 pb-6 pt-1">
+      <div className={`flex items-center px-2 pb-6 pt-1 ${sidebarCollapsed ? "justify-center" : "gap-3"}`}>
         <BrandLogo tone="dark" showWordmark={false} imageClassName="h-10 w-10" />
-        <div className="min-w-0">
+        <div className={`min-w-0 ${sidebarCollapsed ? "hidden" : ""}`}>
           <div className="truncate text-[1.05rem] font-extrabold leading-tight tracking-tight text-white">BizXusAI</div>
           <div className="truncate text-[11px] font-medium text-sidebar-muted">Automate. Grow. Together.</div>
         </div>
       </div>
 
       <div className="rail-scroll min-h-0 flex-1 overflow-y-auto pr-1">
-        <NavList navItems={navItems} onNavigate={closeMobileNav} />
-        {asideExtra ? <div className="mt-6 border-t border-white/[0.08] pt-5">{asideExtra}</div> : null}
+        <NavList navItems={navItems} navSections={navSections} onNavigate={closeMobileNav} collapsed={sidebarCollapsed} />
+        {asideExtra && !sidebarCollapsed ? <div className="mt-6 border-t border-white/[0.08] pt-5">{asideExtra}</div> : null}
       </div>
 
-      {asideFooter ? <div className="mt-4 border-t border-white/[0.08] pt-4">{asideFooter}</div> : null}
+      {!sidebarCollapsed ? (
+        <div className="mt-4 space-y-3 border-t border-white/[0.08] pt-4">
+          {asideFooter}
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="flex w-full items-center gap-3 rounded-rail px-3.5 py-2.5 text-sm font-semibold text-sidebar-text transition hover:bg-sidebar-hover hover:text-white"
+          >
+            <PanelLeftClose size={18} className="shrink-0" />
+            Collapse sidebar
+          </button>
+        </div>
+      ) : (
+        <div className="mt-4 border-t border-white/[0.08] pt-4">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="grid h-10 w-full place-items-center rounded-rail text-sidebar-text transition hover:bg-sidebar-hover hover:text-white"
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+          >
+            <PanelLeftOpen size={18} />
+          </button>
+        </div>
+      )}
     </>
   );
 
   return (
     <div className="min-h-screen bg-page lg:flex">
       {/* Fixed dark rail on large screens. */}
-      <aside className="sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col bg-sidebar-rail p-4 shadow-rail lg:flex">
+      {!focusMode ? (
+      <aside className={`sticky top-0 hidden h-screen shrink-0 flex-col bg-sidebar-rail p-4 shadow-rail transition-all lg:flex ${sidebarCollapsed ? "w-[88px]" : "w-[260px]"}`}>
         {railContent}
       </aside>
+      ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b border-line bg-white">
@@ -103,6 +185,16 @@ export function Shell({
               aria-label="Open navigation menu"
             >
               <Menu size={20} />
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleFocusMode}
+              className="hidden h-10 w-10 shrink-0 place-items-center rounded-rail border border-line bg-white text-muted transition hover:bg-surface hover:text-ink lg:grid"
+              title={focusMode ? "Show sidebar" : "Hide sidebar for focus"}
+              aria-label={focusMode ? "Show sidebar" : "Hide sidebar for focus"}
+            >
+              {focusMode ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
             </button>
 
             <div className="relative hidden min-w-0 flex-1 md:block">
@@ -123,6 +215,16 @@ export function Shell({
             {headerActions ? <div className="flex shrink-0 items-center">{headerActions}</div> : null}
           </div>
         </header>
+
+        {focusMode ? (
+          <button
+            type="button"
+            onClick={toggleFocusMode}
+            className="fixed left-4 top-20 z-30 hidden rounded-full border border-line bg-white px-3 py-2 text-xs font-bold text-ink shadow-card transition hover:bg-surface lg:inline-flex"
+          >
+            Show sidebar
+          </button>
+        ) : null}
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <div className="mb-6 hidden md:block">
@@ -184,7 +286,9 @@ export function Shell({
           >
             <X size={18} />
           </button>
-          {railContent}
+          <NavList navItems={navItems} navSections={navSections} onNavigate={closeMobileNav} />
+          {asideExtra ? <div className="mt-6 border-t border-white/[0.08] pt-5">{asideExtra}</div> : null}
+          {asideFooter ? <div className="mt-4 border-t border-white/[0.08] pt-4">{asideFooter}</div> : null}
         </aside>
       </div>
     </div>

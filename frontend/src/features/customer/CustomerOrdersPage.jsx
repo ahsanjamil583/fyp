@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ArrowRight, PackageCheck } from "lucide-react";
 
 import { PaymentProofBadge, PaymentStatusBadge } from "../../components/payments/PaymentStatusBadge.jsx";
 import { getCustomerTransactions, reorderCustomerTransaction } from "../../services/customerPortalApi.js";
@@ -19,13 +20,52 @@ export function CustomerOrdersPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line-soft pb-5">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Transactions</p>
-        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Transaction History</h1>
-        <p className="mt-3 text-sm text-muted">{meta.total || 0} transactions found.</p>
+      <div className="rounded-2xl border border-line bg-surface-purple p-5 shadow-card">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Orders</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Orders & payments</h1>
+        <p className="mt-3 text-sm text-muted">{meta.total || 0} orders found. Open an order to pay, upload proof, view receipts, or reorder.</p>
       </div>
       {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
-      <div className="rounded-xl border border-line bg-white shadow-card">
+      <div className="grid gap-3 lg:hidden">
+        {orders.map((order) => (
+          <article key={order.id} className="rounded-xl border border-line bg-white p-4 shadow-card">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <Link className="font-bold text-ink hover:text-brand" to={`/customer/orders/${order.id}`}>{order.transactionNumber}</Link>
+                <div className="mt-1 text-xs text-muted">{new Date(order.createdAt).toLocaleString()}</div>
+              </div>
+              <PaymentStatusBadge compact status={order.paymentStatus} />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-lg bg-surface px-3 py-2">
+                <div className="text-xs text-muted">Status</div>
+                <div className="font-semibold capitalize text-ink">{order.status}</div>
+              </div>
+              <div className="rounded-lg bg-surface px-3 py-2">
+                <div className="text-xs text-muted">Total</div>
+                <div className="font-semibold text-ink">{order.pricing?.total}</div>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link className="ui-btn-secondary !py-2" to={`/customer/orders/${order.id}`}>
+                {["unpaid", "rejected", "pending_verification"].includes(order.paymentStatus) ? "Pay / proof" : "View order"}
+                <ArrowRight size={14} />
+              </Link>
+              <button
+                type="button"
+                className="ui-btn-secondary !py-2"
+                onClick={async () => {
+                  const result = await reorderCustomerTransaction(order.id);
+                  setMessage(`Items from ${order.transactionNumber} were added to your cart for ${result.tenantSlug}.`);
+                }}
+              >
+                Reorder
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="hidden overflow-hidden rounded-xl border border-line bg-white shadow-card lg:block">
         <table className="min-w-full divide-y divide-line text-sm">
           <thead className="bg-surface">
             <tr>
@@ -72,14 +112,19 @@ export function CustomerOrdersPage() {
                 </td>
               </tr>
             ))}
-            {!orders.length ? (
-              <tr>
-                <td className="px-4 py-5 text-sm text-muted" colSpan="6">No transactions yet.</td>
-              </tr>
-            ) : null}
           </tbody>
         </table>
       </div>
+      {!orders.length ? (
+        <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center">
+          <PackageCheck className="mx-auto text-brand" size={30} />
+          <div className="mt-3 font-bold text-ink">No orders yet</div>
+          <p className="mt-1 text-sm text-muted">Start from the marketplace, add items to cart, then place your first order.</p>
+          <Link className="ui-btn-primary mt-5" to="/customer/marketplace">
+            Browse businesses
+          </Link>
+        </div>
+      ) : null}
     </section>
   );
 }

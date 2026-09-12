@@ -1,4 +1,4 @@
-import { Bell, LogOut, Receipt, ShoppingCart, Store, UserRound } from "lucide-react";
+import { Bell, Bot, LogOut, Receipt, ShoppingBag, ShoppingCart, Store, UserRound } from "lucide-react";
 import { Shell } from "./Shell.jsx";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -7,11 +7,17 @@ import { useCustomer } from "../../context/CustomerContext.jsx";
 import { logoutCustomer } from "../../services/customerAuthApi.js";
 
 const navItems = [
-  { to: "/customer/marketplace", label: "Marketplace", icon: Store },
-  { to: "/customer/cart", label: "Cart", icon: ShoppingCart },
-  { to: "/customer/orders", label: "Orders", icon: Receipt },
-  { to: "/customer/profile", label: "Profile", icon: UserRound },
-  { to: "/customer/notifications", label: "Notifications", icon: Bell },
+  { to: "/customer/marketplace", label: "Browse Businesses", icon: Store, section: "Shop" },
+  { to: "/customer/cart", label: "Cart & Checkout", icon: ShoppingCart, section: "Shop" },
+  { to: "/customer/orders", label: "Orders & Payments", icon: Receipt, section: "Track" },
+  { to: "/customer/notifications", label: "Notifications", icon: Bell, section: "Track" },
+  { to: "/customer/profile", label: "Profile Settings", icon: UserRound, section: "Account" },
+];
+
+const navSections = [
+  { title: "Shop", items: navItems.filter((item) => item.section === "Shop") },
+  { title: "Track", items: navItems.filter((item) => item.section === "Track") },
+  { title: "Account", collapsedByDefault: true, items: navItems.filter((item) => item.section === "Account") },
 ];
 
 export function CustomerLayout() {
@@ -67,13 +73,15 @@ export function CustomerLayout() {
       title="Customer Portal"
       subtitle="Marketplace, cart, and orders"
       navItems={navItems}
+      navSections={navSections}
       asideFooter={asideFooter}
       headerActions={headerActions}
       flowSteps={[
         { label: "Browse", icon: Store },
-        { label: "Add to cart", icon: ShoppingCart },
-        { label: "Place order", icon: Receipt },
-        { label: "Track updates", icon: Bell },
+        { label: "Choose", icon: ShoppingBag },
+        { label: "Ask AI", icon: Bot },
+        { label: "Checkout", icon: ShoppingCart },
+        { label: "Track", icon: Receipt },
       ]}
       outletContext={{ setCustomerSidebarPanel: setSidebarPanel }}
     />

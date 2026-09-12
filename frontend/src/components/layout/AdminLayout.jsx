@@ -1,4 +1,4 @@
-import { Boxes, CreditCard, FileText, LayoutDashboard, LogOut, SquareStack, Tags, Users } from "lucide-react";
+import { Boxes, ClipboardCheck, CreditCard, FileText, LayoutDashboard, LogOut, ShieldCheck, SquareStack, Tags, Users } from "lucide-react";
 import { Shell } from "./Shell.jsx";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -7,13 +7,20 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { logoutBusiness } from "../../services/authApi.js";
 
 const navItems = [
-  { to: "/admin", label: "Overview", end: true, icon: LayoutDashboard },
-  { to: "/admin/users", label: "Users", icon: Users },
-  { to: "/admin/tenants", label: "Tenants", icon: Boxes },
-  { to: "/admin/business-categories", label: "Categories", icon: Tags },
-  { to: "/admin/modules", label: "Modules", icon: SquareStack },
-  { to: "/admin/payments", label: "Payments", icon: CreditCard },
-  { to: "/admin/reports", label: "Reports", icon: FileText },
+  { to: "/admin", label: "Platform Overview", end: true, icon: LayoutDashboard, section: "Operations" },
+  { to: "/admin/tenants", label: "Business Review", icon: Boxes, section: "Review Queue" },
+  { to: "/admin/users", label: "Users & Roles", icon: Users, section: "Review Queue" },
+  { to: "/admin/payments", label: "Payments", icon: CreditCard, section: "Monitoring" },
+  { to: "/admin/reports", label: "Reports", icon: FileText, section: "Monitoring" },
+  { to: "/admin/business-categories", label: "Categories", icon: Tags, section: "Configuration" },
+  { to: "/admin/modules", label: "Modules", icon: SquareStack, section: "Configuration" },
+];
+
+const navSections = [
+  { title: "Operations", items: navItems.filter((item) => item.section === "Operations") },
+  { title: "Review Queue", items: navItems.filter((item) => item.section === "Review Queue") },
+  { title: "Monitoring", items: navItems.filter((item) => item.section === "Monitoring") },
+  { title: "Configuration", collapsedByDefault: true, items: navItems.filter((item) => item.section === "Configuration") },
 ];
 
 export function AdminLayout() {
@@ -75,5 +82,21 @@ export function AdminLayout() {
     </button>
   );
 
-  return <Shell title="Admin Panel" subtitle="Platform controls" navItems={navItems} asideFooter={asideFooter} headerActions={headerActions} />;
+  return (
+    <Shell
+      title="Admin Panel"
+      subtitle="Review, approvals, users, payments, and platform health"
+      navItems={navItems}
+      navSections={navSections}
+      asideFooter={asideFooter}
+      headerActions={headerActions}
+      flowSteps={[
+        { label: "Review", icon: ClipboardCheck },
+        { label: "Preview", icon: Boxes },
+        { label: "Approve", icon: ShieldCheck },
+        { label: "Monitor", icon: CreditCard },
+        { label: "Report", icon: FileText },
+      ]}
+    />
+  );
 }

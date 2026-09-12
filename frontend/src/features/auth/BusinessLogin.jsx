@@ -1,6 +1,5 @@
 import { joiResolver } from "@hookform/resolvers/joi";
 import Joi from "joi";
-import { Building2, LockKeyhole, Mail } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -57,7 +56,7 @@ export function BusinessLogin() {
   return (
     <AuthPanel
       title="Business Login"
-      subtitle="Sign in with your email and password."
+      subtitle="Welcome back. Sign in to manage your storefront, orders, stock, payments, and AI assistant."
       mode="login"
       authVariant="password"
       register={form.register}
@@ -65,12 +64,10 @@ export function BusinessLogin() {
       isSubmitting={form.formState.isSubmitting}
       serverError={serverError}
       onSubmit={form.handleSubmit(submit)}
-      submitLabel="Login"
+      submitLabel="Sign in to workspace"
       switchLabel="Need a business account?"
       switchTo="/register"
       passwordResetTo="/forgot-password"
-      icon={<Building2 size={22} />}
-      fieldIcons={{ email: <Mail size={17} />, password: <LockKeyhole size={17} /> }}
     />
   );
 }

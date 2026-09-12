@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, CreditCard, MapPin, Receipt, ShoppingCart } from "lucide-react";
 
 import { DynamicForm } from "../../components/dynamic/DynamicForm.jsx";
 import { CustomerPaymentInstructions } from "../../components/payments/CustomerPaymentInstructions.jsx";
@@ -146,9 +147,25 @@ export function CustomerCartPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line-soft pb-5">
+      <div className="rounded-2xl border border-line bg-surface-purple p-5 shadow-card">
         <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Cart</p>
-        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Customer Cart</h1>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Cart & checkout</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+          Review items, choose delivery or pickup, select payment, then place the order. Each business checks out separately.
+        </p>
+        <div className="mt-5 grid gap-2 text-xs font-bold text-muted sm:grid-cols-4">
+          {[
+            ["1", "Review cart"],
+            ["2", "Delivery details"],
+            ["3", "Payment"],
+            ["4", "Track order"],
+          ].map(([n, label]) => (
+            <div key={label} className="rounded-xl border border-line bg-white px-3 py-3">
+              <span className="mr-2 inline-grid h-6 w-6 place-items-center rounded-full bg-brand text-xs text-white">{n}</span>
+              {label}
+            </div>
+          ))}
+        </div>
       </div>
       {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
@@ -169,8 +186,11 @@ export function CustomerCartPage() {
             <div key={cart.id} className="rounded-xl border border-line bg-white p-5 shadow-card">
               <div className="flex flex-col gap-3 border-b border-line pb-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <div className="text-base font-bold text-ink">{cart.tenant?.name || "Business"}</div>
-                  <div className="mt-1 text-sm text-muted">{cart.itemsDetailed.length} items</div>
+                  <div className="flex items-center gap-2 text-base font-bold text-ink">
+                    <ShoppingCart size={18} className="text-brand" />
+                    {cart.tenant?.name || "Business"}
+                  </div>
+                  <div className="mt-1 text-sm text-muted">{cart.itemsDetailed.length} items in this order</div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <select
@@ -187,7 +207,7 @@ export function CustomerCartPage() {
                       Continue shopping
                     </Link>
                   ) : null}
-                  <button className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" onClick={() => checkout(cart.tenantId)}>
+                  <button type="button" className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" onClick={() => checkout(cart.tenantId)}>
                     {(transactionTypes[cart.tenantId] || "auto") === "auto" ? "Checkout" : capitalize(formatTransactionLabel(transactionTypes[cart.tenantId]))}
                   </button>
                 </div>
@@ -201,7 +221,7 @@ export function CustomerCartPage() {
                     </div>
                     <input className="form-input" min="1" type="number" value={item.quantity} onChange={(event) => changeQuantity(item.id, event.target.value)} />
                     <div className="text-sm font-semibold text-ink">{Number(item.price || 0) * Number(item.quantity || 0)}</div>
-                    <button className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink" onClick={() => removeItem(item.id)}>
+                    <button type="button" className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink" onClick={() => removeItem(item.id)}>
                       Remove
                     </button>
                   </div>
@@ -209,6 +229,10 @@ export function CustomerCartPage() {
               </div>
               <div className="mt-5 grid gap-4 rounded-xl border border-line bg-surface p-4 lg:grid-cols-2">
                 <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm font-bold text-ink">
+                    <MapPin size={16} className="text-brand" />
+                    Delivery or pickup
+                  </div>
                   <label className="block">
                     <span className="mb-1.5 block text-sm font-medium text-ink">Fulfillment</span>
                     <select
@@ -256,7 +280,10 @@ export function CustomerCartPage() {
                   </label>
                 </div>
                 <div className="space-y-3">
-                  <div className="text-sm font-semibold text-ink">Checkout details</div>
+                  <div className="flex items-center gap-2 text-sm font-bold text-ink">
+                    <CreditCard size={16} className="text-brand" />
+                    Payment and checkout details
+                  </div>
                   <CustomerPaymentInstructions
                     options={checkoutConfig.paymentOptions || {}}
                     selectedMethod={checkoutDraft.paymentMethod || ""}
@@ -275,12 +302,28 @@ export function CustomerCartPage() {
                   )}
                 </div>
               </div>
-              <div className="mt-4 text-right text-sm font-semibold text-ink">Estimated total: {total}</div>
+              <div className="mt-4 flex flex-col gap-3 rounded-xl bg-brand-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Estimated total</div>
+                  <div className="mt-1 text-2xl font-black text-ink">{total}</div>
+                </div>
+                <button type="button" className="ui-btn-primary" onClick={() => checkout(cart.tenantId)}>
+                  Place order
+                  <ArrowRight size={16} />
+                </button>
+              </div>
             </div>
           );
         })}
         {!carts.length ? (
-          <div className="rounded-xl border border-dashed border-line bg-surface p-6 text-sm text-muted">Your cart is empty.</div>
+          <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center">
+            <Receipt className="mx-auto text-brand" size={30} />
+            <div className="mt-3 font-bold text-ink">Your cart is empty</div>
+            <p className="mt-1 text-sm text-muted">Browse the marketplace and add products or services when you are ready.</p>
+            <Link className="ui-btn-primary mt-5" to="/customer/marketplace">
+              Browse businesses
+            </Link>
+          </div>
         ) : null}
       </div>
     </section>

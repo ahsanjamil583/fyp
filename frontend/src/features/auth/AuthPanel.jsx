@@ -126,7 +126,7 @@ export function AuthPanel({
         ) : null}
 
         {isPhoneOtp ? (
-          <div className="grid grid-cols-[1fr_auto] items-end gap-2">
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
             <AuthField icon={<KeyRound size={17} />} label="Verification code" htmlFor="otpCode" error={errors.otpCode?.message}>
               <input
                 id="otpCode"

@@ -59,7 +59,7 @@ export function CustomerLogin() {
   return (
     <AuthPanel
       title="Customer Login"
-      subtitle="Sign in with your email and password to continue shopping, chatting with business agents, and confirming orders quickly."
+      subtitle="Welcome back. Sign in to browse stores, continue chats, and track your orders."
       mode="login"
       authVariant="password"
       customer
@@ -68,7 +68,7 @@ export function CustomerLogin() {
       isSubmitting={form.formState.isSubmitting}
       serverError={serverError}
       onSubmit={form.handleSubmit(submit)}
-      submitLabel="Sign in"
+      submitLabel="Sign in to marketplace"
       switchLabel="Need a customer account?"
       switchTo="/customer/register"
       passwordResetTo="/customer/forgot-password"

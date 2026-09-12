@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AlertTriangle, CheckCircle2, CreditCard } from "lucide-react";
 
 import { PaymentStatusBadge } from "../../components/payments/PaymentStatusBadge.jsx";
 import { getAdminPayments } from "../../services/adminApi.js";
@@ -29,12 +30,24 @@ export function AdminPaymentsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-line-soft pb-5">
+      <div className="rounded-2xl border border-line bg-surface-purple p-5 shadow-card">
         <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Platform Payments</p>
         <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Payment Monitor</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-          Review Stripe test payments, local payment records, and webhook delivery status across all tenants.
+          Review customer payments, proof records, gateway status, and webhook health across all businesses.
         </p>
+        <div className="mt-5 grid gap-2 text-xs font-bold text-muted sm:grid-cols-3">
+          {[
+            [CreditCard, "Check records"],
+            [CheckCircle2, "Verify paid"],
+            [AlertTriangle, "Watch failures"],
+          ].map(([Icon, label]) => (
+            <div key={label} className="rounded-xl border border-line bg-white px-3 py-3">
+              <Icon className="mr-2 inline text-brand" size={15} />
+              {label}
+            </div>
+          ))}
+        </div>
       </div>
 
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}

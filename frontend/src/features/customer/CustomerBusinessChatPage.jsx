@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { Bot, CheckCircle2, MessageCircle, ShoppingCart } from "lucide-react";
 
 import { BusinessAiChatExperience, BusinessAiDraftOrderSummary } from "../../components/chat/BusinessAiChatExperience.jsx";
 import { confirmCustomerDraftTransaction, getCustomerChatState, sendCustomerChatMessage } from "../../services/customerPortalApi.js";
@@ -143,26 +144,52 @@ export function CustomerBusinessChatPage() {
   }
 
   return (
-    <BusinessAiChatExperience
-      accentClass="text-brand"
-      backLabel={`Back to ${business.name}`}
-      backLink={`/customer/businesses/${tenantSlug}`}
-      business={business}
-      draftOrder={chatState.draftOrder || {}}
-      draftQuantities={draftQuantities}
-      error={error}
-      fulfillmentDraft={fulfillmentDraft}
-      isConfirming={isConfirming}
-      isSending={isSending}
-      messageText={messageText}
-      messages={chatState.messages || []}
-      notice={notice}
-      onConfirmDraft={confirmDraft}
-      onSubmitMessage={submitMessage}
-      draftPlacement="external"
-      setDraftQuantities={setDraftQuantities}
-      setFulfillmentDraft={setFulfillmentDraft}
-      setMessageText={setMessageText}
-    />
+    <section className="space-y-5">
+      <div className="rounded-2xl border border-line bg-surface-purple p-5 shadow-card">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">AI assistant</p>
+        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink">Ask {business.name}</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+          Ask about prices, availability, sizes, colors, delivery, or say what you want to order. The assistant will prepare a draft before you confirm.
+        </p>
+        <div className="mt-5 grid gap-2 text-xs font-bold text-muted sm:grid-cols-3">
+          {[
+            [MessageCircle, "Ask a question"],
+            [Bot, "Review AI suggestion"],
+            [ShoppingCart, "Confirm order"],
+          ].map(([Icon, label]) => (
+            <div key={label} className="rounded-xl border border-line bg-white px-3 py-3">
+              <Icon className="mr-2 inline text-brand" size={15} />
+              {label}
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+          <CheckCircle2 className="mr-2 inline" size={15} />
+          You are always asked before an order is confirmed.
+        </div>
+      </div>
+
+      <BusinessAiChatExperience
+        accentClass="text-brand"
+        backLabel={`Back to ${business.name}`}
+        backLink={`/customer/businesses/${tenantSlug}`}
+        business={business}
+        draftOrder={chatState.draftOrder || {}}
+        draftQuantities={draftQuantities}
+        error={error}
+        fulfillmentDraft={fulfillmentDraft}
+        isConfirming={isConfirming}
+        isSending={isSending}
+        messageText={messageText}
+        messages={chatState.messages || []}
+        notice={notice}
+        onConfirmDraft={confirmDraft}
+        onSubmitMessage={submitMessage}
+        draftPlacement="external"
+        setDraftQuantities={setDraftQuantities}
+        setFulfillmentDraft={setFulfillmentDraft}
+        setMessageText={setMessageText}
+      />
+    </section>
   );
 }
