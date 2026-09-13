@@ -80,6 +80,135 @@ async def list_marketplace_businesses(search: str = "", city: str = "", category
     }
 
 
+# --- Cross-business catalog -------------------------------------------------
+# Customers should be able to shop by product without picking a business first.
+# The per-business endpoints stay as they are; this aggregates over exactly the
+# same "published and publicly visible" tenant set.
+
+MARKETPLACE_TENANT_QUERY = {
+    "status": "active",
+    "websiteStatus": "published",
+    "settings.publicVisibility": True,
+    "enabledModuleCodes": "customer_portal",
+}
+
+
+def _storefront_summary(tenant: dict) -> dict:
+    """The small, safe slice of a business shown on a product card."""
+    address = tenant.get("address") or {}
+    return {
+        # id is needed for cart/order payloads; it is never rendered in the UI.
+        "id": str(tenant.get("_id")),
+        "name": tenant.get("name", ""),
+        "slug": tenant.get("slug", ""),
+        "city": address.get("city", ""),
+        "province": address.get("province", ""),
+        "websiteStatus": tenant.get("websiteStatus", ""),
+        "hasPublishedWebsite": tenant.get("websiteStatus") == "published",
+    }
+
+
+async def list_marketplace_catalog(
+    search: str = "",
+    item_type: str | None = None,
+    city: str = "",
+    business_category_id: str | None = None,
+    category: str = "",
+    page: int = 1,
+    limit: int = 24,
+) -> dict:
+    db = get_database()
+    page = max(page, 1)
+    limit = min(max(limit, 1), 60)
+
+    tenant_query = dict(MARKETPLACE_TENANT_QUERY)
+    if city:
+        tenant_query["address.city"] = {"$regex": re.escape(city[:200]), "$options": "i"}
+    if business_category_id:
+        tenant_query["businessCategoryId"] = parse_object_id(business_category_id, "businessCategoryId")
+
+    tenants = await db.tenants.find(tenant_query).to_list(length=None)
+    tenant_map = {tenant["_id"]: tenant for tenant in tenants}
+    if not tenant_map:
+        return {
+            "items": [],
+            "facets": {"categories": [], "itemTypes": [], "cities": []},
+            "pagination": {"page": page, "limit": limit, "total": 0, "totalPages": 0},
+        }
+
+    tenant_ids = list(tenant_map.keys())
+    base_query: dict = {
+        "tenantId": {"$in": tenant_ids},
+        "status": "active",
+        "$or": [{"isSellable": True}, {"isBookable": True}],
+    }
+
+    # Category names are per-tenant, so match on the name to work across businesses.
+    category_docs = await db.item_categories.find(
+        {"tenantId": {"$in": tenant_ids}, "isActive": {"$ne": False}}
+    ).to_list(length=None)
+    category_names = {doc["_id"]: (doc.get("name") or "").strip() for doc in category_docs}
+
+    query = dict(base_query)
+    if item_type:
+        query["itemType"] = item_type
+    if category:
+        wanted = category.strip().lower()
+        matching_ids = [cid for cid, name in category_names.items() if name.lower() == wanted]
+        query["categoryId"] = {"$in": matching_ids} if matching_ids else {"$in": []}
+    if search:
+        safe = re.escape(search[:200])
+        matching_tenant_ids = [
+            tid for tid, tenant in tenant_map.items()
+            if re.search(safe, str(tenant.get("name") or ""), re.IGNORECASE)
+        ]
+        query["$and"] = [
+            {"$or": query.pop("$or")},
+            {
+                "$or": [
+                    {"name": {"$regex": safe, "$options": "i"}},
+                    {"description": {"$regex": safe, "$options": "i"}},
+                    {"tags": {"$regex": safe, "$options": "i"}},
+                    {"tenantId": {"$in": matching_tenant_ids}},
+                ]
+            },
+        ]
+
+    total = await db.items.count_documents(query)
+    cursor = db.items.find(query).sort("createdAt", -1).skip((page - 1) * limit).limit(limit)
+
+    items = []
+    async for item in cursor:
+        view = customer_item_view(item)
+        tenant = tenant_map.get(item.get("tenantId")) or {}
+        view["business"] = _storefront_summary(tenant)
+        view["categoryName"] = category_names.get(item.get("categoryId"), "")
+        items.append(view)
+
+    # Facets come from the unfiltered published set so options never disappear
+    # as the customer narrows the results.
+    facet_rows = await db.items.find(base_query, {"categoryId": 1, "itemType": 1, "tenantId": 1}).to_list(length=None)
+    facet_categories = sorted({
+        name for name in (category_names.get(row.get("categoryId"), "") for row in facet_rows) if name
+    })
+    facet_types = sorted({row.get("itemType") for row in facet_rows if row.get("itemType")})
+    facet_cities = sorted({
+        (tenant.get("address") or {}).get("city", "") for tenant in tenant_map.values()
+        if (tenant.get("address") or {}).get("city")
+    })
+
+    return {
+        "items": items,
+        "facets": {"categories": facet_categories, "itemTypes": facet_types, "cities": facet_cities},
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "totalPages": (total + limit - 1) // limit,
+        },
+    }
+
+
 async def get_marketplace_business(slug: str) -> dict:
     tenant = await _get_marketplace_tenant_or_404(slug)
     serialized = public_business_view(tenant)

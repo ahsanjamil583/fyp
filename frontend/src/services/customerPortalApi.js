@@ -5,6 +5,11 @@ export async function getMarketplaceBusinesses(params = {}) {
   return { items: response.data.data, meta: response.data.meta };
 }
 
+export async function getMarketplaceCatalog(params = {}) {
+  const response = await apiClient.get("/customer/marketplace/items", { params });
+  return response.data.data;
+}
+
 export async function getMarketplaceBusiness(tenantSlug) {
   const response = await apiClient.get(`/customer/businesses/${tenantSlug}`);
   return response.data.data;

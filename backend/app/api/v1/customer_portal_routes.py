@@ -22,6 +22,7 @@ from app.services.customer_portal_service import (
     list_customer_orders,
     list_customer_transactions,
     list_marketplace_businesses,
+    list_marketplace_catalog,
     list_marketplace_items,
     remove_customer_favorite,
     reorder_customer_transaction,
@@ -46,6 +47,30 @@ async def marketplace(
 ):
     data = await list_marketplace_businesses(search, city, categoryId, page, limit)
     return success_response("Marketplace businesses fetched successfully.", data["items"], data["pagination"])
+
+
+@router.get("/marketplace/items")
+async def marketplace_catalog(
+    search: str = "",
+    itemType: str | None = None,
+    city: str = "",
+    businessCategoryId: str | None = None,
+    category: str = "",
+    page: int = 1,
+    limit: int = 24,
+    current_user: dict = Depends(get_current_customer_user),
+):
+    """Products and services from every published business, for category-first browsing."""
+    data = await list_marketplace_catalog(
+        search=search,
+        item_type=itemType,
+        city=city,
+        business_category_id=businessCategoryId,
+        category=category,
+        page=page,
+        limit=limit,
+    )
+    return success_response("Marketplace catalog fetched successfully.", data)
 
 
 @router.get("/businesses/{tenantSlug}")
