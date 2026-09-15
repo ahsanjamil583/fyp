@@ -122,6 +122,16 @@ DEFAULT_MODULES = [
         "availability": {"includedPlans": ALL_PLANS},
     },
     {
+        "code": "cashier",
+        "name": "Cashier / POS",
+        "description": "In-store counter sales: owner-managed cashier logins, manual order entry, printable receipts, and historical order sheet import.",
+        "category": "operations",
+        "apiPrefix": "/cashier",
+        "frontendRoutes": ["/dashboard/cashiers", "/dashboard/orders/import", "/cashier"],
+        "dependencies": ["items"],
+        "availability": {"includedPlans": ALL_PLANS},
+    },
+    {
         "code": "reports",
         "name": "Reports",
         "description": "Reports and business insights.",

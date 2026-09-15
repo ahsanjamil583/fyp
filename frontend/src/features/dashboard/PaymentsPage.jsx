@@ -480,7 +480,17 @@ export function PaymentsPage() {
                     <td className="px-3 py-3 font-semibold text-ink">{record.transactionNumber}</td>
                     <td className="px-3 py-3 text-muted">{record.customerSnapshot?.name || "Guest"}</td>
                     <td className="px-3 py-3 capitalize text-muted">{record.recordType}</td>
-                    <td className="px-3 py-3 capitalize text-muted">{String(record.method || "").replaceAll("_", " ")}</td>
+                    <td className="px-3 py-3 capitalize text-muted">
+                      {String(record.method || "").replaceAll("_", " ")}
+                      {record.flow === "otp" ? (
+                        <span className="mt-1 block text-[11px] font-bold uppercase tracking-wider text-amber-700">
+                          Verification code
+                        </span>
+                      ) : null}
+                      {record.customerMobile ? (
+                        <span className="block text-[11px] normal-case text-subtle">{record.customerMobile}</span>
+                      ) : null}
+                    </td>
                     <td className="px-3 py-3 text-muted">{formatMoney(record.amount)}</td>
                     <td className="px-3 py-3"><PaymentStatusBadge compact status={record.status} /></td>
                     <td className="px-3 py-3 text-muted">

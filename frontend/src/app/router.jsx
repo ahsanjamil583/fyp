@@ -2,7 +2,8 @@ import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { AdminLayout } from "../components/layout/AdminLayout.jsx";
-import { BusinessProtectedRoute, CustomerProtectedRoute } from "../components/common/ProtectedRoute.jsx";
+import { BusinessProtectedRoute, CashierProtectedRoute, CustomerProtectedRoute } from "../components/common/ProtectedRoute.jsx";
+import { CashierLayout } from "../components/layout/CashierLayout.jsx";
 import { CustomerLayout } from "../components/layout/CustomerLayout.jsx";
 import { DashboardLayout } from "../components/layout/DashboardLayout.jsx";
 import { MarketingLayout } from "../components/layout/MarketingLayout.jsx";
@@ -22,6 +23,12 @@ const BusinessLogin = lazy(() => import("../features/auth/BusinessLogin.jsx").th
 const BusinessRegister = lazy(() => import("../features/auth/BusinessRegister.jsx").then((m) => ({ default: m.BusinessRegister })));
 const ForcedPasswordResetPage = lazy(() => import("../features/auth/ForcedPasswordResetPage.jsx").then((m) => ({ default: m.ForcedPasswordResetPage })));
 const PhonePasswordResetPage = lazy(() => import("../features/auth/PhonePasswordResetPage.jsx").then((m) => ({ default: m.PhonePasswordResetPage })));
+const CashierDashboard = lazy(() => import("../features/cashier/CashierDashboard.jsx").then((m) => ({ default: m.CashierDashboard })));
+const CashierNewOrderPage = lazy(() => import("../features/cashier/CashierNewOrderPage.jsx").then((m) => ({ default: m.CashierNewOrderPage })));
+const CashierOrdersPage = lazy(() => import("../features/cashier/CashierOrdersPage.jsx").then((m) => ({ default: m.CashierOrdersPage })));
+const CashierReceiptPage = lazy(() => import("../features/cashier/CashierReceiptPage.jsx").then((m) => ({ default: m.CashierReceiptPage })));
+const CashiersPage = lazy(() => import("../features/cashiers/CashiersPage.jsx").then((m) => ({ default: m.CashiersPage })));
+const OrderImportPage = lazy(() => import("../features/dashboard/OrderImportPage.jsx").then((m) => ({ default: m.OrderImportPage })));
 const CustomerLogin = lazy(() => import("../features/customer/CustomerLogin.jsx").then((m) => ({ default: m.CustomerLogin })));
 const CustomerBusinessItemPage = lazy(() => import("../features/customer/CustomerBusinessItemPage.jsx").then((m) => ({ default: m.CustomerBusinessItemPage })));
 const CustomerBusinessChatPage = lazy(() => import("../features/customer/CustomerBusinessChatPage.jsx").then((m) => ({ default: m.CustomerBusinessChatPage })));
@@ -117,6 +124,22 @@ export const router = createBrowserRouter([
     element: <PublicBusinessChatPage />,
   },
   {
+    path: "/cashier",
+    element: <CashierProtectedRoute />,
+    children: [
+      {
+        element: <CashierLayout />,
+        children: [
+          { index: true, element: <CashierDashboard /> },
+          { path: "orders", element: <CashierOrdersPage /> },
+          { path: "orders/new", element: <CashierNewOrderPage /> },
+          { path: "receipts", element: <CashierOrdersPage receiptsMode /> },
+          { path: "receipts/:receiptToken", element: <CashierReceiptPage /> },
+        ],
+      },
+    ],
+  },
+  {
     path: "/customer",
     element: <CustomerProtectedRoute />,
     children: [
@@ -163,6 +186,8 @@ export const router = createBrowserRouter([
           { path: "modules", element: <ModuleMarketplace /> },
           { path: "custom-fields", element: <CustomFieldsPage /> },
           { path: "transactions", element: <TransactionsPage /> },
+          { path: "orders/import", element: <OrderImportPage /> },
+          { path: "cashiers", element: <CashiersPage /> },
           { path: "customers", element: <CustomersPage /> },
           { path: "customers/:customerId", element: <CustomerProfilePage /> },
           { path: "items", element: <ItemsPage /> },

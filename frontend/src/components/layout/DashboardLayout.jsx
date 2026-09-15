@@ -10,6 +10,7 @@ import {
   Crown,
   ExternalLink,
   FileText,
+  FileUp,
   Globe,
   LayoutDashboard,
   ListChecks,
@@ -22,6 +23,7 @@ import {
   Settings2,
   Sparkles,
   SquareStack,
+  Store,
   Users,
 } from "lucide-react";
 import { Shell } from "./Shell.jsx";
@@ -40,6 +42,8 @@ const navItems = [
   { to: "/dashboard/public-website", label: "Website Builder", moduleCode: "website_builder", icon: Globe, section: "Start here" },
   { to: "/dashboard/items", label: "Catalog & Stock", moduleCode: "items", icon: Boxes, section: "Sell" },
   { to: "/dashboard/transactions", label: "Orders", icon: Receipt, section: "Sell" },
+  { to: "/dashboard/cashiers", label: "Cashiers", moduleCode: "cashier", icon: Store, section: "Sell" },
+  { to: "/dashboard/orders/import", label: "Import Orders", moduleCode: "cashier", icon: FileUp, section: "Sell" },
   { to: "/dashboard/customers", label: "Customers", moduleCode: "customers", icon: Users, section: "Sell" },
   { to: "/dashboard/payments", label: "Payments", moduleCode: "payments", icon: CreditCard, section: "Sell" },
   { to: "/dashboard/whatsapp-agent", label: "WhatsApp Agent", moduleCode: "whatsapp_agent", icon: MessageCircle, section: "Automation" },

@@ -13,7 +13,8 @@ from bson import ObjectId
 from fastapi import HTTPException, status
 
 from app.core.config import settings
-from app.integrations.payments import gateways
+from app.integrations.payments import gateways, providers
+from app.integrations.payments.provider_base import FLOW_OTP, PaymentContext, PaymentProviderError
 from app.core.module_guard import ensure_tenant_module_enabled
 from app.core.object_ids import parse_object_id, serialize_document
 from app.core.private_uploads import payment_record_view
@@ -24,6 +25,8 @@ from app.services.inventory_service import restore_transaction_stock
 from app.services.customer_notification_service import create_customer_notification
 from app.services.storage_service import store_payment_proof_image
 from app.services.transaction_workflow_service import get_allowed_payment_statuses
+from app.services import payment_otp_service
+from app.services.localization_service import normalize_optional_pk_phone
 
 logger = logging.getLogger(__name__)
 
@@ -134,27 +137,45 @@ def _public_method_label(method: str) -> str:
 
 
 def _gateway_available(provider: str) -> bool:
-    """True when this gateway can take a customer end to end right now."""
-    mode = gateways.gateway_mode(provider)
-    if mode == "simulator":
-        # Usable for testing, but never something to route real customers into.
-        return settings.app_env != "production"
-    return True
+    """True when this gateway can take a customer end to end right now.
+
+    Delegates to the provider so there is one answer to this question, whichever flow
+    the gateway is configured for.
+    """
+    try:
+        return providers.get_provider(provider).is_available()
+    except PaymentProviderError:
+        return False
 
 
-def _enabled_method_codes(settings_doc: dict) -> list[str]:
+def _wallet_method_code(provider: str, *, allow_otp: bool) -> str:
+    """Which method code a wallet offers right now.
+
+    A wallet in OTP mode needs a signed-in customer: the code goes to the address on
+    their account, and a guest has no account. Rather than dead-ending them, a guest is
+    offered the manual variant of the same wallet - pay from your own app, then share the
+    transaction ID for the owner to verify - which needs no account at all.
+    """
+    if not _gateway_available(provider):
+        return f"{provider}_mock"
+    if providers.is_otp_provider(provider) and not allow_otp:
+        return f"{provider}_mock"
+    return provider
+
+
+def _enabled_method_codes(settings_doc: dict, *, allow_otp: bool = True) -> list[str]:
     methods: list[str] = []
     if settings_doc.get("codEnabled"):
         methods.append("cod")
     if settings_doc.get("manualEnabled") or settings_doc.get("bankTransferEnabled"):
         methods.append("manual_bank")
-    # One toggle per wallet. Whether the customer is redirected to the gateway or told to
-    # pay manually depends on whether that gateway can actually run: in production a
-    # gateway without credentials falls back to the manual flow instead of dead-ending.
+    # One toggle per wallet. Whether the customer is redirected to the gateway, asked for
+    # an emailed code, or told to pay manually depends on the gateway's configured mode
+    # and on whether there is an account behind this checkout.
     if settings_doc.get("jazzCashEnabled"):
-        methods.append("jazzcash" if _gateway_available("jazzcash") else "jazzcash_mock")
+        methods.append(_wallet_method_code("jazzcash", allow_otp=allow_otp))
     if settings_doc.get("easyPaisaEnabled"):
-        methods.append("easypaisa" if _gateway_available("easypaisa") else "easypaisa_mock")
+        methods.append(_wallet_method_code("easypaisa", allow_otp=allow_otp))
     # Offering Stripe without a secret key puts a button in front of the customer that
     # can only fail at payment time, the same trap the gateways avoid above.
     if settings_doc.get("stripeEnabled") and settings.stripe_secret_key:
@@ -220,43 +241,22 @@ def _method_customer_details(settings_doc: dict, method: str) -> dict[str, Any]:
             "iban": "",
         }
     if method in ONLINE_GATEWAY_METHODS:
-        simulated = gateways.is_simulated(method)
-        return {
-            "code": method,
-            "label": _public_method_label(method),
-            "description": (
-                f"Pay with {gateways.gateway_label(method)}. You will be taken to a secure payment page "
-                "and returned here once the payment is complete."
-            ),
-            "requiresOwnerApproval": False,
-            "isOnline": True,
-            "provider": method,
-            "mode": gateways.gateway_mode(method),
-            "simulated": simulated,
-        }
+        # The provider describes itself, so a wallet in OTP mode advertises the code flow
+        # and a wallet in redirect mode advertises the redirect, from one source.
+        descriptor = providers.get_provider(method).descriptor()
+        return {**descriptor, "code": method, "label": _public_method_label(method)}
 
     if method == "stripe_test":
-        return {
-            "code": method,
-            "label": _public_method_label(method),
-            "description": (
-                "Pay online by card through Stripe Checkout. You will be returned here once the payment "
-                "is complete."
-            ),
-            "requiresOwnerApproval": False,
-            "isOnline": True,
-            "mode": "test" if str(settings.stripe_secret_key).startswith("sk_test") else "live",
-            "provider": "stripe",
-            "testCard": "4242 4242 4242 4242",
-        }
+        descriptor = providers.StripeProvider().descriptor()
+        return {**descriptor, "code": method, "label": _public_method_label(method)}
     return {"code": method, "label": _public_method_label(method), "description": "", "requiresOwnerApproval": True}
 
 
-def serialize_customer_payment_options(settings_doc: dict | None) -> dict[str, Any]:
+def serialize_customer_payment_options(settings_doc: dict | None, *, allow_otp: bool = True) -> dict[str, Any]:
     settings_doc = settings_doc or {}
     if not settings_doc:
         settings_doc = _default_settings(ObjectId())
-    enabled = _enabled_method_codes(settings_doc)
+    enabled = _enabled_method_codes(settings_doc, allow_otp=allow_otp)
     methods = [_method_customer_details(settings_doc, method) for method in enabled]
     default_method = settings_doc.get("defaultMethod") or (enabled[0] if enabled else "cod")
     if default_method not in enabled and enabled:
@@ -274,13 +274,18 @@ def serialize_customer_payment_options(settings_doc: dict | None) -> dict[str, A
     }
 
 
-async def get_customer_payment_options_for_tenant(tenant_oid: ObjectId) -> dict[str, Any]:
+async def get_customer_payment_options_for_tenant(tenant_oid: ObjectId, *, allow_otp: bool = True) -> dict[str, Any]:
+    """Payment methods this business offers.
+
+    ``allow_otp`` is False for anonymous checkouts (the public website), where there is
+    no account to email a code to. See :func:`_wallet_method_code`.
+    """
     db = get_database()
     settings = await db.payment_settings.find_one({"tenantId": tenant_oid})
     if not settings:
         settings = _default_settings(tenant_oid)
         settings["_id"] = (await db.payment_settings.insert_one(settings)).inserted_id
-    return serialize_customer_payment_options(settings)
+    return serialize_customer_payment_options(settings, allow_otp=allow_otp)
 
 
 def normalize_customer_payment_preference(payment_method: str | None, payment_options: dict[str, Any]) -> dict[str, Any]:
@@ -1189,46 +1194,32 @@ async def create_customer_stripe_checkout_session(order_id: str, current_user: d
     }
     record["_id"] = (await db.payment_records.insert_one(record)).inserted_id
 
-    payload = {
-        "mode": "payment",
-        "success_url": _stripe_success_url(settings.stripe_success_path, str(transaction["_id"]), success_url),
-        "cancel_url": _stripe_return_url(settings.stripe_cancel_path, str(transaction["_id"]), cancel_url),
-        "client_reference_id": str(transaction["_id"]),
-        "customer_email": (transaction.get("customerSnapshot") or {}).get("email") or current_user.get("email", ""),
-        "metadata[tenantId]": str(tenant_oid),
-        "metadata[transactionId]": str(transaction["_id"]),
-        "metadata[paymentRecordId]": str(record["_id"]),
-        "payment_intent_data[metadata][tenantId]": str(tenant_oid),
-        "payment_intent_data[metadata][transactionId]": str(transaction["_id"]),
-        "payment_intent_data[metadata][paymentRecordId]": str(record["_id"]),
-        "line_items[0][price_data][currency]": settings.stripe_currency.lower(),
-        "line_items[0][price_data][product_data][name]": f"{transaction.get('transactionNumber', 'BizXusAI order')} payment",
-        "line_items[0][price_data][unit_amount]": str(_stripe_amount_to_minor_units(balance)),
-        "line_items[0][quantity]": "1",
-    }
+    stripe_provider = providers.StripeProvider()
+    context = PaymentContext(
+        provider="stripe",
+        reference=str(record["_id"]),
+        amount=float(balance),
+        currency=settings.stripe_currency.upper(),
+        order_id=str(transaction["_id"]),
+        order_number=transaction.get("transactionNumber", ""),
+        tenant_id=str(tenant_oid),
+        customer_email=(transaction.get("customerSnapshot") or {}).get("email") or current_user.get("email", ""),
+        success_url=_stripe_success_url(settings.stripe_success_path, str(transaction["_id"]), success_url),
+        cancel_url=_stripe_return_url(settings.stripe_cancel_path, str(transaction["_id"]), cancel_url),
+    )
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            response = await client.post(
-                "https://api.stripe.com/v1/checkout/sessions",
-                data=payload,
-                auth=(settings.stripe_secret_key, ""),
-                headers={"Idempotency-Key": f"bizxusai-checkout-{record['_id']}"},
-            )
-    except httpx.HTTPError as exc:
-        await db.payment_records.update_one({"_id": record["_id"]}, {"$set": {"status": "failed", "notes": f"Stripe request failed: {exc.__class__.__name__}", "updatedAt": datetime.now(timezone.utc)}})
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unable to create Stripe checkout session. Please try again.") from exc
-    if response.status_code >= 400:
-        try:
-            stripe_error = response.json().get("error", {}).get("message")
-        except Exception:
-            stripe_error = ""
-        await db.payment_records.update_one({"_id": record["_id"]}, {"$set": {"status": "failed", "notes": stripe_error or "Stripe checkout session failed.", "updatedAt": datetime.now(timezone.utc)}})
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=stripe_error or "Unable to create Stripe checkout session.")
+        initiation = await stripe_provider.initiate(context)
+    except PaymentProviderError as exc:
+        await db.payment_records.update_one(
+            {"_id": record["_id"]},
+            {"$set": {"status": "failed", "notes": str(exc), "updatedAt": datetime.now(timezone.utc)}},
+        )
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
-    session = response.json()
+    session = {"id": initiation.provider_session_id, "url": initiation.provider_session_url}
     await db.payment_records.update_one(
         {"_id": record["_id"]},
-        {"$set": {"providerSessionId": session.get("id", ""), "providerSessionUrl": session.get("url", ""), "referenceNumber": session.get("id", ""), "notes": "Stripe Checkout session is waiting for customer payment.", "updatedAt": datetime.now(timezone.utc)}},
+        {"$set": {"providerSessionId": session["id"], "providerSessionUrl": session["url"], "referenceNumber": session["id"], "notes": initiation.notes, "updatedAt": datetime.now(timezone.utc)}},
     )
     updated_transaction = await _sync_transaction_payment_status(tenant_oid, transaction, current_user.get("_id"), "Stripe Checkout session created.")
     await create_business_notification(
@@ -1627,10 +1618,18 @@ async def create_gateway_checkout(order_id: str, provider: str, current_user: di
     """Start a JazzCash or Easypaisa payment for an existing order."""
     if provider not in ONLINE_GATEWAY_METHODS:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported payment gateway.")
-    if not _gateway_available(provider):
+    gateway = providers.get_provider(provider)
+    if gateway.flow == FLOW_OTP:
+        # This wallet is configured for the emailed-code flow, which has no redirect and
+        # its own endpoints. Say so rather than returning a checkout that cannot exist.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{gateway.label} is set up for verification-code payments. Use the wallet checkout instead.",
+        )
+    if not gateway.is_available():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"{gateways.gateway_label(provider)} is not configured for online payments yet.",
+            detail=f"{gateway.label} is not configured for online payments yet.",
         )
 
     db = get_database()
@@ -1664,7 +1663,8 @@ async def create_gateway_checkout(order_id: str, provider: str, current_user: di
         "methodLabel": _public_method_label(provider),
         "status": "pending_verification",
         "referenceNumber": "",
-        "notes": f"{gateways.gateway_label(provider)} checkout started.",
+        "notes": f"{gateway.label} checkout started.",
+        "flow": gateway.flow,
         "submittedBy": "customer",
         "provider": provider,
         "providerMode": gateways.gateway_mode(provider),
@@ -1677,23 +1677,33 @@ async def create_gateway_checkout(order_id: str, provider: str, current_user: di
     record["_id"] = (await db.payment_records.insert_one(record)).inserted_id
 
     txn_ref = _build_gateway_txn_ref(record["_id"])
+    context = PaymentContext(
+        provider=provider,
+        reference=txn_ref,
+        amount=float(balance),
+        currency=record["currency"],
+        order_id=str(transaction["_id"]),
+        order_number=transaction.get("transactionNumber", ""),
+        tenant_id=str(tenant_oid),
+        customer_name=str(customer_snapshot.get("name") or ""),
+        customer_email=str(customer_snapshot.get("email") or current_user.get("email") or ""),
+        customer_mobile=str(customer_snapshot.get("phone") or ""),
+        return_url=_gateway_return_url(provider),
+    )
     try:
-        checkout = gateways.build_checkout(
-            provider,
-            txn_ref=txn_ref,
-            amount=float(balance),
-            return_url=_gateway_return_url(provider),
-            bill_reference=transaction.get("transactionNumber", "") or txn_ref,
-            description=f"Payment for {transaction.get('transactionNumber', 'order')}",
-            customer_mobile=str(customer_snapshot.get("phone") or ""),
-            customer_email=str(customer_snapshot.get("email") or current_user.get("email") or ""),
-        )
-    except (gateways.PaymentGatewayError, ValueError) as exc:
+        initiation = await gateway.initiate(context)
+    except PaymentProviderError as exc:
         await db.payment_records.update_one(
             {"_id": record["_id"]},
-            {"$set": {"status": "failed", "notes": f"Could not start {gateways.gateway_label(provider)}: {exc}", "updatedAt": datetime.now(timezone.utc)}},
+            {"$set": {"status": "failed", "notes": f"Could not start {gateway.label}: {exc}", "updatedAt": datetime.now(timezone.utc)}},
         )
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Unable to start {gateways.gateway_label(provider)} payment.") from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    checkout = {
+        "url": initiation.redirect.url,
+        "method": initiation.redirect.method,
+        "fields": initiation.redirect.fields,
+        "simulated": initiation.simulated,
+    }
 
     await db.payment_records.update_one(
         {"_id": record["_id"]},
@@ -1864,3 +1874,350 @@ async def apply_simulated_gateway_result(provider: str, txn_ref: str, approve: b
     context = await get_gateway_simulator_context(provider, txn_ref)
     payload = gateways.build_simulated_callback(provider, txn_ref=txn_ref, amount=context["amount"], approve=approve)
     return await complete_gateway_payment(provider, payload)
+
+
+# --------------------------------------------------------------- OTP wallet flow --
+
+
+def _wallet_provider_or_422(provider_code: str):
+    """Resolve a wallet that is actually configured for the emailed-code flow."""
+    try:
+        provider = providers.get_provider(provider_code)
+    except PaymentProviderError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported payment method.") from exc
+    if provider.flow != FLOW_OTP:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{provider.label} is not set up for code-based payments on this server.",
+        )
+    if not provider.is_available():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"{provider.label} is not available right now.",
+        )
+    return provider
+
+
+def _customer_payment_email(current_user: dict, transaction: dict) -> str:
+    """The address a payment code may be sent to.
+
+    Read from the signed-in account, never from the request. If a caller could name the
+    recipient they could have any customer's payment code delivered to themselves.
+    """
+    return str(current_user.get("email") or "").strip().lower()
+
+
+async def _load_customer_order_for_payment(order_id: str, current_user: dict) -> dict:
+    db = get_database()
+    transaction_oid = parse_object_id(order_id, "orderId")
+    transaction = await db.transactions.find_one({"_id": transaction_oid, "customerUserId": current_user["_id"]})
+    if not transaction:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found.")
+    if transaction.get("transactionType") not in PAYABLE_TRANSACTION_TYPES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This transaction cannot be paid online.")
+    return transaction
+
+
+def _wallet_payment_view(record: dict, transaction: dict, provider, challenge: dict) -> dict[str, Any]:
+    """The envelope the checkout screen works from.
+
+    Carries the amount the server computed, the masked destination, and the counters a
+    countdown needs. It does not carry the code, in any mode.
+    """
+    return {
+        "paymentRecordId": str(record["_id"]),
+        "provider": provider.code,
+        "label": provider.label,
+        "flow": provider.flow,
+        "mode": provider.mode(),
+        "simulated": True,
+        "amount": float(record.get("amount", 0)),
+        "currency": record.get("currency", "PKR"),
+        "mobileNumber": record.get("customerMobile", ""),
+        "demoNotice": "Simulated payment for demonstration. No real money is transferred.",
+        **challenge,
+        "transaction": serialize_document(transaction),
+    }
+
+
+async def start_wallet_otp_payment(order_id: str, provider_code: str, mobile_number: str, current_user: dict) -> dict[str, Any]:
+    """Begin an emailed-code payment for the full outstanding balance of an order."""
+    db = get_database()
+    provider = _wallet_provider_or_422(provider_code)
+    transaction = await _load_customer_order_for_payment(order_id, current_user)
+    tenant_oid = transaction["tenantId"]
+
+    # The business must actually offer this wallet. Reusing the shared normalizer keeps
+    # one answer to "is this method enabled here".
+    payment_options = await get_customer_payment_options_for_tenant(tenant_oid, allow_otp=True)
+    normalize_customer_payment_preference(provider.code, payment_options)
+
+    customer_email = _customer_payment_email(current_user, transaction)
+    if not customer_email:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Please add an email to your profile to pay this way.",
+        )
+
+    normalized_mobile = normalize_optional_pk_phone(mobile_number)
+    if not normalized_mobile:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Enter the mobile number registered with your wallet.")
+
+    # The amount always comes from the order, never from the request, and an OTP payment
+    # always settles the whole outstanding balance.
+    summary = await _calculate_payment_summary(tenant_oid, transaction)
+    balance = summary["balance"]
+    if balance <= 0:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This order is already paid.")
+
+    tenant = await db.tenants.find_one({"_id": tenant_oid})
+    now = datetime.now(timezone.utc)
+    currency = (transaction.get("pricing") or {}).get("currency") or "PKR"
+    record = {
+        "tenantId": tenant_oid,
+        "transactionId": transaction["_id"],
+        "transactionNumber": transaction.get("transactionNumber", ""),
+        "customerSnapshot": transaction.get("customerSnapshot", {}),
+        "recordType": "payment",
+        "amount": float(balance),
+        "currency": currency,
+        "method": provider.code,
+        "methodLabel": _public_method_label(provider.code),
+        "status": "pending_verification",
+        "referenceNumber": "",
+        "notes": f"{provider.label} demo payment started.",
+        "submittedBy": "customer",
+        "provider": provider.code,
+        "providerMode": provider.mode(),
+        "flow": FLOW_OTP,
+        # Recorded for the receipt and for the owner's audit trail. In a real wallet this
+        # identifies the payer's account; in the demo it identifies nothing and is
+        # deliberately not used in any decision.
+        "customerMobile": normalized_mobile,
+        "providerSessionId": "",
+        "providerTransactionId": "",
+        "createdBy": current_user["_id"],
+        "createdAt": now,
+        "updatedAt": now,
+    }
+    record["_id"] = (await db.payment_records.insert_one(record)).inserted_id
+
+    context = PaymentContext(
+        provider=provider.code,
+        reference=str(record["_id"]),
+        amount=float(balance),
+        currency=currency,
+        order_id=str(transaction["_id"]),
+        order_number=transaction.get("transactionNumber", ""),
+        tenant_id=str(tenant_oid),
+        business_name=(tenant or {}).get("name", ""),
+        customer_name=str((transaction.get("customerSnapshot") or {}).get("name") or current_user.get("fullName", "")),
+        customer_email=customer_email,
+        customer_mobile=normalized_mobile,
+    )
+    try:
+        initiation = await provider.initiate(context)
+    except PaymentProviderError as exc:
+        await db.payment_records.update_one(
+            {"_id": record["_id"]},
+            {"$set": {"status": "failed", "notes": str(exc), "updatedAt": datetime.now(timezone.utc)}},
+        )
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    challenge = await payment_otp_service.start_payment_challenge(
+        payment_record_id=record["_id"],
+        tenant_id=tenant_oid,
+        transaction_id=transaction["_id"],
+        provider=provider.code,
+        challenge=initiation.challenge,
+        customer_email=customer_email,
+        amount=float(balance),
+        currency=currency,
+        business_name=(tenant or {}).get("name", ""),
+        order_number=transaction.get("transactionNumber", ""),
+        provider_label=provider.label,
+    )
+
+    await db.payment_records.update_one(
+        {"_id": record["_id"]},
+        {"$set": {
+            "providerSessionId": str(record["_id"]),
+            "referenceNumber": str(record["_id"]),
+            "otpChallengeId": ObjectId(challenge["challengeId"]),
+            "notes": initiation.notes,
+            "updatedAt": datetime.now(timezone.utc),
+        }},
+    )
+    record["providerSessionId"] = str(record["_id"])
+    updated_transaction = await _sync_transaction_payment_status(
+        tenant_oid, transaction, current_user.get("_id"), f"{provider.label} demo payment started."
+    )
+    await create_business_notification(
+        tenant_oid,
+        "wallet_otp_checkout_created",
+        f"{provider.label} demo payment started for {transaction.get('transactionNumber', 'transaction')}",
+        f"Customer started a {provider.label} verification-code payment of {float(balance):g}.",
+        priority="medium",
+        metadata={"transactionId": str(transaction["_id"]), "paymentRecordId": str(record["_id"]), "provider": provider.code},
+    )
+    return _wallet_payment_view(record, updated_transaction, provider, challenge)
+
+
+async def _load_wallet_payment_record(order_id: str, payment_record_id: str, current_user: dict) -> tuple[dict, dict]:
+    db = get_database()
+    transaction = await _load_customer_order_for_payment(order_id, current_user)
+    record = await db.payment_records.find_one(
+        {
+            "_id": parse_object_id(payment_record_id, "paymentRecordId"),
+            "transactionId": transaction["_id"],
+            "tenantId": transaction["tenantId"],
+        }
+    )
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment attempt not found.")
+    if record.get("flow") != FLOW_OTP:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This payment does not use a verification code.")
+    return transaction, record
+
+
+async def verify_wallet_otp_payment(order_id: str, payment_record_id: str, code: str, current_user: dict) -> dict[str, Any]:
+    """Settle an emailed-code payment when the right code comes back."""
+    db = get_database()
+    transaction, record = await _load_wallet_payment_record(order_id, payment_record_id, current_user)
+    provider = _wallet_provider_or_422(record.get("provider", ""))
+
+    # A replayed submission for a payment already settled is a no-op, not a second
+    # payment. The redirect gateways behave the same way on a repeated callback.
+    if record.get("status") in {"paid", "completed"}:
+        return {
+            "paid": True,
+            "alreadyProcessed": True,
+            "payment": serialize_document(record),
+            "transaction": serialize_document(transaction),
+        }
+
+    challenge = await payment_otp_service.consume_challenge(record["_id"], provider.code, code)
+
+    context = PaymentContext(
+        provider=provider.code,
+        reference=str(record["_id"]),
+        amount=float(record.get("amount", 0)),
+        currency=record.get("currency", "PKR"),
+        order_id=str(transaction["_id"]),
+        order_number=transaction.get("transactionNumber", ""),
+        tenant_id=str(transaction["tenantId"]),
+    )
+    # The provider checks the code again against the stored hash. Redundant after
+    # consume_challenge, and deliberately so: the provider stays self-contained, and a
+    # future caller that forgets the challenge step still cannot settle on a wrong code.
+    confirmation = await provider.confirm(
+        context,
+        {"code": code, "codeHash": challenge.get("codeHash", ""), "paymentRecordId": str(record["_id"])},
+    )
+    if not confirmation.paid:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect code. Request a new one and try again.")
+
+    now = datetime.now(timezone.utc)
+    await db.payment_records.update_one(
+        {"_id": record["_id"]},
+        {"$set": {
+            "status": "paid",
+            "providerTransactionId": confirmation.provider_transaction_id,
+            "referenceNumber": confirmation.provider_transaction_id or record.get("referenceNumber", ""),
+            "providerResponseCode": confirmation.response_code,
+            "notes": confirmation.response_message,
+            "verification": {
+                "requiresOwnerApproval": False,
+                "verifiedByUserId": current_user.get("_id"),
+                "verifiedAt": now,
+            },
+            "paidAt": now,
+            "updatedAt": now,
+        }},
+    )
+    tenant = await db.tenants.find_one({"_id": transaction["tenantId"]})
+    updated_transaction = await _sync_transaction_payment_status(
+        transaction["tenantId"], transaction, current_user.get("_id"), f"{provider.label} demo payment verified."
+    )
+    await create_business_notification(
+        transaction["tenantId"],
+        "payment_recorded",
+        f"{provider.label} payment received for {transaction.get('transactionNumber', 'transaction')}",
+        f"{float(record.get('amount', 0)):g} settled through the {provider.label} verification-code flow.",
+        priority="high",
+        metadata={
+            "transactionId": str(transaction["_id"]),
+            "paymentRecordId": str(record["_id"]),
+            "provider": provider.code,
+            "tenantSlug": (tenant or {}).get("slug", ""),
+        },
+    )
+    await create_customer_notification(
+        current_user["_id"],
+        transaction["tenantId"],
+        "payment_updated",
+        f"Payment confirmed for {transaction.get('transactionNumber', 'your order')}",
+        f"Your {provider.label} payment of {float(record.get('amount', 0)):g} was confirmed.",
+        {"transactionId": str(transaction["_id"]), "tenantSlug": (tenant or {}).get("slug", "")},
+    )
+    settled_record = await db.payment_records.find_one({"_id": record["_id"]})
+    return {
+        "paid": True,
+        "payment": serialize_document(settled_record),
+        "transaction": serialize_document(updated_transaction),
+    }
+
+
+async def resend_wallet_otp_payment(order_id: str, payment_record_id: str, current_user: dict) -> dict[str, Any]:
+    """Issue a new code, invalidating the previous one."""
+    db = get_database()
+    transaction, record = await _load_wallet_payment_record(order_id, payment_record_id, current_user)
+    provider = _wallet_provider_or_422(record.get("provider", ""))
+
+    if record.get("status") in {"paid", "completed"}:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This payment is already complete.")
+
+    customer_email = _customer_payment_email(current_user, transaction)
+    if not customer_email:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Please add an email to your profile to pay this way.",
+        )
+
+    tenant = await db.tenants.find_one({"_id": transaction["tenantId"]})
+    context = PaymentContext(
+        provider=provider.code,
+        reference=str(record["_id"]),
+        amount=float(record.get("amount", 0)),
+        currency=record.get("currency", "PKR"),
+        order_id=str(transaction["_id"]),
+        order_number=transaction.get("transactionNumber", ""),
+        tenant_id=str(transaction["tenantId"]),
+        business_name=(tenant or {}).get("name", ""),
+        customer_email=customer_email,
+        customer_mobile=record.get("customerMobile", ""),
+    )
+    try:
+        initiation = await provider.initiate(context)
+    except PaymentProviderError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    challenge = await payment_otp_service.start_payment_challenge(
+        payment_record_id=record["_id"],
+        tenant_id=transaction["tenantId"],
+        transaction_id=transaction["_id"],
+        provider=provider.code,
+        challenge=initiation.challenge,
+        customer_email=customer_email,
+        amount=float(record.get("amount", 0)),
+        currency=record.get("currency", "PKR"),
+        business_name=(tenant or {}).get("name", ""),
+        order_number=transaction.get("transactionNumber", ""),
+        provider_label=provider.label,
+        is_resend=True,
+    )
+    await db.payment_records.update_one(
+        {"_id": record["_id"]},
+        {"$set": {"otpChallengeId": ObjectId(challenge["challengeId"]), "updatedAt": datetime.now(timezone.utc)}},
+    )
+    return _wallet_payment_view(record, transaction, provider, challenge)

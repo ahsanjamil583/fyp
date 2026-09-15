@@ -18,7 +18,7 @@ from app.services.localization_service import normalize_optional_email, normaliz
 
 
 def user_public(user: dict) -> dict:
-    return {
+    data = {
         "id": str(user["_id"]),
         "fullName": user["fullName"],
         "email": user.get("email") or None,
@@ -30,6 +30,11 @@ def user_public(user: dict) -> dict:
         "isPhoneVerified": user.get("isPhoneVerified", False),
         "mustResetPassword": bool(user.get("mustResetPassword", False)),
     }
+    # A cashier belongs to exactly one business, and the client needs to know which one to
+    # send it to its own workspace instead of the owner dashboard.
+    if user.get("accountType") == "cashier" and user.get("tenantId"):
+        data["tenantId"] = str(user["tenantId"])
+    return data
 
 
 def auth_payload(user: dict) -> dict:
@@ -134,7 +139,7 @@ async def register_business_owner_with_email_otp(payload) -> dict:
     return data
 
 
-async def login_user(email: str, password: str, expected_account_type: str | None = None) -> dict:
+async def login_user(email: str, password: str, expected_account_type: str | set[str] | None = None) -> dict:
     db = get_database()
     normalized_email = normalize_optional_email(email)
     if not normalized_email:
@@ -146,7 +151,12 @@ async def login_user(email: str, password: str, expected_account_type: str | Non
     if user["status"] != "active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is not active.")
 
-    if expected_account_type and user["accountType"] != expected_account_type:
+    allowed_account_types = (
+        {expected_account_type}
+        if isinstance(expected_account_type, str)
+        else (set(expected_account_type) if expected_account_type else set())
+    )
+    if allowed_account_types and user["accountType"] not in allowed_account_types:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account type is not allowed here.")
 
     # A stored bcrypt hash cannot be tested against the policy, so accounts created before

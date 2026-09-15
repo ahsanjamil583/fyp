@@ -30,8 +30,8 @@ from app.services.customer_portal_service import (
     update_cart_item,
 )
 from app.services.payment_service import submit_customer_payment_proof
-from app.services.payment_service import create_customer_stripe_checkout_session, create_gateway_checkout, get_customer_payment_receipt_html, sync_customer_stripe_checkout_session
-from app.schemas.payment_schema import GatewayCheckoutRequest, StripeCheckoutSessionRequest, StripePaymentSyncRequest
+from app.services.payment_service import create_customer_stripe_checkout_session, create_gateway_checkout, get_customer_payment_receipt_html, resend_wallet_otp_payment, start_wallet_otp_payment, sync_customer_stripe_checkout_session, verify_wallet_otp_payment
+from app.schemas.payment_schema import GatewayCheckoutRequest, StripeCheckoutSessionRequest, StripePaymentSyncRequest, WalletOtpCheckoutRequest, WalletOtpVerifyRequest
 
 router = APIRouter(prefix="/customer", tags=["customer-portal"])
 
@@ -254,3 +254,22 @@ async def read_notification(notificationId: str, current_user: dict = Depends(ge
 async def read_all_notifications(current_user: dict = Depends(get_current_customer_user)):
     data = await mark_all_customer_notifications_read(current_user)
     return success_response("Customer notifications marked as read.", data)
+
+
+@router.post("/transactions/{orderId}/wallet-checkout")
+async def start_wallet_checkout(orderId: str, payload: WalletOtpCheckoutRequest, current_user: dict = Depends(get_current_customer_user)):
+    """Begin a JazzCash/Easypaisa payment settled by a code emailed to the account."""
+    data = await start_wallet_otp_payment(orderId, payload.provider.strip().lower(), payload.mobileNumber, current_user)
+    return success_response(f"{data['label']} verification code sent.", customer_payment_result(data))
+
+
+@router.post("/transactions/{orderId}/wallet-checkout/{paymentRecordId}/verify")
+async def verify_wallet_checkout(orderId: str, paymentRecordId: str, payload: WalletOtpVerifyRequest, current_user: dict = Depends(get_current_customer_user)):
+    data = await verify_wallet_otp_payment(orderId, paymentRecordId, payload.code, current_user)
+    return success_response("Payment confirmed successfully.", customer_payment_result(data))
+
+
+@router.post("/transactions/{orderId}/wallet-checkout/{paymentRecordId}/resend")
+async def resend_wallet_checkout(orderId: str, paymentRecordId: str, current_user: dict = Depends(get_current_customer_user)):
+    data = await resend_wallet_otp_payment(orderId, paymentRecordId, current_user)
+    return success_response("A new verification code was sent.", customer_payment_result(data))

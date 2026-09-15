@@ -89,6 +89,23 @@ async def create_indexes() -> None:
     await db.transactions.create_index("customerProfileId")
     await db.transactions.create_index([("tenantId", 1), ("paymentStatus", 1)])
     await db.transactions.create_index([("tenantId", 1), ("inventoryStatus", 1)])
+    # Cashier accounts. One profile per (business, login) so an owner cannot register the
+    # same person twice, and receipt tokens are the public handle for a cashier order.
+    await db.cashiers.create_index([("tenantId", 1), ("userId", 1)], unique=True)
+    await db.cashiers.create_index([("tenantId", 1), ("isActive", 1)])
+    await db.cashiers.create_index("userId")
+    await db.transactions.create_index(
+        "receiptToken",
+        unique=True,
+        partialFilterExpression={"receiptToken": {"$type": "string"}},
+        name="receiptToken_1",
+    )
+    await db.transactions.create_index([("tenantId", 1), ("cashier.cashierId", 1), ("createdAt", -1)])
+    # Re-running the same sheet must not double the books, so both duplicate signatures
+    # are indexed rather than scanned.
+    await db.transactions.create_index([("tenantId", 1), ("importSignature.orderNumber", 1)])
+    await db.transactions.create_index([("tenantId", 1), ("importSignature.fingerprint", 1)])
+    await db.order_imports.create_index([("tenantId", 1), ("createdAt", -1)])
     await db.payment_settings.create_index("tenantId", unique=True)
     await db.payment_records.create_index([("tenantId", 1), ("createdAt", -1)])
     await db.payment_records.create_index([("tenantId", 1), ("transactionId", 1)])
@@ -96,6 +113,12 @@ async def create_indexes() -> None:
     await db.payment_records.create_index([("tenantId", 1), ("method", 1), ("createdAt", -1)])
     await db.payment_records.create_index([("provider", 1), ("providerSessionId", 1)])
     await db.payment_records.create_index([("provider", 1), ("providerPaymentIntentId", 1)])
+    # Payment OTP challenges are kept apart from otp_challenges on purpose: a code minted
+    # to settle a payment must never be presentable to a sign-in endpoint, or the reverse.
+    await db.payment_otp_challenges.create_index([("paymentRecordId", 1), ("status", 1), ("createdAt", -1)])
+    await db.payment_otp_challenges.create_index([("tenantId", 1), ("createdAt", -1)])
+    # Rows outlive their 5-minute validity so a failed attempt stays auditable, then go.
+    await db.payment_otp_challenges.create_index("expiresAt", expireAfterSeconds=86400)
     await db.stripe_webhook_events.create_index("eventId", unique=True)
     await db.stripe_webhook_events.create_index([("tenantId", 1), ("createdAt", -1)])
     await db.stripe_webhook_events.create_index([("status", 1), ("createdAt", -1)])

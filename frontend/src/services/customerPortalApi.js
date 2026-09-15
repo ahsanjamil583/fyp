@@ -136,6 +136,21 @@ export async function startGatewayCheckout(orderId, provider) {
   return response.data.data;
 }
 
+export async function startWalletOtpCheckout(orderId, provider, mobileNumber) {
+  const response = await apiClient.post(`/customer/transactions/${orderId}/wallet-checkout`, { provider, mobileNumber });
+  return response.data.data;
+}
+
+export async function verifyWalletOtpCheckout(orderId, paymentRecordId, code) {
+  const response = await apiClient.post(`/customer/transactions/${orderId}/wallet-checkout/${paymentRecordId}/verify`, { code });
+  return response.data.data;
+}
+
+export async function resendWalletOtpCheckout(orderId, paymentRecordId) {
+  const response = await apiClient.post(`/customer/transactions/${orderId}/wallet-checkout/${paymentRecordId}/resend`);
+  return response.data.data;
+}
+
 export async function getCustomerPaymentReceiptHtml(orderId, paymentRecordId) {
   const response = await apiClient.get(`/customer/transactions/${orderId}/payments/${paymentRecordId}/receipt`, {
     responseType: "text",

@@ -446,6 +446,13 @@ async def sync_registered_customer_records(
     return updated_count
 
 
+def _customer_source_tag(source: str | None) -> str:
+    """How this customer first reached the business, for their record's tags."""
+    known = {"customer_portal", "cashier", "imported", "ai_chat", "whatsapp"}
+    normalized = str(source or "").strip().lower()
+    return normalized if normalized in known else "website"
+
+
 async def sync_customer_stats_for_transaction(tenant: dict, transaction: dict) -> ObjectId | None:
     db = get_database()
     customer_id = transaction.get("customerId")
@@ -458,7 +465,7 @@ async def sync_customer_stats_for_transaction(tenant: dict, transaction: dict) -
             phone=normalize_optional_pk_phone_or_blank((transaction.get("customerSnapshot") or {}).get("phone") or ""),
             email=normalize_optional_email((transaction.get("customerSnapshot") or {}).get("email") or ""),
             address=((transaction.get("fulfillment") or {}).get("address") or {}),
-            source_tag="customer_portal" if transaction.get("source") == "customer_portal" else "website",
+            source_tag=_customer_source_tag(transaction.get("source")),
         )
 
     await db.transactions.update_one({"_id": transaction["_id"]}, {"$set": {"customerId": customer_id}})

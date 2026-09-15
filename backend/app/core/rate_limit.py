@@ -74,6 +74,16 @@ RATE_LIMIT_RULES: tuple[RateLimitRule, ...] = (
         methods=frozenset({"POST"}),
         pattern=re.compile(r"/(auth/login|auth/register|auth/password|auth/otp)"),
     ),
+    # Starting, verifying or resending a payment code. The challenge's own attempt
+    # counter is the real control; this stops a script from burning through codes.
+    RateLimitRule(
+        name="payment_otp",
+        max_requests=12,
+        window_seconds=60,
+        shared=True,
+        methods=frozenset({"POST"}),
+        pattern=re.compile(r"/customer/transactions/[^/]+/wallet-checkout"),
+    ),
     # Signed-in chat still costs money, but the account is traceable.
     RateLimitRule(
         name="customer_ai_chat",

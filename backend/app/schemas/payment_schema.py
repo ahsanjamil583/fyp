@@ -54,3 +54,18 @@ class PaymentRefundRequest(BaseModel):
 class PaymentVerificationDecisionRequest(BaseModel):
     decision: str = "approve"
     notes: str = Field(default="", max_length=1000)
+
+
+class WalletOtpCheckoutRequest(BaseModel):
+    """Start an emailed-code wallet payment.
+
+    There is deliberately no amount: an OTP payment always settles the order's full
+    outstanding balance, read from the database.
+    """
+
+    provider: str = Field(min_length=1, max_length=32)
+    mobileNumber: str = Field(min_length=6, max_length=20)
+
+
+class WalletOtpVerifyRequest(BaseModel):
+    code: str = Field(min_length=4, max_length=12)

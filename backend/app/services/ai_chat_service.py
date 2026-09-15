@@ -18,7 +18,10 @@ __all__ = ["detect_language_mode", "save_message", "load_conversation_messages",
 
 async def _serialize_chat_tenant(tenant: dict) -> dict:
     serialized = serialize_document(tenant)
-    serialized["paymentOptions"] = await get_customer_payment_options_for_tenant(tenant["_id"])
+    # This serializer also answers anonymous website chat, so it advertises the
+    # guest-safe set. A signed-in customer still sees the code flow on the order page,
+    # where the account behind the checkout is known.
+    serialized["paymentOptions"] = await get_customer_payment_options_for_tenant(tenant["_id"], allow_otp=False)
     return serialized
 
 

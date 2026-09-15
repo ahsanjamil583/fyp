@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from app.core.config import settings
+from app.core.config import MOCK_GATEWAY_MODES, settings
 from app.integrations.payments import easypaisa, jazzcash
 
 # Used only when a gateway runs in simulator mode, where no merchant credentials exist.
@@ -39,15 +39,27 @@ def gateway_mode(provider: str) -> str:
 
 
 def is_simulated(provider: str) -> bool:
+    """True when this gateway is the hosted simulator page."""
     return gateway_mode(provider) == "simulator"
 
 
+def uses_mock_credentials(provider: str) -> bool:
+    """True for any local stand-in mode, which has no merchant credentials.
+
+    Both `simulator` and `mock_otp` are local: neither has been issued a salt or a hash
+    key, so both must fall back to the placeholder ones. Keying this off `is_simulated`
+    alone meant a server in `mock_otp` mode reached for an empty real key and failed to
+    sign at all.
+    """
+    return gateway_mode(provider) in MOCK_GATEWAY_MODES
+
+
 def jazzcash_salt() -> str:
-    return SIMULATOR_JAZZCASH_SALT if is_simulated("jazzcash") else settings.jazzcash_integrity_salt
+    return SIMULATOR_JAZZCASH_SALT if uses_mock_credentials("jazzcash") else settings.jazzcash_integrity_salt
 
 
 def easypaisa_key() -> str:
-    return SIMULATOR_EASYPAISA_KEY if is_simulated("easypaisa") else settings.easypaisa_hash_key
+    return SIMULATOR_EASYPAISA_KEY if uses_mock_credentials("easypaisa") else settings.easypaisa_hash_key
 
 
 def gateway_label(provider: str) -> str:

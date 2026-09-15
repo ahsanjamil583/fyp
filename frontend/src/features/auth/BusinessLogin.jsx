@@ -30,6 +30,12 @@ export function BusinessLogin() {
       navigate("/update-password");
       return;
     }
+    // Cashiers use this same form. They have no tenant list of their own, so they are
+    // sent straight to the counter rather than through the owner dashboard.
+    if (session.user.accountType === "cashier") {
+      navigate("/cashier");
+      return;
+    }
     if (session.user.globalRole === "platform_admin") {
       navigate("/admin");
       return;
@@ -56,7 +62,7 @@ export function BusinessLogin() {
   return (
     <AuthPanel
       title="Business Login"
-      subtitle="Welcome back. Sign in to manage your storefront, orders, stock, payments, and AI assistant."
+      subtitle="Welcome back. Owners and cashiers both sign in here — you will land on the right workspace automatically."
       mode="login"
       authVariant="password"
       register={form.register}

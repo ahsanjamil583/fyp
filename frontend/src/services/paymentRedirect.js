@@ -1,11 +1,27 @@
 import { createCustomerStripeCheckout, startGatewayCheckout } from "./customerPortalApi.js";
 
-// Methods that take the customer away to a payment page instead of being settled by the
-// business later. Kept here so the cart and the order page agree on what "online" means.
+// Methods that are settled by a provider rather than by the business later. Kept here so
+// the cart and the order page agree on what "online" means.
 export const ONLINE_PAYMENT_METHODS = new Set(["stripe_test", "jazzcash", "easypaisa"]);
 
 export function isOnlinePaymentMethod(method) {
   return ONLINE_PAYMENT_METHODS.has(String(method || ""));
+}
+
+/**
+ * Which shape of payment a method uses.
+ *
+ * The server decides this, not the client: each provider reports its own `flow` in the
+ * payment options attached to the order. A wallet configured for emailed codes reports
+ * `otp`, the same wallet pointed at the real gateway reports `redirect`, and this file
+ * is the only place that has to care.
+ */
+export function paymentFlowFor(methodDetails) {
+  return String(methodDetails?.flow || "redirect");
+}
+
+export function isOtpPaymentMethod(methodDetails) {
+  return paymentFlowFor(methodDetails) === "otp";
 }
 
 /**
@@ -41,22 +57,31 @@ export function redirectToGateway(redirect) {
 }
 
 /**
- * Send the customer to whichever gateway backs the chosen method.
+ * Take the customer to whichever provider backs the chosen method.
  *
- * Returns false when the method is settled offline (cash, bank transfer), so the caller
- * can fall through to its normal "order placed" path.
+ * Returns one of:
+ *   `{ handled: false }`          the method settles offline (cash, bank transfer)
+ *   `{ handled: true }`           the browser is leaving for a gateway
+ *   `{ handled: true, otp: true } the caller should open the code dialog instead
+ *
+ * The OTP case deliberately does not navigate: the customer stays on the order page and
+ * finishes there, which is the whole point of that flow.
  */
-export async function startOnlinePayment(orderId, method) {
-  if (!isOnlinePaymentMethod(method)) return false;
+export async function startOnlinePayment(orderId, method, methodDetails = null) {
+  if (!isOnlinePaymentMethod(method)) return { handled: false };
+
+  if (isOtpPaymentMethod(methodDetails)) {
+    return { handled: true, otp: true, method, methodDetails };
+  }
 
   if (method === "stripe_test") {
     const session = await createCustomerStripeCheckout(orderId, {});
     if (!session?.checkoutUrl) throw new Error("Stripe did not return a checkout URL.");
     window.location.assign(session.checkoutUrl);
-    return true;
+    return { handled: true };
   }
 
   const checkout = await startGatewayCheckout(orderId, method);
   redirectToGateway(checkout?.redirect);
-  return true;
+  return { handled: true };
 }

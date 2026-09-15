@@ -7,7 +7,9 @@ import { getDefaultPaymentMethod } from "../../components/payments/paymentMethod
 import { PaymentProofBadge, PaymentStatusBadge } from "../../components/payments/PaymentStatusBadge.jsx";
 import { getCustomerPaymentReceiptHtml, getCustomerTransaction, reorderCustomerTransaction, resolveUploadUrl, submitCustomerPaymentProof, syncCustomerStripeCheckout } from "../../services/customerPortalApi.js";
 import { capitalize, formatTransactionType } from "../../utils/transaction.js";
-import { isOnlinePaymentMethod, startOnlinePayment } from "../../services/paymentRedirect.js";
+import { isOnlinePaymentMethod, isOtpPaymentMethod, startOnlinePayment } from "../../services/paymentRedirect.js";
+import { useCustomer } from "../../context/CustomerContext.jsx";
+import { WalletOtpDialog } from "./WalletOtpDialog.jsx";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 
 export function CustomerOrderDetailPage() {
@@ -22,10 +24,26 @@ export function CustomerOrderDetailPage() {
   const [isSyncingStripe, setIsSyncingStripe] = useState(false);
   const [openingReceiptId, setOpeningReceiptId] = useState("");
   const syncedReturnRef = useRef("");
+  // The emailed-code flow finishes on this page instead of leaving for a gateway.
+  const [otpMethod, setOtpMethod] = useState(null);
+  const { customer } = useCustomer();
 
   useEffect(() => {
     loadOrder();
   }, [orderId]);
+
+  // Checkout sends the customer here with ?pay=<method> when the chosen wallet settles
+  // by emailed code. Opening the dialog on arrival keeps "place order" and "pay" feeling
+  // like one step, the way a redirect gateway does.
+  useEffect(() => {
+    if (!order || otpMethod) return;
+    const requested = new URLSearchParams(location.search).get("pay");
+    if (!requested) return;
+    const details = (order.paymentInstructions?.methods || []).find((entry) => entry.code === requested);
+    if (details && isOtpPaymentMethod(details) && order.paymentStatus !== "paid") {
+      setOtpMethod(details);
+    }
+  }, [order, otpMethod, location.search]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -108,13 +126,28 @@ export function CustomerOrderDetailPage() {
   async function startOnlineCheckout(method) {
     setMessage("");
     setError("");
+    const details = (order.paymentInstructions?.methods || []).find((entry) => entry.code === method) || null;
+    // A wallet configured for emailed codes stays here; everything else leaves for a
+    // hosted page. The server tells us which through the method's `flow`.
+    if (isOtpPaymentMethod(details)) {
+      setOtpMethod(details);
+      return;
+    }
     setIsStartingStripe(true);
     try {
-      await startOnlinePayment(order.id, method);
+      await startOnlinePayment(order.id, method, details);
     } catch (requestError) {
       setError(requestError.response?.data?.detail || requestError.message || "Unable to open the payment page.");
       setIsStartingStripe(false);
     }
+  }
+
+  async function handleOtpPaid(result) {
+    if (result?.transaction) {
+      setOrder(result.transaction);
+    }
+    setMessage("Payment confirmed. Your order is marked as paid.");
+    await loadOrder();
   }
 
   async function openReceipt(paymentRecordId) {
@@ -155,6 +188,15 @@ export function CustomerOrderDetailPage() {
 
   return (
     <section className="space-y-6">
+      {otpMethod ? (
+        <WalletOtpDialog
+          order={order}
+          method={otpMethod}
+          customerEmail={customer?.email || ""}
+          onClose={() => setOtpMethod(null)}
+          onPaid={handleOtpPaid}
+        />
+      ) : null}
       <div className="rounded-2xl border border-line bg-surface-purple p-5 shadow-card">
         <Link className="text-sm font-semibold text-brand" to="/customer/orders">Back to orders</Link>
         <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Order detail</p>

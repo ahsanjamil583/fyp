@@ -231,6 +231,10 @@ async def _change_transaction_stock(transaction, operation, actor_user_id=None):
     try:
         lines = {}
         for line in current.get("items") or []:
+            if not line.get("itemId"):
+                # A manually typed counter line, or a line from an imported historical
+                # sheet. There is no catalog row behind it, so there is no stock to move.
+                continue
             item_id = _line_item_id(line)
             item = await db.items.find_one({"_id": item_id, "tenantId": current["tenantId"]})
             if not item:

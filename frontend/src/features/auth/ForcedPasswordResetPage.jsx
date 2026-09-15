@@ -47,7 +47,9 @@ export function ForcedPasswordResetPage({ customer = false }) {
       }
       const session = await changeBusinessPassword(payload);
       auth.setSession(session);
-      navigate("/dashboard", { replace: true });
+      // Owners and cashiers both land here after an owner-issued password reset, so
+      // send each one back to their own workspace.
+      navigate(session.user?.accountType === "cashier" ? "/cashier" : "/dashboard", { replace: true });
     } catch (error) {
       setServerError(getApiErrorMessage(error, "Could not update your password."));
     }

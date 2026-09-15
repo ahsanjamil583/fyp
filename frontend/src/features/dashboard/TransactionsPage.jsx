@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { PaymentLifecycleNote, PaymentProofBadge, PaymentStatusBadge } from "../../components/payments/PaymentStatusBadge.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
@@ -9,12 +9,15 @@ import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
 
 export function TransactionsPage() {
   const { selectedTenant } = useTenant();
+  // Other pages deep-link here with ?source=cashier or ?source=imported, so the queue
+  // opens already filtered instead of making the owner find the control.
+  const [searchParams] = useSearchParams();
   const [transactions, setTransactions] = useState([]);
   const [meta, setMeta] = useState({});
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
-  const [sourceFilter, setSourceFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState(() => searchParams.get("source") || "");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);

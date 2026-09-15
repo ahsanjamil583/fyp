@@ -139,3 +139,17 @@ async def get_current_customer_user(current_user: dict = Depends(get_current_use
     if current_user.get("accountType") != "customer":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Customer account required.")
     return current_user
+
+
+async def get_current_cashier_user(current_user: dict = Depends(get_current_user)) -> dict:
+    """A cashier account, already proven to belong to exactly one business.
+
+    Every cashier route depends on this rather than on ``get_current_user`` so a cashier
+    token can never be replayed against an owner, admin, or customer endpoint, and so the
+    tenant a cashier may act on is taken from the account rather than from the request.
+    """
+    if current_user.get("accountType") != "cashier":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cashier account required.")
+    if not current_user.get("tenantId"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This cashier is not linked to a business.")
+    return current_user

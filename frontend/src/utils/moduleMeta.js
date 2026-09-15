@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Puzzle,
   ShoppingBag,
+  Store,
   Users,
 } from "lucide-react";
 
@@ -28,6 +29,7 @@ const MODULE_META = {
   owner_agent: { label: "Owner AI Assistant", icon: Bot, tone: "violet" },
   whatsapp_agent: { label: "WhatsApp Agent", icon: MessageCircle, tone: "green" },
   payments: { label: "Payments", icon: CreditCard, tone: "blue" },
+  cashier: { label: "Cashier / POS", icon: Store, tone: "green" },
   reports: { label: "Reports", icon: FileText, tone: "orange" },
   notifications: { label: "Notifications", icon: Bell, tone: "red" },
 };

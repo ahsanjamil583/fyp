@@ -44,7 +44,7 @@ async def _get_published_tenant(slug: str) -> dict:
 async def get_public_business(slug: str) -> dict:
     tenant = await _get_published_tenant(slug)
     serialized = public_business_view(tenant)
-    serialized["paymentOptions"] = await get_customer_payment_options_for_tenant(tenant["_id"])
+    serialized["paymentOptions"] = await get_customer_payment_options_for_tenant(tenant["_id"], allow_otp=False)
     serialized["whatsappAgent"] = await get_customer_facing_whatsapp_agent(tenant)
     return serialized
 
@@ -118,7 +118,7 @@ async def create_public_transaction(slug: str, payload) -> dict:
 
     requested_transaction_type = normalize_transaction_type(getattr(payload, "transactionType", None))
     transaction_type = infer_transaction_type(requested_transaction_type, resolved_items)
-    payment_options = await get_customer_payment_options_for_tenant(tenant["_id"])
+    payment_options = await get_customer_payment_options_for_tenant(tenant["_id"], allow_otp=False)
     payment_preference = normalize_customer_payment_preference(getattr(payload, "paymentMethod", None), payment_options)
 
     transaction = {

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.responses import success_response
-from app.core.security import get_authenticated_user, get_current_business_user
+from app.core.security import get_authenticated_user, get_current_business_user, get_current_user
 from app.schemas.auth_schema import (
     BusinessRegisterRequest,
     EmailBusinessRegisterRequest,
@@ -64,7 +64,14 @@ async def register_with_email_otp(payload: EmailBusinessRegisterRequest):
 
 @router.post("/login")
 async def login(payload: LoginRequest):
-    data = await login_user(payload.email, payload.password, expected_account_type="business_owner")
+    """Owners and cashiers share this form.
+
+    The response says which kind of account signed in, and the client routes on that:
+    an owner lands on the dashboard, a cashier on the cashier workspace. Every route on
+    either side re-checks the account type server-side, so the redirect is convenience,
+    not the control.
+    """
+    data = await login_user(payload.email, payload.password, expected_account_type={"business_owner", "cashier"})
     return success_response("Logged in successfully.", data)
 
 
@@ -162,7 +169,7 @@ async def change_business_password(
     current_user: dict = Depends(get_authenticated_user),
 ):
     """Depends on the ungated dependency so an account flagged for reset can escape it."""
-    if current_user.get("accountType") != "business_owner":
+    if current_user.get("accountType") not in {"business_owner", "cashier"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Business account required.")
     data = await change_password(current_user, payload.currentPassword, payload.newPassword)
     return success_response("Password changed successfully.", data)
@@ -180,7 +187,14 @@ async def logout():
 
 
 @router.get("/me")
-async def me(current_user: dict = Depends(get_current_business_user)):
+async def me(current_user: dict = Depends(get_current_user)):
+    """Identity for both workspaces.
+
+    Cashiers restore their session through this endpoint too, so it accepts either
+    account type and reports which one it is rather than rejecting the cashier.
+    """
+    if current_user.get("accountType") not in {"business_owner", "cashier"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Business account required.")
     return success_response("Authenticated user fetched successfully.", user_public(current_user))
 
 

@@ -27,6 +27,10 @@ Daily report delivery settings and dry-run/send-now flow
 Owner AI assistant for business insights
 Deployment readiness dashboard
 Launch Wizard with one-click setup profiles and readiness checklist
+Cashier module: owner-managed counter logins, in-store order entry, printable receipts
+Historical order sheet import into the unified transaction model
+Standardised payment provider protocol (JazzCash, Easypaisa, Stripe)
+Mock OTP wallet payments for local development and academic demonstration
 Demo data and smoke-check scripts
 Docker files for local deployment
 Final submission center, proposal traceability, sign-off, and evidence export
@@ -152,6 +156,17 @@ Backend: http://localhost:8000/api/v1/health
 /dashboard/payments
 /dashboard/reports
 /dashboard/owner-agent
+/dashboard/cashiers
+/dashboard/orders/import
+```
+
+Cashier workspace routes (cashier accounts only):
+
+```text
+/cashier
+/cashier/orders
+/cashier/orders/new
+/cashier/receipts
 ```
 
 ## Documentation
@@ -173,6 +188,8 @@ docs/phase-29-phone-otp-onboarding.md
 docs/phase-30-final-qa-demo-polish.md
 docs/phase-31-submission-center.md
 docs/payment-gateways.md
+docs/phase-38-cashier-module.md
+docs/phase-39-mock-otp-payments.md
 ```
 
 ## Safety Note
@@ -210,6 +227,46 @@ It maps proposal requirements to implemented phases, lists final artifacts to su
 ## Phase 32: Critical Bug Fixes and Flow Stabilization
 
 Phase 32 stabilizes the issues found during local QA: category auto-create, product image URL import, knowledge file upload UX, stronger AI product matching, follow-up order context, public/customer order confirmation fields, owner-agent product count, payment/WhatsApp/OTP clarity, and Final QA explanation. See `docs/phase-32-critical-bug-fixes.md`.
+
+
+## Phase 38: Cashier Module and Order Sheet Import
+
+Business owners can now register cashier accounts for their own business. A cashier signs
+in at the same business login and lands on a separate till screen, where they record
+in-store orders and print receipts. Owners can also import old Excel/CSV order sheets, so
+previous sales live in the same order list as everything else.
+
+```text
+/dashboard/cashiers        register and manage cashier logins
+/dashboard/orders/import   upload, review and import an old order sheet
+/cashier                   the cashier's own workspace
+```
+
+Cashier and imported orders are ordinary transactions tagged `cashier` and `imported`, so
+they appear in the owner's order queue, analytics, reports and customer history, and can be
+filtered by source. See `docs/phase-38-cashier-module.md`.
+
+
+## Phase 39: Mock OTP Payments and the Provider Protocol
+
+JazzCash, Easypaisa and Stripe now implement one standardised provider protocol, so a new
+gateway such as PayFast is a new file and a registry entry rather than an edit to the
+payment service, the routes and the web client.
+
+A wallet set to `mock_otp` mode takes no redirect and moves no money. The customer enters
+a mobile number, a fresh random six-digit code is emailed to the address on their account,
+and entering it marks the order paid. Codes expire in five minutes, allow three attempts,
+can be resent (which invalidates the previous one), are stored only as an HMAC hash, and
+are never returned in an API response.
+
+```bash
+JAZZCASH_MODE=mock_otp
+EASYPAISA_MODE=mock_otp
+```
+
+For local development and demos only: the application refuses to start with a mock wallet
+when `APP_ENV=production`. Guests are never offered the code flow, since there is no
+account to email. See `docs/phase-39-mock-otp-payments.md`.
 
 
 ## WhatsApp Bridge

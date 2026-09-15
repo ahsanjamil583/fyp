@@ -139,6 +139,9 @@ export function AuthProvider({ children }) {
       isAuthReady,
       isAuthenticated: Boolean(token),
       isPlatformAdmin: user?.globalRole === "platform_admin",
+      // Cashiers sign in through the same business form, so every consumer of this
+      // context needs to be able to tell the two workspaces apart.
+      isCashier: user?.accountType === "cashier",
       setSession,
       clearSession,
       refreshSession,

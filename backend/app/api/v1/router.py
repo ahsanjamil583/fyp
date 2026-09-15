@@ -7,6 +7,7 @@ from app.api.v1.analytics_routes import router as analytics_router
 from app.api.v1.auth_routes import router as auth_router
 from app.api.v1.business_notification_routes import router as business_notification_router
 from app.api.v1.business_category_routes import router as business_category_router
+from app.api.v1.cashier_routes import cashier_router, owner_router as cashier_owner_router
 from app.api.v1.customer_auth_routes import router as customer_auth_router
 from app.api.v1.customer_portal_routes import router as customer_portal_router
 from app.api.v1.customer_routes import router as customer_router
@@ -16,6 +17,7 @@ from app.api.v1.item_routes import router as item_router
 from app.api.v1.knowledge_base_routes import router as knowledge_base_router
 from app.api.v1.module_routes import router as module_router
 from app.api.v1.onboarding_routes import router as onboarding_router
+from app.api.v1.order_import_routes import router as order_import_router
 from app.api.v1.payment_routes import router as payment_router
 from app.api.v1.payment_gateway_routes import router as payment_gateway_router
 from app.api.v1.owner_agent_routes import router as owner_agent_router
@@ -56,5 +58,8 @@ api_router.include_router(item_router)
 api_router.include_router(knowledge_base_router)
 api_router.include_router(public_website_router)
 api_router.include_router(report_router)
+api_router.include_router(cashier_owner_router)
+api_router.include_router(cashier_router)
+api_router.include_router(order_import_router)
 api_router.include_router(transaction_router)
 api_router.include_router(whatsapp_router)

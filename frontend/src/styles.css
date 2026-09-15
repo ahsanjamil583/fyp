@@ -448,3 +448,54 @@ button.bg-primary:disabled {
 .rail-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ------------------------------------------------------------ receipts -- */
+
+/* What leaves the printer is the receipt alone: no rail, no header, no buttons.
+   The sheet is sized for 80mm thermal paper but falls back to A4 cleanly, so the same
+   markup serves a counter printer and an office one. */
+
+.print-hide {
+  /* No effect on screen; the print block below is what acts on it. */
+  display: revert;
+}
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 0;
+    background: #ffffff;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  .receipt-sheet {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: #000000;
+  }
+
+  /* Printers drop background fills by default, so paid/pending has to survive as text. */
+  .receipt-sheet * {
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .receipt-sheet table {
+    page-break-inside: avoid;
+  }
+}

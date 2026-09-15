@@ -24,6 +24,12 @@ PUBLIC_JWT_SECRETS = frozenset(
 
 MIN_JWT_SECRET_LENGTH = 32
 
+# How a wallet gateway behaves. `simulator` and `mock_otp` are both local stand-ins that
+# move no money; they differ only in what the customer does (a fake hosted page versus an
+# emailed code). Neither may run in production.
+GATEWAY_MODES = frozenset({"simulator", "mock_otp", "sandbox", "live"})
+MOCK_GATEWAY_MODES = frozenset({"simulator", "mock_otp"})
+
 
 class Settings(BaseSettings):
     app_name: str = "BizxusAI API"
@@ -131,6 +137,17 @@ class Settings(BaseSettings):
     # the gateway's servers for server-to-server confirmations.
     payment_return_path: str = "/customer/orders/{orderId}?payment={status}"
 
+    # --- Mock OTP wallet payments (academic/demo mode) ------------------------------
+    # A gateway in `mock_otp` mode takes no redirect and moves no money: the customer
+    # enters a mobile number, a fresh random code is emailed to the address on their
+    # account, and entering it settles the order. It exists so the payment flow can be
+    # demonstrated end to end without merchant onboarding, and the settings validator
+    # refuses to let it run in production.
+    payment_otp_expire_minutes: int = 5
+    payment_otp_max_attempts: int = 3
+    payment_otp_resend_cooldown_seconds: int = 60
+    payment_otp_max_resends: int = 3
+
     local_upload_dir: str = "./uploads"
     temp_upload_dir: str = "./uploads/temp"
     log_dir: str = "../logs"
@@ -190,7 +207,7 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_gateway_mode(cls, value):
         normalized = str(value or "simulator").strip().lower()
-        return normalized if normalized in {"simulator", "sandbox", "live"} else "simulator"
+        return normalized if normalized in GATEWAY_MODES else "simulator"
 
     @field_validator("whatsapp_provider", mode="before")
     @classmethod
@@ -259,10 +276,17 @@ class Settings(BaseSettings):
             if self.bcrypt_rounds < 12:
                 raise ValueError("BCRYPT_ROUNDS must be at least 12 in production.")
             for gateway in ("jazzcash", "easypaisa"):
-                if getattr(self, f"{gateway}_mode") == "live" and not getattr(self, f"{gateway}_configured"):
+                mode = getattr(self, f"{gateway}_mode")
+                if mode == "live" and not getattr(self, f"{gateway}_configured"):
                     raise ValueError(
                         f"{gateway.upper()} is set to live but its credentials are missing, so it would "
                         "silently fall back to the local payment simulator."
+                    )
+                if mode == "mock_otp":
+                    raise ValueError(
+                        f"{gateway.upper()}_MODE is 'mock_otp', which settles orders on an emailed code "
+                        "without taking any money. It is for local development and demos only. Set it to "
+                        "'sandbox' or 'live' with real credentials before running in production."
                     )
             if not self.stripe_webhook_secret and self.stripe_secret_key:
                 raise ValueError("STRIPE_WEBHOOK_SECRET is required in production when Stripe is enabled.")

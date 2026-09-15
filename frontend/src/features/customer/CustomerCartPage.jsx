@@ -90,9 +90,17 @@ export function CustomerCartPage() {
       // paying feel like one step. The order already exists at this point, which is what
       // the payment is recorded against and what the customer returns to.
       if (isOnlinePaymentMethod(draft.paymentMethod)) {
+        const cartConfig = carts.find((cart) => cart.tenantId === tenantId)?.checkoutConfig;
+        const methodDetails = (cartConfig?.paymentOptions?.methods || []).find((entry) => entry.code === draft.paymentMethod) || null;
         setMessage("Order placed. Taking you to the payment page...");
         try {
-          await startOnlinePayment(transaction.id, draft.paymentMethod);
+          const outcome = await startOnlinePayment(transaction.id, draft.paymentMethod, methodDetails);
+          // The emailed-code flow does not leave the app, so there is nothing to wait
+          // for here: send the customer to the order, where the dialog opens.
+          if (outcome?.otp) {
+            navigate(`/customer/orders/${transaction.id}?pay=${draft.paymentMethod}`);
+            return;
+          }
           return;
         } catch (paymentError) {
           // The order exists either way, so this must not read like the checkout failed.
