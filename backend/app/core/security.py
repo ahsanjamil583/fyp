@@ -39,7 +39,7 @@ def create_token(subject: str, token_type: str, expires_delta: timedelta, extra:
     }
     if extra:
         payload.update(extra)
-    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    return jwt.encode(payload, settings.signing_key, algorithm=settings.jwt_algorithm)
 
 
 def create_access_token(user: dict) -> str:
@@ -66,7 +66,7 @@ def create_refresh_token(user: dict) -> str:
 
 def decode_token(token: str, expected_type: str = "access") -> dict:
     try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(token, settings.signing_key, algorithms=[settings.jwt_algorithm])
     except jwt.PyJWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

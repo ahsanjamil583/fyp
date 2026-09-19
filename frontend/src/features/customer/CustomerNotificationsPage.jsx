@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getCustomerNotifications, markAllCustomerNotificationsRead, markCustomerNotificationRead } from "../../services/customerPortalApi.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function CustomerNotificationsPage() {
   const [notifications, setNotifications] = useState([]);
@@ -18,18 +19,26 @@ export function CustomerNotificationsPage() {
       setNotifications(result.items);
       setMeta(result.meta);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load notifications.");
+      setError(getApiErrorMessage(requestError, "Unable to load notifications."));
     }
   }
 
   async function markRead(notificationId) {
-    await markCustomerNotificationRead(notificationId);
-    await refreshNotifications();
+    try {
+      await markCustomerNotificationRead(notificationId);
+      await refreshNotifications();
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to mark that notification as read."));
+    }
   }
 
   async function markAllRead() {
-    await markAllCustomerNotificationsRead();
-    await refreshNotifications();
+    try {
+      await markAllCustomerNotificationsRead();
+      await refreshNotifications();
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to mark all notifications as read."));
+    }
   }
 
   return (
@@ -69,7 +78,12 @@ export function CustomerNotificationsPage() {
             </div>
           </div>
         ))}
-        {!notifications.length ? (
+        {!notifications.length && error ? (
+          <div className="rounded-xl border border-dashed border-line bg-surface p-6 text-sm text-muted">
+            We could not load your notifications. This is a problem reaching the server.
+          </div>
+        ) : null}
+        {!notifications.length && !error ? (
           <div className="rounded-xl border border-dashed border-line bg-surface p-6 text-sm text-muted">No notifications yet.</div>
         ) : null}
       </div>

@@ -16,6 +16,7 @@ import {
   FaqSection,
   usePublicBusinessSite,
 } from "./publicWebsiteShared.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function PublicBusinessPage() {
   const { tenantSlug } = useParams();
@@ -51,7 +52,7 @@ export function PublicBusinessPage() {
         setPaymentMessage(`Stripe checkout was checked. Current Stripe status: ${data.providerStatus || "pending"}.`);
       }
     } catch (requestError) {
-      setPaymentError(requestError.response?.data?.detail || "Stripe payment completed, but we could not sync the status yet. It may update when the webhook arrives.");
+      setPaymentError(getApiErrorMessage(requestError, "Stripe payment completed, but we could not sync the status yet. It may update when the webhook arrives."));
       setPaymentMessage("");
     }
   }

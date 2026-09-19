@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 import re
 
@@ -12,9 +13,15 @@ from app.services.localization_service import normalize_optional_email, normaliz
 from app.services.custom_field_service import validate_custom_values
 from app.services.transaction_workflow_service import is_revenue_transaction
 
+logger = logging.getLogger(__name__)
+
 ALLOWED_CUSTOMER_STATUSES = {"active", "inactive", "blocked"}
 ALLOWED_CUSTOMER_TYPES = {"customer", "client", "patient", "student", "member", "lead"}
 DEFAULT_SEGMENTS = {"all", "new", "repeat", "high_value", "inactive", "vip", "customer_portal", "website"}
+
+# Segment membership is computed per document, so a segment filter cannot be pushed into
+# the query. This bounds how much is read for one, instead of the whole collection.
+SEGMENT_SCAN_LIMIT = 5000
 HIGH_VALUE_THRESHOLD = 10000
 INACTIVE_DAYS = 60
 
@@ -166,7 +173,9 @@ async def list_customers(
     if status_filter:
         query["status"] = status_filter
     if tag_filter:
-        query["tags"] = {"$regex": f"^{tag_filter}$", "$options": "i"}
+        # Escaped like the search filter below. Unescaped, a crafted tag is regex
+        # injection against this tenant's customer collection.
+        query["tags"] = {"$regex": f"^{re.escape(tag_filter[:200])}$", "$options": "i"}
     if search:
         search = re.escape(search[:200])
         query["$or"] = [
@@ -176,14 +185,30 @@ async def list_customers(
             {"tags": {"$regex": search, "$options": "i"}},
         ]
 
-    raw_customers = [customer async for customer in db.customers.find(query).sort("createdAt", -1)]
-    filtered_customers = [customer for customer in raw_customers if _customer_matches_segment(customer, segment)]
-    total = len(filtered_customers)
-    start = (page - 1) * limit
-    paged = filtered_customers[start : start + limit]
+    # Segments are derived in Python from computed fields, so a segment filter still has
+    # to read the matching set. Everything else paginates in the database: the previous
+    # version loaded the tenant's whole customer collection on every page view, then
+    # sliced it, then scanned it a second time for insights.
+    if segment and segment != "all":
+        matching = [
+            customer
+            async for customer in db.customers.find(query).sort("createdAt", -1).limit(SEGMENT_SCAN_LIMIT)
+            if _customer_matches_segment(customer, segment)
+        ]
+        total = len(matching)
+        start = (page - 1) * limit
+        paged = matching[start : start + limit]
+    else:
+        total = await db.customers.count_documents(query)
+        cursor = db.customers.find(query).sort("createdAt", -1).skip((page - 1) * limit).limit(limit)
+        paged = [customer async for customer in cursor]
 
-    unique_tags = sorted({tag for customer in raw_customers for tag in customer.get("tags", [])}, key=str.lower)
-    insights = await get_customer_insights_for_tenant_oid(tenant_oid)
+    # distinct() is answered from the index rather than by reading every document.
+    unique_tags = sorted({str(tag) for tag in await db.customers.distinct("tags", {"tenantId": tenant_oid}) if tag}, key=str.lower)
+    # Insights describe the whole collection, so they are identical on every page. They
+    # were recomputed on each page view, scanning the collection a second time for a
+    # figure the client already had. Page 1 carries them; later pages do not.
+    insights = await get_customer_insights_for_tenant_oid(tenant_oid) if page <= 1 else None
 
     return {
         "items": [_decorate_customer(customer) for customer in paged],
@@ -260,9 +285,36 @@ async def get_customer_insights(tenant_id: str, user: dict) -> dict:
     return await get_customer_insights_for_tenant_oid(tenant_oid)
 
 
+# Segment membership is computed per document by _derive_customer_segments, which is the
+# single definition of what a segment means. Reproducing those rules in an aggregation
+# would give two definitions that drift apart, so the documents are still read — but only
+# the handful of fields the rules and the response actually touch, instead of whole
+# customer records including addresses, notes and custom fields.
+# Ceiling on the insights scan. Segment membership is computed per document, so the
+# figures cannot be produced by an aggregation without duplicating those rules in a
+# second place - which is the drift this codebase has been bitten by repeatedly.
+INSIGHTS_SCAN_LIMIT = 5000
+
+_INSIGHTS_PROJECTION = {
+    "name": 1,
+    "phone": 1,
+    "tags": 1,
+    "status": 1,
+    "createdAt": 1,
+    "stats": 1,
+}
+
+
 async def get_customer_insights_for_tenant_oid(tenant_oid: ObjectId) -> dict:
     db = get_database()
-    customers = [customer async for customer in db.customers.find({"tenantId": tenant_oid})]
+    # Bounded like the segment scan. The figures are a summary for a dashboard card, and
+    # reading an unbounded collection on every first-page view is what the finding was
+    # about; past the cap the numbers are reported as approximate rather than silently
+    # wrong.
+    customers = [
+        customer
+        async for customer in db.customers.find({"tenantId": tenant_oid}, _INSIGHTS_PROJECTION).limit(INSIGHTS_SCAN_LIMIT)
+    ]
     decorated = [{"raw": customer, "segments": _derive_customer_segments(customer)} for customer in customers]
     total_customers = len(decorated)
     repeat_customers = [item for item in decorated if "repeat" in item["segments"]]
@@ -321,20 +373,42 @@ async def find_or_create_customer_from_transaction(
     email: str = "",
     address: dict | None = None,
     source_tag: str = "",
+    email_verified: bool = False,
+    phone_verified: bool = False,
 ) -> ObjectId:
     db = get_database()
     query = {"tenantId": tenant["_id"]}
     clauses = []
     if customer_user_id:
         clauses.append({"customerUserId": customer_user_id})
-    if email:
+    # Matching a guest record by a contact detail attaches it to whoever is asking. The
+    # danger is a REGISTERED account claiming a stranger's history by typing their phone
+    # number into a profile, so the verification gate applies only when an account is
+    # being attached. An anonymous order carrying its own phone number is the ordinary
+    # de-duplication this function exists for, and gating that too meant a brand new
+    # customer record on every single order.
+    attaching_an_account = bool(customer_user_id)
+    if email and (email_verified or not attaching_an_account):
         clauses.append({"email": email})
-    if phone:
+    if phone and (phone_verified or not attaching_an_account):
         clauses.append({"phone": phone})
 
     existing = None
     if clauses:
         existing = await db.customers.find_one({**query, "$or": clauses})
+    if not existing:
+        # A new customer record counts against the plan, however it came to be created.
+        # Guarding only the manual route meant orders walked straight past the cap - the
+        # same shape as the bulk item import bypass.
+        from app.core.module_guard import ensure_tenant_module_usage_available
+
+        try:
+            await ensure_tenant_module_usage_available(tenant["_id"], "customers")
+        except HTTPException:
+            # An order must not fail because the business is at its customer limit; the
+            # owner is told through the module screens. Reuse of an existing record is
+            # unaffected because this only runs when there is none.
+            logger.warning("Tenant %s is at its customer limit; recording the order anyway.", tenant.get("_id"))
     if existing:
         update = {"updatedAt": datetime.now(timezone.utc)}
         merged_tags = normalize_customer_tags([*(existing.get("tags", []) or []), source_tag] if source_tag else existing.get("tags", []))
@@ -390,6 +464,8 @@ async def ensure_customer_record_for_tenant(
     email: str = "",
     address: dict | None = None,
     source_tag: str = "customer_portal",
+    email_verified: bool = False,
+    phone_verified: bool = False,
 ) -> ObjectId:
     return await find_or_create_customer_from_transaction(
         tenant,
@@ -399,6 +475,8 @@ async def ensure_customer_record_for_tenant(
         phone=phone,
         email=email,
         address=address,
+        email_verified=email_verified,
+        phone_verified=phone_verified,
         source_tag=source_tag,
     )
 
@@ -411,12 +489,19 @@ async def sync_registered_customer_records(
     email: str = "",
     address: dict | None = None,
     source_tag: str = "customer_portal",
+    email_verified: bool = False,
+    phone_verified: bool = False,
 ) -> int:
     db = get_database()
+    # Records already linked to this account are always in scope.
     clauses = [{"customerUserId": customer_user_id}]
-    if email:
+    # Matching a guest record by a contact detail CLAIMS that record, across every
+    # tenant. Doing it on an unverified detail meant anyone could type a stranger's
+    # phone number into their profile and take over that person's order history.
+    # A detail is only used to claim once this account has actually proved it owns it.
+    if email and email_verified:
         clauses.append({"email": email})
-    if phone:
+    if phone and phone_verified:
         clauses.append({"phone": phone})
 
     matches = [customer async for customer in db.customers.find({"$or": clauses})]
@@ -438,8 +523,16 @@ async def sync_registered_customer_records(
             update["email"] = email
         if address and (is_linked_customer or not customer.get("address")):
             update["address"] = address
-        if customer.get("status") != "active":
-            update["status"] = "active"
+        # `status` is deliberately never written here. It is the business's decision
+        # about this customer, and this function runs on the customer's own profile
+        # save: reactivating meant anyone the business had marked inactive or blocked
+        # could undo it simply by saving their profile.
+        #
+        # An unlinked record the business has shut off is not claimed at all, so a
+        # customer cannot acquire someone else's blocked record by entering their
+        # phone number or email.
+        if not is_linked_customer and customer.get("status") in {"inactive", "blocked"}:
+            continue
         await db.customers.update_one({"_id": customer["_id"]}, {"$set": update})
         updated_count += 1
 

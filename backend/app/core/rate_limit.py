@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Deque
 
+from app.core.config import settings
 from app.db.mongodb import get_database
 
 RATE_LIMIT_COLLECTION = "rate_limit_counters"
@@ -97,7 +98,14 @@ RATE_LIMIT_RULES: tuple[RateLimitRule, ...] = (
 
 # Generous on purpose: a dashboard page fans out into many parallel requests, and
 # several staff can share one office IP.
-DEFAULT_RULE = RateLimitRule(name="default", max_requests=300, window_seconds=60, shared=False)
+# Honours RATE_LIMIT_REQUESTS_PER_MINUTE, which was previously defined in settings and
+# read by nothing at all.
+DEFAULT_RULE = RateLimitRule(
+    name="default",
+    max_requests=max(1, int(settings.rate_limit_requests_per_minute or 300)),
+    window_seconds=60,
+    shared=False,
+)
 
 
 def resolve_rule(method: str, path: str) -> RateLimitRule:
@@ -110,21 +118,64 @@ def resolve_rule(method: str, path: str) -> RateLimitRule:
 class InMemoryWindow:
     """Best-effort sliding window for the default rule. Per process by design."""
 
+    # How often to sweep empty buckets, in calls. Sweeping on every request would walk
+    # the whole dict each time for no benefit.
+    PRUNE_EVERY = 1000
+
     def __init__(self) -> None:
         self._hits: dict[str, Deque[float]] = defaultdict(deque)
+        self._since_prune = 0
+        # The window most recently used, so the sweep can tell which buckets have expired
+        # rather than only removing ones that happen to be empty already.
+        self._window_seconds = 60
 
     def hit(self, key: str, max_requests: int, window_seconds: int) -> tuple[bool, int]:
         now = time.monotonic()
+        self._window_seconds = window_seconds
         bucket = self._hits[key]
         while bucket and now - bucket[0] > window_seconds:
             bucket.popleft()
+
         if len(bucket) >= max_requests:
+            self._maybe_prune()
             return False, int(window_seconds - (now - bucket[0])) + 1
         bucket.append(now)
+        # Sweep only after the append. Pruning first could delete the bucket this call
+        # just created through the defaultdict, and the append would then land on a
+        # deque no longer in the dict, losing the hit.
+        self._maybe_prune()
         return True, 0
+
+    def _maybe_prune(self) -> None:
+        self._since_prune += 1
+        if self._since_prune >= self.PRUNE_EVERY:
+            self._since_prune = 0
+            self.prune()
+
+    def prune(self) -> None:
+        """Drop buckets that are empty OR fully expired.
+
+        Dropping only the already-empty ones was half a fix: a bucket is emptied by the
+        expiry loop in `hit`, which runs only when that same key is seen again. A client
+        that makes one request and never returns kept its entry for the lifetime of the
+        process, which is exactly the growth this is meant to stop.
+
+        defaultdict keeps an entry forever once touched, so memory grew with the number
+        of distinct client addresses seen over the process lifetime.
+        """
+        now = time.monotonic()
+        cutoff = self._window_seconds
+        stale = [
+            existing
+            for existing, bucket in self._hits.items()
+            if not bucket or now - bucket[-1] > cutoff
+        ]
+        for stale_key in stale:
+            del self._hits[stale_key]
 
     def reset(self) -> None:
         self._hits.clear()
+        self._since_prune = 0
 
 
 in_memory_window = InMemoryWindow()

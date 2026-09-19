@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 import re
 from pathlib import Path
@@ -43,12 +44,85 @@ async def _ensure_category_exists(tenant_oid: ObjectId, category_id: str | None)
     return category_oid
 
 
-def _stock_dict(stock) -> dict:
+def _stock_dict(stock, existing: dict | None = None) -> dict:
+    """Build the stored stock document for an item.
+
+    `reservedQuantity` is never taken from the request: it belongs to the reservation
+    workflow in `inventory_service`, and is carried over from what is already stored.
+    Resetting it on an edit overstated availability (overselling) and then made the
+    matching release or deduct fail with "reservation needs reconciliation", leaving
+    those orders impossible to complete or cancel.
+    """
     return {
         "quantity": stock.quantity,
         "lowStockThreshold": stock.lowStockThreshold,
-        "reservedQuantity": stock.reservedQuantity,
+        "reservedQuantity": float((existing or {}).get("reservedQuantity", 0) or 0),
     }
+
+
+def _variant_key(variant: dict) -> str:
+    """Identity of a variant for carrying reservations across an edit.
+
+    SKU first, because it survives a rename. Falling back to the position in the list
+    would move a reservation onto a different variant as soon as one is reordered.
+    """
+    sku = str(variant.get("sku") or "").strip().lower()
+    return f"sku:{sku}" if sku else f"name:{str(variant.get('name') or '').strip().lower()}"
+
+
+def _carry_variant_reservations(variants: list[dict], existing_variants: list[dict] | None) -> list[dict]:
+    """Preserve live reservations across an item edit.
+
+    Matching is by SKU, then by name, then by position. The position fallback matters:
+    an owner who corrects a typo in a SKU would otherwise change the variant's identity
+    and silently drop its reservation to zero, which is the very failure this function
+    exists to prevent. Position is only consulted for variants no key matched, so a
+    reorder still follows the SKU rather than the slot.
+    """
+    existing = list(existing_variants or [])
+
+    def _reserved_of(variant: dict) -> float:
+        """Tolerate a stored value that is missing, null or not a number."""
+        try:
+            return max(0.0, float(variant.get("reservedQuantity", 0) or 0))
+        except (TypeError, ValueError):
+            return 0.0
+
+    # A key may appear more than once when two variants share a SKU (or two SKU-less
+    # variants share a name). Each stored reservation is handed out ONCE, in order, so
+    # duplicates cannot both inherit the same figure and inflate the total held.
+    reserved_by_key: dict[str, list[float]] = {}
+    for variant in existing:
+        reserved_by_key.setdefault(_variant_key(variant), []).append(_reserved_of(variant))
+
+    carried: list[dict] = []
+    claimed_keys: set[str] = set()
+    unmatched_positions: list[int] = []
+    for index, variant in enumerate(variants):
+        key = _variant_key(variant)
+        available = reserved_by_key.get(key)
+        if available:
+            claimed_keys.add(key)
+            carried.append({**variant, "reservedQuantity": available.pop(0)})
+        else:
+            unmatched_positions.append(index)
+            carried.append({**variant, "reservedQuantity": 0.0})
+
+    # A left-over reservation belongs to a stored variant whose key changed. Hand it back
+    # by position, but only when the list was edited in place rather than replaced: equal
+    # length means slot N still means the same variant, which is the SKU-typo case. When
+    # the list length changes the slots no longer line up, and guessing would move a real
+    # customer's reservation onto a different product.
+    if len(variants) == len(existing):
+        leftovers = [
+            (index, _reserved_of(variant))
+            for index, variant in enumerate(existing)
+            if _variant_key(variant) not in claimed_keys and _reserved_of(variant) > 0
+        ]
+        for index, reserved in leftovers:
+            if index in unmatched_positions:
+                carried[index]["reservedQuantity"] = reserved
+    return carried
 
 
 def _image_dicts(images) -> list[dict]:
@@ -332,7 +406,9 @@ async def create_item(tenant_id: str, payload, user: dict, background_tasks: Bac
         "isStockTracked": payload.isStockTracked,
         "stock": _stock_dict(payload.stock),
         "serviceDetails": validated["serviceDetails"],
-        "variants": validated["variants"],
+        # A new item reserves nothing yet, but the field must exist so later reservation
+        # arithmetic reads a number rather than a missing key.
+        "variants": _carry_variant_reservations(validated["variants"], None),
         "bundleComponents": validated["bundleComponents"],
         "customFields": validated["customFields"],
         "tags": _normalize_tags(payload.tags),
@@ -464,13 +540,13 @@ async def update_item(tenant_id: str, item_id: str, payload, user: dict, backgro
     if payload.images is not None:
         update["images"] = _image_dicts(payload.images)
     if payload.stock is not None:
-        update["stock"] = _stock_dict(payload.stock)
+        update["stock"] = _stock_dict(payload.stock, existing.get("stock"))
     if payload.customFields is not None:
         update["customFields"] = validated["customFields"]
     if payload.serviceDetails is not None:
         update["serviceDetails"] = validated["serviceDetails"]
     if payload.variants is not None:
-        update["variants"] = validated["variants"]
+        update["variants"] = _carry_variant_reservations(validated["variants"], existing.get("variants"))
     if payload.bundleComponents is not None:
         update["bundleComponents"] = validated["bundleComponents"]
 
@@ -554,11 +630,18 @@ async def import_items_from_excel(tenant_id: str, file: UploadFile, user: dict, 
             while chunk := await file.read(1024 * 1024):
                 output.write(chunk)
 
-        workbook = load_workbook(temp_path)
+        # Blocking parse inside an async upload handler: openpyxl reads the whole
+        # workbook, stalling every other request on the server until it finishes.
+        workbook = await asyncio.to_thread(load_workbook, temp_path)
         sheet = workbook.active
         rows = list(sheet.iter_rows(values_only=True))
         if not rows:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Excel file is empty.")
+
+        # create_item consults the plan cap; this path wrote items without ever asking,
+        # so a spreadsheet was a way around the limit entirely. Checked once for the whole
+        # sheet rather than per row, so the owner is told before anything is written.
+        await ensure_tenant_module_usage_available(tenant_oid, "items", increment=max(0, len(rows) - 1))
 
         raw_headers = [str(header).strip() if header is not None else "" for header in rows[0]]
         headers = [normalize_excel_header(header) for header in raw_headers]

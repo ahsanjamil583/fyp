@@ -209,3 +209,42 @@ class AiBudgetTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RateLimiterMemoryTests(unittest.TestCase):
+    """The limiter keys on client address, so an unbounded dict grows with every distinct
+    caller for the lifetime of the process."""
+
+    def test_empty_buckets_are_eventually_pruned(self):
+        from app.core.rate_limit import InMemoryWindow
+
+        window = InMemoryWindow()
+        window.PRUNE_EVERY = 10
+        for index in range(10):
+            window.hit(f"client-{index}", max_requests=5, window_seconds=60)
+        # Every bucket still holds a hit, so nothing is prunable yet.
+        self.assertEqual(len(window._hits), 10)
+
+        # Expire them all, then keep one client active to trigger the sweep.
+        for bucket in window._hits.values():
+            bucket.clear()
+        for _ in range(10):
+            window.hit("active-client", max_requests=5, window_seconds=60)
+
+        self.assertIn("active-client", window._hits)
+        self.assertEqual(len(window._hits), 1, "the ten idle clients should have been swept")
+
+    def test_pruning_never_drops_a_live_bucket(self):
+        from app.core.rate_limit import InMemoryWindow
+
+        window = InMemoryWindow()
+        window.hit("busy", max_requests=5, window_seconds=60)
+        window.prune()
+        self.assertIn("busy", window._hits)
+
+    def test_the_default_limit_comes_from_settings(self):
+        """RATE_LIMIT_REQUESTS_PER_MINUTE existed in settings and was read by nothing."""
+        from app.core.config import settings
+        from app.core.rate_limit import DEFAULT_RULE
+
+        self.assertEqual(DEFAULT_RULE.max_requests, max(1, int(settings.rate_limit_requests_per_minute or 300)))

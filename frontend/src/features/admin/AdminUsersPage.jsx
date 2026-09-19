@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ShieldAlert, ShieldCheck, UserRound, Users } from "lucide-react";
 
 import { getAdminUsers, updateAdminUser } from "../../services/adminApi.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function AdminUsersPage() {
   const [users, setUsers] = useState([]);
@@ -21,7 +22,7 @@ export function AdminUsersPage() {
       setUsers(data);
       setError("");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load users.");
+      setError(getApiErrorMessage(requestError, "Unable to load users."));
     } finally {
       setIsLoading(false);
     }
@@ -42,7 +43,7 @@ export function AdminUsersPage() {
       setUsers((current) => current.map((item) => (item.id === user.id ? updated : item)));
       setMessage(`Updated ${updated.fullName}.`);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to update user.");
+      setError(getApiErrorMessage(requestError, "Unable to update user."));
     } finally {
       setBusyUser("");
     }

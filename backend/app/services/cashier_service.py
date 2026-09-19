@@ -147,7 +147,6 @@ async def create_cashier(tenant_id: str, payload, user: dict) -> dict:
     now = datetime.now(timezone.utc)
     account = {
         "fullName": full_name,
-        "phone": phone,
         "passwordHash": hash_password(payload.password),
         "accountType": "cashier",
         "globalRole": "user",
@@ -164,6 +163,10 @@ async def create_cashier(tenant_id: str, payload, user: dict) -> dict:
     }
     if email:
         account["email"] = email
+    # users.phone is a unique sparse index, which skips missing fields but not empty
+    # strings: writing "" here made the second phone-less cashier a duplicate-key 500.
+    if phone:
+        account["phone"] = phone
     account["_id"] = (await db.users.insert_one(account)).inserted_id
 
     cashier = {
@@ -230,7 +233,13 @@ async def update_cashier(tenant_id: str, cashier_id: str, payload, user: dict) -
         if phone and await db.users.find_one({"phone": phone, "_id": {"$ne": cashier["userId"]}}):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That phone number already belongs to another account.")
         cashier_update["phone"] = phone
-        account_update["phone"] = phone
+        if phone:
+            account_update["phone"] = phone
+        else:
+            # Same reason as the cleared email below: users.phone is unique-sparse, so a
+            # cleared number must be removed rather than stored as "", or the second
+            # phone-less cashier collides with the first.
+            account_unset["phone"] = ""
 
     if payload.email is not None:
         email = normalize_optional_email(payload.email)

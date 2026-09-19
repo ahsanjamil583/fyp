@@ -241,3 +241,57 @@ class StripeAvailabilityTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CallbackTrustBoundaryTests(unittest.TestCase):
+    """What a verified signature actually proves.
+
+    A gateway signature is only worth what it covers. JazzCash signs the response code,
+    so a verified JazzCash callback attests to the outcome. Easypay echoes back the hash
+    it was given over the *request* fields, and the customer is handed that same hash in
+    the redirect form, so it attests to nothing about whether money moved.
+    """
+
+    def test_jazzcash_signs_the_payment_outcome(self):
+        payload = {"pp_TxnRefNo": "BZX1", "pp_Amount": "420000", "pp_ResponseCode": "000"}
+        payload["pp_SecureHash"] = jazzcash.secure_hash(payload, "salt")
+        self.assertTrue(jazzcash.verify_callback(payload, "salt")["outcomeSigned"])
+
+    def test_easypaisa_does_not_sign_the_payment_outcome(self):
+        """`status` is absent from HASHED_FIELDS, so the same valid hash verifies whether
+        the response says paid or failed. The flag is what stops it settling an order."""
+        key = "BizXusSimKey1234"
+        signed_fields = {
+            "amount": "4200.0",
+            "autoRedirect": "1",
+            "emailAddr": "buyer@example.com",
+            "expiryDate": "20260101 000000",
+            "mobileNum": "03001234567",
+            "orderRefNum": "BZX1",
+            "paymentMethod": "CC_PAYMENT_METHOD",
+            "postBackURL": "https://example.test/callback",
+            "storeId": "1234",
+        }
+        request_hash = easypaisa.encrypt_request(easypaisa._hashable_string(signed_fields), key)
+
+        # Exactly what a customer can replay: the fields and hash they were given, plus a
+        # success status they chose themselves.
+        forged = {**signed_fields, "merchantHashedReq": request_hash, "status": "0000"}
+        result = easypaisa.verify_callback(forged, key)
+
+        self.assertTrue(result["signatureValid"], "the echoed request hash does verify")
+        self.assertFalse(result["outcomeSigned"], "but it must not be treated as proof of payment")
+
+
+class GatewayCallbackRecordBindingTests(unittest.TestCase):
+    def test_a_callback_can_only_settle_its_own_provider_and_flow(self):
+        """Matching on the record id alone let a JazzCash callback settle a Stripe, manual
+        or OTP record, because every checkout hands the customer its own record id."""
+        import inspect
+
+        from app.services import payment_service
+
+        source = inspect.getsource(payment_service.complete_gateway_payment)
+        self.assertIn('"provider": provider', source)
+        self.assertIn('"flow": FLOW_REDIRECT', source)
+        self.assertIn("is_available()", source)

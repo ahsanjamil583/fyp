@@ -5,10 +5,10 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../context/AuthContext.jsx";
-import { getApiErrorMessage } from "../../services/apiError.js";
 import { loginBusiness } from "../../services/authApi.js";
 import { getMyTenants } from "../../services/tenantApi.js";
 import { AuthPanel } from "./AuthPanel.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const schema = Joi.object({
   email: Joi.string().email({ tlds: false }).required().label("Email"),

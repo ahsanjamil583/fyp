@@ -15,6 +15,8 @@ inventory.
 
 from __future__ import annotations
 
+import asyncio
+
 import csv
 import io
 import re
@@ -23,12 +25,16 @@ from typing import Any
 
 from bson import ObjectId
 from fastapi import HTTPException, UploadFile, status
+from uuid import uuid4
+
 from openpyxl import load_workbook
+from pymongo.errors import DuplicateKeyError
 
 from app.core.object_ids import parse_object_id, serialize_document
 from app.core.permissions import get_owned_tenant_or_403
 from app.db.mongodb import get_database
 from app.services.customer_service import sync_customer_stats_for_transaction
+from app.services.payment_service import write_reconciling_payment_record
 from app.services.localization_service import normalize_optional_email, normalize_optional_pk_phone_or_blank
 from app.services.transaction_number_service import generate_transaction_number
 from app.services.transaction_workflow_service import (
@@ -226,7 +232,9 @@ async def _read_sheet_rows(file: UploadFile) -> tuple[list[str], list[list[Any]]
         )
     else:
         try:
-            workbook = load_workbook(io.BytesIO(payload), data_only=True, read_only=True)
+            # Parsing up to 8 MB of spreadsheet on the event loop blocked every other
+            # request for the duration.
+            workbook = await asyncio.to_thread(load_workbook, io.BytesIO(payload), data_only=True, read_only=True)
         except Exception as exc:  # openpyxl raises a wide range of parse errors
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="That spreadsheet could not be read. Save it again as .xlsx and retry.") from exc
         sheet = workbook.active
@@ -576,7 +584,10 @@ async def _build_imported_transaction(tenant_oid: ObjectId, tenant: dict, row: d
         payment_status = "unpaid"
 
     order_date = parse_import_date(row.get("orderDate")) or run_at
-    paid_amount = total if payment_status in {"paid", "cod"} else 0.0
+    # `refunded` belongs here too. Leaving it out made the reconciling call below dead
+    # code: the guard accepted the status, then `paid_amount > 0` was never true, so an
+    # imported refunded row still carried a status with no record behind it.
+    paid_amount = total if payment_status in {"paid", "cod", "refunded"} else 0.0
 
     transaction = {
         "tenantId": tenant_oid,
@@ -647,11 +658,32 @@ async def _build_imported_transaction(tenant_oid: ObjectId, tenant: dict, row: d
 
     try:
         transaction["_id"] = (await db.transactions.insert_one(transaction)).inserted_id
-    except Exception:
+    except DuplicateKeyError:
         # The tenant/transactionNumber index is unique, so a sheet that reuses a number
         # the business already issued gets a suffixed one rather than failing the import.
-        transaction["transactionNumber"] = f"{transaction['transactionNumber']}-IMP{int(run_at.timestamp()) % 100000}"
+        #
+        # Only a duplicate is retried: catching every exception treated a transient
+        # database error as a collision. The suffix is random rather than derived from
+        # the run timestamp, which was identical for every row and so collided again.
+        transaction["transactionNumber"] = f"{transaction['transactionNumber']}-IMP{uuid4().hex[:6].upper()}"
         transaction["_id"] = (await db.transactions.insert_one(transaction)).inserted_id
+
+    # An imported row that says "paid" needs a payment record behind it. Payment records
+    # are what _calculate_payment_summary reads, so without one the order showed as paid
+    # while reporting the full total still outstanding: it could be collected a second
+    # time, and it could not be refunded because there was nothing to refund against.
+    # `refunded` was left out when the helper learned it, so an imported refunded row
+    # set paymentStatus with no record behind it - the original PAY-07 divergence.
+    if payment_status in {"paid", "cod", "refunded"} and paid_amount > 0:
+        await write_reconciling_payment_record(
+            tenant["_id"],
+            transaction,
+            amount=paid_amount,
+            status_value=payment_status,
+            method=str(row.get("paymentMethod") or "imported")[:40],
+            note="Imported from a historical order sheet.",
+            actor_user_id=user["_id"],
+        )
 
     if transaction["customerSnapshot"]["phone"] or transaction["customerSnapshot"]["email"]:
         await sync_customer_stats_for_transaction(tenant, transaction)

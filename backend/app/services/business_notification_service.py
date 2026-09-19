@@ -193,11 +193,29 @@ async def list_business_notifications(
 
     total = await db.business_notifications.count_documents(query)
     unread = await db.business_notifications.count_documents({**query, "status": "unread"})
-    cursor = (
-        db.business_notifications.find(query)
-        .sort([("priority", 1), ("createdAt", -1)])
-        .skip((page - 1) * limit)
-        .limit(limit)
+    # Sorting the priority string ascending ordered them high, low, medium, so a low
+    # notification outranked a medium one. Rank numerically instead.
+    cursor = db.business_notifications.aggregate(
+        [
+            {"$match": query},
+            {
+                "$addFields": {
+                    "_priorityRank": {
+                        "$switch": {
+                            "branches": [
+                                {"case": {"$eq": ["$priority", "high"]}, "then": 0},
+                                {"case": {"$eq": ["$priority", "medium"]}, "then": 1},
+                            ],
+                            "default": 2,
+                        }
+                    }
+                }
+            },
+            {"$sort": {"_priorityRank": 1, "createdAt": -1}},
+            {"$skip": (page - 1) * limit},
+            {"$limit": limit},
+            {"$unset": "_priorityRank"},
+        ]
     )
     items = []
     async for notification in cursor:

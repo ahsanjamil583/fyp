@@ -5,12 +5,13 @@ import { ArrowRight, CheckCircle2, CreditCard, PackageCheck } from "lucide-react
 import { CustomerPaymentInstructions } from "../../components/payments/CustomerPaymentInstructions.jsx";
 import { getDefaultPaymentMethod } from "../../components/payments/paymentMethods.js";
 import { PaymentProofBadge, PaymentStatusBadge } from "../../components/payments/PaymentStatusBadge.jsx";
-import { getCustomerPaymentReceiptHtml, getCustomerTransaction, reorderCustomerTransaction, resolveUploadUrl, submitCustomerPaymentProof, syncCustomerStripeCheckout } from "../../services/customerPortalApi.js";
+import { getCustomerOrderReceiptLink, orderReceiptUrl, getCustomerPaymentReceiptHtml, getCustomerTransaction, reorderCustomerTransaction, resolveUploadUrl, submitCustomerPaymentProof, syncCustomerStripeCheckout } from "../../services/customerPortalApi.js";
 import { capitalize, formatTransactionType } from "../../utils/transaction.js";
 import { isOnlinePaymentMethod, isOtpPaymentMethod, startOnlinePayment } from "../../services/paymentRedirect.js";
 import { useCustomer } from "../../context/CustomerContext.jsx";
 import { WalletOtpDialog } from "./WalletOtpDialog.jsx";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function CustomerOrderDetailPage() {
   const { orderId } = useParams();
@@ -27,6 +28,8 @@ export function CustomerOrderDetailPage() {
   // The emailed-code flow finishes on this page instead of leaving for a gateway.
   const [otpMethod, setOtpMethod] = useState(null);
   const { customer } = useCustomer();
+
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     loadOrder();
@@ -72,7 +75,17 @@ export function CustomerOrderDetailPage() {
   }, [location.search]);
 
   async function loadOrder() {
-    const data = await getCustomerTransaction(orderId);
+    // A 404 or 403 used to leave "Loading transaction..." on screen forever. This is
+    // where customers land after checkout and after every gateway redirect, so a
+    // permanent spinner is the worst possible outcome here.
+    let data;
+    try {
+      data = await getCustomerTransaction(orderId);
+      setLoadError("");
+    } catch (requestError) {
+      setLoadError(getApiErrorMessage(requestError, "This order could not be loaded."));
+      return;
+    }
     setOrder(data);
     setProofDraft((current) => ({
       ...current,
@@ -94,7 +107,7 @@ export function CustomerOrderDetailPage() {
       }
       await loadOrder();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Stripe payment completed, but we could not sync the status yet. It may update when the webhook arrives.");
+      setError(getApiErrorMessage(requestError, "Stripe payment completed, but we could not sync the status yet. It may update when the webhook arrives."));
       setMessage("");
     } finally {
       setIsSyncingStripe(false);
@@ -115,7 +128,7 @@ export function CustomerOrderDetailPage() {
       setProofDraft((current) => ({ ...current, referenceNumber: "", notes: "", proofFile: null }));
       await loadOrder();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to submit payment proof.");
+      setError(getApiErrorMessage(requestError, "Unable to submit payment proof."));
     } finally {
       setIsSubmittingProof(false);
     }
@@ -137,7 +150,7 @@ export function CustomerOrderDetailPage() {
     try {
       await startOnlinePayment(order.id, method, details);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || requestError.message || "Unable to open the payment page.");
+      setError(getApiErrorMessage(requestError, "Unable to open the payment page."));
       setIsStartingStripe(false);
     }
   }
@@ -150,6 +163,19 @@ export function CustomerOrderDetailPage() {
     await loadOrder();
   }
 
+  // The order receipt covers the whole order; the payment receipt below covers one
+  // payment. Opened in a tab rather than fetched, because the server renders it and the
+  // same URL is what goes out in the confirmation email.
+  async function openOrderReceipt() {
+    setError("");
+    try {
+      const { receiptToken } = await getCustomerOrderReceiptLink(order.id);
+      window.open(orderReceiptUrl(receiptToken), "_blank", "noopener");
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to open the receipt."));
+    }
+  }
+
   async function openReceipt(paymentRecordId) {
     setOpeningReceiptId(paymentRecordId);
     setError("");
@@ -157,12 +183,28 @@ export function CustomerOrderDetailPage() {
       const html = await getCustomerPaymentReceiptHtml(order.id, paymentRecordId);
       openReceiptWindow(html);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to open payment receipt.");
+      setError(getApiErrorMessage(requestError, "Unable to open payment receipt."));
     } finally {
       setOpeningReceiptId("");
     }
   }
 
+  if (!order && loadError) {
+    return (
+      <section className="rounded-xl border border-dashed border-line bg-surface p-8 text-center">
+        <div className="font-bold text-ink">This order is not available</div>
+        <p className="mt-1 text-sm text-muted">{loadError}</p>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <button className="ui-btn-primary" type="button" onClick={() => loadOrder()}>
+            Try again
+          </button>
+          <Link className="ui-btn-secondary" to="/customer/orders">
+            Back to my orders
+          </Link>
+        </div>
+      </section>
+    );
+  }
   if (!order) return <section className="text-sm text-muted">Loading transaction...</section>;
 
   const paymentMethods = order.paymentInstructions?.methods || [];
@@ -214,9 +256,23 @@ export function CustomerOrderDetailPage() {
           <button
             type="button"
             className="rounded-xl border border-line bg-white px-4 py-2 text-sm font-semibold text-ink"
+            onClick={openOrderReceipt}
+          >
+            View receipt
+          </button>
+          <button
+            type="button"
+            className="rounded-xl border border-line bg-white px-4 py-2 text-sm font-semibold text-ink"
             onClick={async () => {
-              const result = await reorderCustomerTransaction(order.id);
-              setMessage(`Items were added back to your cart for ${result.tenantSlug}.`);
+              // The orders list wraps its reorder button; this one did not, so a failure
+              // here was an unhandled rejection and a button that appeared to do nothing.
+              setError("");
+              try {
+                const result = await reorderCustomerTransaction(order.id);
+                setMessage(`Items were added back to your cart for ${result.tenantSlug}.`);
+              } catch (requestError) {
+                setError(getApiErrorMessage(requestError, "That order could not be added to your cart."));
+              }
             }}
           >
             Reorder these items

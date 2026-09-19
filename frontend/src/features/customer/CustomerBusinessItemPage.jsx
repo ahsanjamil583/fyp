@@ -5,6 +5,7 @@ import { ArrowRight, Heart, MessageCircle, ShoppingCart } from "lucide-react";
 
 import { WhatsAppAgentCta, WhatsAppAgentInfo } from "../../components/whatsapp/WhatsAppAgentCta.jsx";
 import { addCartItem, addCustomerFavorite, getCustomerFavorites, getMarketplaceBusiness, getMarketplaceItem, removeCustomerFavorite, resolveUploadUrl } from "../../services/customerPortalApi.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function CustomerBusinessItemPage() {
   const { tenantSlug, itemId } = useParams();
@@ -12,6 +13,8 @@ export function CustomerBusinessItemPage() {
   const [item, setItem] = useState(null);
   const [favorites, setFavorites] = useState([]);
   const [quantity, setQuantity] = useState(1);
+  // Null means the item has no variants, or none has been picked yet.
+  const [variantIndex, setVariantIndex] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -25,10 +28,15 @@ export function CustomerBusinessItemPage() {
         ]);
         setBusiness(businessData);
         setItem(itemData);
+        const variants = itemData?.variants || [];
+        if (variants.length) {
+          const defaultIndex = variants.findIndex((variant) => variant.isDefault);
+          setVariantIndex(defaultIndex >= 0 ? defaultIndex : 0);
+        }
         const favoriteData = await getCustomerFavorites();
         setFavorites(favoriteData);
       } catch (requestError) {
-        setError(requestError.response?.data?.detail || "Unable to load item.");
+        setError(getApiErrorMessage(requestError, "Unable to load item."));
       }
     }
     load();
@@ -38,18 +46,37 @@ export function CustomerBusinessItemPage() {
     setMessage("");
     setError("");
     try {
-      await addCartItem({ tenantId: business.id, itemId, quantity: Number(quantity || 1) });
-      setMessage("Item added to cart.");
+      await addCartItem({
+        tenantId: business.id,
+        itemId,
+        // Clamped like the cart page. A free-text number field can send 0, a negative
+        // or a decimal, all of which the API rejects with a 422 the customer never sees
+        // explained.
+        quantity: Math.max(1, Math.min(99, Math.floor(Number(quantity) || 1))),
+        // Without this the choice was lost: the cart stored only the item, and checkout
+        // fell back to whatever variant resolution considered the default.
+        selectedVariantIndex: variantIndex,
+      });
+      setMessage(selectedVariant ? `Added ${selectedVariant.name} to cart.` : "Item added to cart.");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to add item to cart.");
+      setError(getApiErrorMessage(requestError, "Unable to add item to cart."));
     }
   }
 
   async function toggleFavorite() {
-    const exists = favorites.some((favorite) => favorite.item?.id === itemId && favorite.tenant?.id === business.id);
-    const next = exists ? await removeCustomerFavorite(itemId, business.id) : await addCustomerFavorite({ tenantId: business.id, itemId });
-    setFavorites(next);
+    setError("");
+    try {
+      const exists = favorites.some((favorite) => favorite.item?.id === itemId && favorite.tenant?.id === business.id);
+      const next = exists ? await removeCustomerFavorite(itemId, business.id) : await addCustomerFavorite({ tenantId: business.id, itemId });
+      setFavorites(next);
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to update your favourites."));
+    }
   }
+
+  const variants = item?.variants || [];
+  const selectedVariant = variantIndex !== null && variants[variantIndex] ? variants[variantIndex] : null;
+  const displayPrice = selectedVariant?.price ?? item?.price;
 
   if (error && !item) {
     return (
@@ -91,10 +118,29 @@ export function CustomerBusinessItemPage() {
       <div className="h-fit rounded-xl border border-line bg-white p-5 shadow-card">
         {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
         {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
-        <div className="text-2xl font-semibold text-ink">{item.currency} {item.price}</div>
+        <div className="text-2xl font-semibold text-ink">{item.currency} {displayPrice}</div>
+        {variants.length ? (
+          <div className="mt-4">
+            <label className="mb-1.5 block text-sm font-medium text-ink" htmlFor="variant">Options</label>
+            <select
+              id="variant"
+              className="form-input"
+              value={variantIndex ?? ""}
+              onChange={(event) => setVariantIndex(event.target.value === "" ? null : Number(event.target.value))}
+            >
+              {variants.map((variant, index) => (
+                <option key={variant.sku || variant.name || index} value={index}>
+                  {variant.name || `Option ${index + 1}`}
+                  {variant.price ? ` — ${item.currency} ${variant.price}` : ""}
+                  {variant.stockStatus === "out_of_stock" ? " (out of stock)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div className="mt-4">
-          <label className="mb-1.5 block text-sm font-medium text-ink">Quantity</label>
-          <input className="form-input" min="1" type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
+          <label className="mb-1.5 block text-sm font-medium text-ink" htmlFor="quantity">Quantity</label>
+          <input id="quantity" className="form-input" min="1" type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
         </div>
         <button type="button" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink" onClick={toggleFavorite}>
           <Heart size={15} />

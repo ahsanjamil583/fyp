@@ -22,6 +22,7 @@ import {
   getMarketplaceBusinesses,
   getMarketplaceCatalog,
 } from "../../services/customerPortalApi.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 /**
  * Customer marketplace.
@@ -94,8 +95,11 @@ export function CustomerMarketplace() {
     try {
       const data = await getMarketplaceBusinesses({ search: next.search, city: next.city, page: 1, limit: 24 });
       setBusinesses(data.items || []);
-    } catch {
+    } catch (requestError) {
+      // Its sibling loadCatalog sets an error; this one blanked the tab instead, so a
+      // server failure was indistinguishable from a marketplace with no businesses.
       setBusinesses([]);
+      setError(getApiErrorMessage(requestError, "Unable to load businesses."));
     }
   }, []);
 
@@ -127,7 +131,7 @@ export function CustomerMarketplace() {
       await addCartItem({ tenantId: item.business?.id, itemId: item.id, quantity: 1 });
       setNotice(`${item.name} added to your cart.`);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "We could not add that to your cart.");
+      setError(getApiErrorMessage(requestError, "We could not add that to your cart."));
     } finally {
       setBusyItemId("");
     }
@@ -329,7 +333,7 @@ export function CustomerMarketplace() {
             })}
           </div>
         ) : (
-          <EmptyResult onReset={resetFilters} hasFilters={hasFilters} />
+          <EmptyResult onReset={resetFilters} hasFilters={hasFilters} failed={Boolean(error)} />
         )
       ) : null}
 
@@ -393,22 +397,26 @@ export function CustomerMarketplace() {
             ))}
           </div>
         ) : (
-          <EmptyResult onReset={resetFilters} hasFilters={hasFilters} label="businesses" />
+          <EmptyResult onReset={resetFilters} hasFilters={hasFilters} label="businesses" failed={Boolean(error)} />
         )
       ) : null}
     </section>
   );
 }
 
-function EmptyResult({ onReset, hasFilters, label = "products" }) {
+function EmptyResult({ onReset, hasFilters, label = "products", failed = false }) {
   return (
     <div className="flex flex-col items-center rounded-card border border-dashed border-line bg-surface px-6 py-14 text-center">
       <span className="grid h-14 w-14 place-items-center rounded-full bg-brand-50 text-brand">
         <ShoppingBag size={26} />
       </span>
-      <h3 className="mt-4 text-lg font-bold text-ink">No {label} found</h3>
+      {/* A failed load is not an empty marketplace, and telling a customer to "check
+          back soon" when the server is down sends them away for the wrong reason. */}
+      <h3 className="mt-4 text-lg font-bold text-ink">{failed ? `We could not load ${label}` : `No ${label} found`}</h3>
       <p className="mt-1.5 max-w-sm text-sm leading-6 text-muted">
-        {hasFilters
+        {failed
+          ? "This is a problem reaching the server, not an empty list. Please try again."
+          : hasFilters
           ? "Nothing matches those filters yet. Try a different category or clear the filters to see everything."
           : `There are no ${label} available right now. Please check back soon.`}
       </p>

@@ -6,6 +6,7 @@ import { useTenant } from "../../context/TenantContext.jsx";
 import { getTenantTransactions, updateTenantTransaction } from "../../services/transactionApi.js";
 import { capitalize, formatTransactionType } from "../../utils/transaction.js";
 import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function TransactionsPage() {
   const { selectedTenant } = useTenant();
@@ -59,7 +60,7 @@ export function TransactionsPage() {
         return next;
       });
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load transactions.");
+      setError(getApiErrorMessage(requestError, "Unable to load transactions."));
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +98,7 @@ export function TransactionsPage() {
       setMessage(`${updated.transactionNumber} updated.`);
       await refreshTransactions();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to update transaction.");
+      setError(getApiErrorMessage(requestError, "Unable to update transaction."));
     } finally {
       setSavingId("");
     }

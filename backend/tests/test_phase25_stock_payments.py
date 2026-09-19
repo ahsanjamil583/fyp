@@ -251,3 +251,212 @@ class Phase25StockPaymentsTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PaymentSummaryRoundingTests(unittest.IsolatedAsyncioTestCase):
+    """Money summed as raw floats left balances like 1e-14.
+
+    That reported a fully paid order as partially paid, and Stripe then floored the
+    "remaining" amount to a one-paisa charge.
+    """
+
+    async def _summary(self, records, total):
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from app.services import payment_service
+
+        cursor = MagicMock()
+        cursor.to_list = AsyncMock(return_value=records)
+        db = MagicMock()
+        db.payment_records.find = MagicMock(return_value=cursor)
+        with patch.object(payment_service, "get_database", return_value=db):
+            return await payment_service._calculate_payment_summary(
+                ObjectId(), {"_id": ObjectId(), "pricing": {"total": total}}
+            )
+
+    async def test_three_float_payments_close_the_order_exactly(self):
+        records = [
+            {"recordType": "payment", "status": "paid", "amount": 0.1},
+            {"recordType": "payment", "status": "paid", "amount": 0.2},
+            {"recordType": "payment", "status": "paid", "amount": 0.3},
+        ]
+        summary = await self._summary(records, 0.6)
+        self.assertEqual(summary["paid"], 0.6)
+        self.assertEqual(summary["balance"], 0.0, "0.1 + 0.2 + 0.3 must not leave a residue")
+
+    async def test_a_genuine_balance_survives(self):
+        records = [{"recordType": "payment", "status": "paid", "amount": 400.0}]
+        summary = await self._summary(records, 1000.0)
+        self.assertEqual(summary["balance"], 600.0)
+
+
+class CustomerPaymentRecordPrivacyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_owner_decision_notes_never_reach_the_customer(self):
+        """The owner writes these for their own records. They used to be returned on
+        the customer's own order page."""
+        from unittest.mock import MagicMock, patch
+
+        from app.services import payment_service
+
+        record = {
+            "_id": ObjectId(),
+            "transactionId": ObjectId(),
+            "amount": 100,
+            "status": "paid",
+            "ownerDecisionNotes": "Customer argued about this one, watch them.",
+            "internalNotes": "internal",
+            "verification": {
+                "verifiedByUserId": ObjectId(),
+                "decisionNotes": "approved reluctantly",
+                "verifiedAt": None,
+            },
+        }
+
+        class Cursor:
+            def __aiter__(self):
+                self._done = False
+                return self
+
+            async def __anext__(self):
+                if self._done:
+                    raise StopAsyncIteration
+                self._done = True
+                return record
+
+        find = MagicMock()
+        find.sort = MagicMock(return_value=Cursor())
+        db = MagicMock()
+        db.payment_records.find = MagicMock(return_value=find)
+        with patch.object(payment_service, "get_database", return_value=db):
+            rows = await payment_service.list_customer_payment_records_for_transaction({"_id": ObjectId()})
+
+        self.assertEqual(len(rows), 1)
+        self.assertNotIn("ownerDecisionNotes", rows[0])
+        self.assertNotIn("internalNotes", rows[0])
+        self.assertNotIn("verifiedByUserId", rows[0].get("verification", {}))
+        self.assertNotIn("decisionNotes", rows[0].get("verification", {}))
+
+
+class PaymentRecordAudienceTests(unittest.TestCase):
+    """The payment summary is rendered on BOTH the customer's order page and the owner's
+    transactions and payments screens. Stripping it unconditionally removed the owner's
+    own decision notes from their own UI."""
+
+    def test_the_summary_strips_only_for_the_customer(self):
+        import inspect
+
+        from app.services import payment_service
+
+        signature = inspect.signature(payment_service.summarize_payment_records_for_transaction)
+        self.assertIn("for_customer", signature.parameters)
+        self.assertFalse(signature.parameters["for_customer"].default, "owners must see their own notes by default")
+
+    def test_the_customer_portal_asks_for_the_stripped_form(self):
+        import inspect
+
+        from app.services import customer_portal_service
+
+        source = inspect.getsource(customer_portal_service)
+        self.assertEqual(source.count("for_customer=True"), 2, "both customer order views must strip")
+
+    def test_all_three_customer_serializers_share_one_strip_list(self):
+        """A third serializer kept its own shorter list, which is how the owner's notes
+        kept reaching the customer after the other two were fixed."""
+        import inspect
+
+        from app.core import private_uploads
+
+        self.assertIn("_customer_safe_payment_record", inspect.getsource(private_uploads.customer_payment_result))
+
+
+class UniqueIndexFailureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_a_failed_unique_index_is_not_swallowed(self):
+        """Swallowing it leaves the collection with no uniqueness while the application
+        carries on assuming there is some, which is how a duplicate account slips in."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from app.db.indexes import _ensure_index
+
+        collection = MagicMock()
+        collection.name = "users"
+        collection.create_index = AsyncMock(side_effect=RuntimeError("duplicate key"))
+        with self.assertRaises(RuntimeError):
+            await _ensure_index(collection, "email", unique=True, sparse=True)
+
+    async def test_a_failed_ordinary_index_is_tolerated(self):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from app.db.indexes import _ensure_index
+
+        collection = MagicMock()
+        collection.name = "items"
+        collection.create_index = AsyncMock(side_effect=RuntimeError("spec changed"))
+        await _ensure_index(collection, "createdAt")
+
+
+class CustomerReceiptPrivacyTests(unittest.TestCase):
+    """The receipt HTML was the fifth customer-facing payment serializer, and the only
+    one still rendering `notes` - which is where the provider's raw failure text lands."""
+
+    RECORD = {
+        "_id": "r1",
+        "amount": 500,
+        "currency": "PKR",
+        "method": "stripe_test",
+        "status": "failed",
+        "notes": "Stripe: declined for account acct_12345 param source[number]",
+        "ownerDecisionNotes": "this customer argues a lot",
+        "verification": {"decisionNotes": "approved reluctantly", "verifiedByUserId": "u1"},
+        "createdAt": None,
+    }
+
+    def test_the_customer_copy_hides_provider_and_owner_detail(self):
+        from app.services.payment_service import _build_payment_receipt_html, _customer_safe_payment_record
+
+        html = _build_payment_receipt_html(
+            {"name": "Shop"}, {"transactionNumber": "T1", "pricing": {"total": 500}},
+            _customer_safe_payment_record(dict(self.RECORD)),
+        )
+        for secret in ("acct_12345", "argues a lot", "reluctantly"):
+            self.assertNotIn(secret, html, secret)
+
+    def test_the_owner_copy_still_shows_everything(self):
+        """The owner writes these notes for themselves; hiding them from the owner was a
+        regression introduced while fixing the customer leak."""
+        from app.services.payment_service import _build_payment_receipt_html
+
+        html = _build_payment_receipt_html(
+            {"name": "Shop"}, {"transactionNumber": "T1", "pricing": {"total": 500}}, dict(self.RECORD)
+        )
+        self.assertIn("acct_12345", html)
+
+    def test_the_customer_route_passes_the_stripped_record(self):
+        import inspect
+
+        from app.services import payment_service
+
+        source = inspect.getsource(payment_service.get_customer_payment_receipt_html)
+        self.assertIn("_customer_safe_payment_record(record)", source)
+        owner = inspect.getsource(payment_service.get_owner_payment_receipt_html)
+        self.assertNotIn("_customer_safe_payment_record", owner)
+
+
+class CodReconciliationTests(unittest.TestCase):
+    def test_the_owner_entry_measures_cod_against_its_own_bucket(self):
+        """COD does not reduce `balance`, so comparing a COD entry against the balance
+        made an existing COD record invisible and allowed the full total twice."""
+        import inspect
+
+        from app.services import payment_service
+
+        source = inspect.getsource(payment_service.record_transaction_payment)
+        self.assertIn('if record_status == "cod":', source)
+        self.assertIn('current_summary["cod"]', source)
+
+    def test_the_importer_covers_refunded(self):
+        import inspect
+
+        from app.services import order_import_service
+
+        source = inspect.getsource(order_import_service)
+        self.assertIn('{"paid", "cod", "refunded"}', source)

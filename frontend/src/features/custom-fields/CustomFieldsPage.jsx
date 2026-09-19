@@ -10,6 +10,7 @@ import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { createCustomField, deleteCustomField, getCustomFields, updateCustomField, validateCustomValues } from "../../services/customFieldApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const BASIC_FIELD_LIMIT = 3;
 
@@ -346,7 +347,7 @@ export function CustomFieldsPage() {
       await refreshAllFields();
       setServerMessage(editingField ? "Custom field updated." : "Custom field created.");
     } catch (error) {
-      setServerError(error.response?.data?.detail || "Unable to save custom field.");
+      setServerError(getApiErrorMessage(error, "Unable to save custom field."));
     }
   }
 
@@ -427,7 +428,7 @@ export function CustomFieldsPage() {
       await refreshAllFields();
       setServerMessage(created ? `${template.label} template applied. ${created} field(s) created.` : `${template.label} fields already exist.`);
     } catch (error) {
-      setServerError(error.response?.data?.detail || "Unable to apply template.");
+      setServerError(getApiErrorMessage(error, "Unable to apply template."));
     } finally {
       setIsApplyingTemplate("");
     }

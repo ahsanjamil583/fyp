@@ -140,15 +140,16 @@ async def add_item(payload: CartItemCreateRequest, current_user: dict = Depends(
     return success_response("Item added to cart successfully.", data)
 
 
-@router.put("/cart/items/{itemId}")
-async def update_item(itemId: str, payload: CartItemUpdateRequest, current_user: dict = Depends(get_current_customer_user)):
-    data = await update_cart_item(itemId, payload, current_user)
+@router.put("/cart/items/{lineRef}")
+async def update_item(lineRef: str, payload: CartItemUpdateRequest, current_user: dict = Depends(get_current_customer_user)):
+    """``lineRef`` is a cart lineId; an itemId still works for carts created before lines had ids."""
+    data = await update_cart_item(lineRef, payload, current_user)
     return success_response("Cart item updated successfully.", data)
 
 
-@router.delete("/cart/items/{itemId}")
-async def remove_item(itemId: str, current_user: dict = Depends(get_current_customer_user)):
-    data = await remove_cart_item(itemId, current_user)
+@router.delete("/cart/items/{lineRef}")
+async def remove_item(lineRef: str, current_user: dict = Depends(get_current_customer_user)):
+    data = await remove_cart_item(lineRef, current_user)
     return success_response("Cart item removed successfully.", data)
 
 
@@ -185,7 +186,9 @@ async def orders(page: int = 1, limit: int = 20, current_user: dict = Depends(ge
 @router.post("/transactions/{orderId}/payment-proof")
 async def submit_payment_proof(
     orderId: str,
-    amount: float = Form(...),
+    # gt=0 matters here: only the upper bound was checked, so a negative proof
+    # subtracted from the order's paid total once the owner approved it.
+    amount: float = Form(..., gt=0),
     method: str = Form(default=""),
     referenceNumber: str = Form(default=""),
     notes: str = Form(default=""),

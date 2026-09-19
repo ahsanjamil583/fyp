@@ -1,4 +1,5 @@
 import logging
+import secrets
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
@@ -23,6 +24,12 @@ PUBLIC_JWT_SECRETS = frozenset(
 )
 
 MIN_JWT_SECRET_LENGTH = 32
+
+
+@lru_cache
+def _ephemeral_signing_key() -> str:
+    """One random key per process, standing in for an unset JWT_SECRET_KEY."""
+    return secrets.token_urlsafe(48)
 
 # How a wallet gateway behaves. `simulator` and `mock_otp` are both local stand-ins that
 # move no money; they differ only in what the customer does (a fake hosted page versus an
@@ -82,6 +89,12 @@ class Settings(BaseSettings):
     # per-tenant bridge tokens, so it is operator infrastructure: leave it empty and the
     # discovery endpoint stays disabled.
     whatsapp_bridge_admin_key: str = ""
+
+    # A WhatsApp sender's number is asserted by the provider, but the number stored on a
+    # customer account is whatever that account typed in. Requiring the account to have
+    # verified the number stops an unverified claim from handing a stranger's WhatsApp
+    # messages control of that account's cart. Relax it only for a local demo.
+    whatsapp_cart_link_requires_verified_phone: bool = True
 
     sms_provider: str = "mock"
     sms_api_key: str = ""
@@ -158,6 +171,12 @@ class Settings(BaseSettings):
     build_label: str = "phase-32-critical-bug-fixes"
     rate_limit_enabled: bool = True
     rate_limit_requests_per_minute: int = 300
+    # Addresses of proxies whose X-Forwarded-For may be believed, or "*" to trust
+    # whatever is in front of the app. Empty means trust nothing, which is correct for a
+    # directly exposed server: without this the rate limiter keys on the proxy's own
+    # address, so every user behind a load balancer shares one bucket and a single
+    # script can exhaust the login limit for everybody.
+    trusted_proxy_ips: Annotated[list[str], NoDecode] = Field(default_factory=list)
     # Daily ceiling on billed AI replies per tenant; 0 disables the cap.
     ai_daily_message_cap: int = 300
 
@@ -166,6 +185,13 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @field_validator("trusted_proxy_ips", mode="before")
+    @classmethod
+    def split_trusted_proxy_ips(cls, value):
+        if value is None or isinstance(value, list):
+            return value or []
+        return [entry.strip() for entry in str(value).split(",") if entry.strip()]
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -261,6 +287,21 @@ class Settings(BaseSettings):
         """True when the signing key is a known placeholder or too short to be safe."""
         return self.jwt_secret_key in PUBLIC_JWT_SECRETS or len(self.jwt_secret_key) < MIN_JWT_SECRET_LENGTH
 
+    @property
+    def signing_key(self) -> str:
+        """The key actually used to sign tokens, OTP hashes and signed upload URLs.
+
+        Production refuses to start on a placeholder, so there this is always the
+        configured key. Outside production the configured key may be empty — and PyJWT
+        will happily sign with an empty key, which makes every token forgeable by
+        anyone holding this source. Rather than sign with nothing, fall back to a
+        random key generated once per process: sessions then end when the server
+        restarts, which is the correct trade for a key nobody has set.
+        """
+        if self.jwt_secret_is_public:
+            return _ephemeral_signing_key()
+        return self.jwt_secret_key
+
     @model_validator(mode="after")
     def enforce_production_safety(self):
         if self.app_env == "production":
@@ -288,6 +329,11 @@ class Settings(BaseSettings):
                         "without taking any money. It is for local development and demos only. Set it to "
                         "'sandbox' or 'live' with real credentials before running in production."
                     )
+            if self.otp_demo_mode:
+                raise ValueError(
+                    "OTP_DEMO_MODE is on, which makes every OTP the fixed demo code. Anyone could then reset "
+                    "any account's password. It is for local development and demos only; set it to false."
+                )
             if not self.stripe_webhook_secret and self.stripe_secret_key:
                 raise ValueError("STRIPE_WEBHOOK_SECRET is required in production when Stripe is enabled.")
         return self
@@ -305,6 +351,11 @@ def warn_about_insecure_settings() -> None:
             "signed with it can be forged by anyone who has this source. Rotate it with: "
             'python -c "import secrets; print(secrets.token_urlsafe(48))"',
             MIN_JWT_SECRET_LENGTH,
+        )
+    if settings.app_env == "production" and settings.sms_provider == "mock":
+        logger.warning(
+            "SMS_PROVIDER is 'mock' in production. Phone OTPs are recorded as sent but never delivered, so "
+            "phone login, phone verification and phone password reset cannot be completed by any user."
         )
     if settings.stripe_secret_key and not settings.stripe_webhook_secret:
         logger.warning("STRIPE_WEBHOOK_SECRET is not set, so all Stripe webhooks will be rejected.")

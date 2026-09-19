@@ -96,7 +96,12 @@ async def update_category(category_id: str, payload) -> dict:
         if value is not None:
             update[key] = value
     if payload.slug is not None:
-        update["slug"] = slugify(payload.slug)
+        slug = slugify(payload.slug)
+        # create_category checks this; update did not, so an edit could collide and
+        # tenant lookups by slug would then return whichever category matched first.
+        if await db.business_categories.find_one({"slug": slug, "_id": {"$ne": category_oid}}):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Category slug already exists.")
+        update["slug"] = slug
 
     await db.business_categories.update_one({"_id": category_oid}, {"$set": update})
     return hydrate_category_document(serialize_document(await db.business_categories.find_one({"_id": category_oid})))

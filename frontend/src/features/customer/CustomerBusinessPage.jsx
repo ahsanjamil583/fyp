@@ -5,7 +5,7 @@ import { ArrowRight, Bot, Search, ShoppingCart, Store } from "lucide-react";
 
 import { WhatsAppAgentCta, WhatsAppAgentInfo } from "../../components/whatsapp/WhatsAppAgentCta.jsx";
 import { addCartItem, addCustomerFavorite, getCustomerFavorites, getMarketplaceBusiness, getMarketplaceItems, removeCustomerFavorite, resolveUploadUrl } from "../../services/customerPortalApi.js";
-import { formatApiError } from "../../utils/apiErrors.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function CustomerBusinessPage() {
   const { tenantSlug } = useParams();
@@ -29,7 +29,7 @@ export function CustomerBusinessPage() {
         const favoriteData = await getCustomerFavorites();
         setFavorites(favoriteData);
       } catch (requestError) {
-        setError(formatApiError(requestError.response?.data?.detail, "Unable to load marketplace business."));
+        setError(getApiErrorMessage(requestError, "Unable to load marketplace business."));
       }
     }
     load();
@@ -37,8 +37,13 @@ export function CustomerBusinessPage() {
 
   async function searchItems(event) {
     event.preventDefault();
-    const result = await getMarketplaceItems(tenantSlug, { search, page: 1, limit: 20 });
-    setItems(result.items);
+    setError("");
+    try {
+      const result = await getMarketplaceItems(tenantSlug, { search, page: 1, limit: 20 });
+      setItems(result.items);
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to search this business."));
+    }
   }
 
   async function addToCart(itemId) {
@@ -48,15 +53,20 @@ export function CustomerBusinessPage() {
       await addCartItem({ tenantId: business.id, itemId, quantity: 1 });
       setMessage("Item added to cart.");
     } catch (requestError) {
-      setError(formatApiError(requestError.response?.data?.detail, "Unable to add item to cart."));
+      setError(getApiErrorMessage(requestError, "Unable to add item to cart."));
     }
   }
 
   async function toggleFavorite(itemId) {
     if (!business) return;
-    const exists = favorites.some((favorite) => favorite.item?.id === itemId && favorite.tenant?.id === business.id);
-    const next = exists ? await removeCustomerFavorite(itemId, business.id) : await addCustomerFavorite({ tenantId: business.id, itemId });
-    setFavorites(next);
+    setError("");
+    try {
+      const exists = favorites.some((favorite) => favorite.item?.id === itemId && favorite.tenant?.id === business.id);
+      const next = exists ? await removeCustomerFavorite(itemId, business.id) : await addCustomerFavorite({ tenantId: business.id, itemId });
+      setFavorites(next);
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to update your favourites."));
+    }
   }
 
   if (error && !business) {
@@ -159,7 +169,7 @@ export function CustomerBusinessPage() {
         {!items.length ? (
           <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center md:col-span-2 xl:col-span-3">
             <Store className="mx-auto text-brand" size={30} />
-            <div className="mt-3 font-bold text-ink">No items found</div>
+            <div className="mt-3 font-bold text-ink">{error ? "We could not load these items" : "No items found"}</div>
             <p className="mt-1 text-sm text-muted">Try another search or ask the AI assistant what is available.</p>
           </div>
         ) : null}

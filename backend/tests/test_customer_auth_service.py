@@ -41,12 +41,18 @@ class CustomerAuthServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(session["user"]["isEmailVerified"])
         inserted_user = fake_users.insert_one.await_args.args[0]
         self.assertNotIn("phone", inserted_user)
-        verify_email_otp.assert_has_awaits(
-            [
-                call(email="danyal@gmail.com", code="123456", account_type="customer", purpose="register", consume=False),
-                call(email="danyal@gmail.com", code="123456", account_type="customer", purpose="register", consume=True),
-            ]
+        # The code is consumed exactly once, and before the account is created. The old
+        # order (check without consuming, insert, then consume) left the account behind
+        # whenever the consuming check failed, permanently blocking the real owner.
+        verify_email_otp.assert_awaited_once_with(
+            email="danyal@gmail.com", code="123456", account_type="customer", purpose="register", consume=True
         )
+        self.assertLess(
+            verify_email_otp.await_args_list.index(verify_email_otp.await_args),
+            1,
+            "the OTP must be consumed before anything is written",
+        )
+        self.assertTrue(fake_users.insert_one.await_count, "the account is still created on success")
         sync_mock.assert_awaited_once()
         self.assertEqual(sync_mock.await_args.kwargs["customer_user_id"], user_id)
         self.assertEqual(sync_mock.await_args.kwargs["source_tag"], "customer_portal")

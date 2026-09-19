@@ -52,6 +52,12 @@ class AgentRunState:
     matchedItems: list[dict[str, Any]] = field(default_factory=list)
     knowledgeDocs: list[dict[str, Any]] = field(default_factory=list)
     draftOrder: dict[str, Any] = field(default_factory=dict)
+    basket: dict[str, Any] = field(default_factory=dict)
+    basketPlan: dict[str, Any] = field(default_factory=dict)
+    basketActions: dict[str, Any] = field(default_factory=dict)
+    checkoutDraft: dict[str, Any] = field(default_factory=dict)
+    checkoutReadiness: dict[str, Any] = field(default_factory=dict)
+    pendingConfirmation: dict[str, Any] = field(default_factory=dict)
     replyText: str = ""
     responseSource: str = ""
     localizationEval: dict[str, Any] = field(default_factory=dict)

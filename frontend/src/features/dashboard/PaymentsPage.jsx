@@ -8,6 +8,7 @@ import { decidePaymentRecord, getOwnerPaymentReceiptHtml, getPaymentOverview, re
 import { capitalize } from "../../utils/transaction.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const defaultSettings = {
   codEnabled: true,
@@ -101,7 +102,7 @@ export function PaymentsPage() {
         return next;
       });
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load payment overview.");
+      setError(getApiErrorMessage(requestError, "Unable to load payment overview."));
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +137,7 @@ export function PaymentsPage() {
       setMessage("Payment settings saved.");
       await refreshOverview();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to save payment settings.");
+      setError(getApiErrorMessage(requestError, "Unable to save payment settings."));
     } finally {
       setSavingSettings(false);
     }
@@ -156,7 +157,7 @@ export function PaymentsPage() {
       setMessage("Payment recorded.");
       await refreshOverview();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to record payment.");
+      setError(getApiErrorMessage(requestError, "Unable to record payment."));
     } finally {
       setSavingPaymentId("");
     }
@@ -176,7 +177,7 @@ export function PaymentsPage() {
       setMessage("Refund recorded.");
       await refreshOverview();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to record refund.");
+      setError(getApiErrorMessage(requestError, "Unable to record refund."));
     } finally {
       setSavingPaymentId("");
     }
@@ -198,7 +199,7 @@ export function PaymentsPage() {
       setMessage(decision === "approve" ? "Payment proof approved." : "Payment proof rejected.");
       await refreshOverview();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to save payment decision.");
+      setError(getApiErrorMessage(requestError, "Unable to save payment decision."));
     } finally {
       setSavingPaymentId("");
     }
@@ -217,7 +218,7 @@ export function PaymentsPage() {
       }
       await refreshOverview();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to sync Stripe payment.");
+      setError(getApiErrorMessage(requestError, "Unable to sync Stripe payment."));
     } finally {
       setSavingPaymentId("");
     }
@@ -230,7 +231,7 @@ export function PaymentsPage() {
       const html = await getOwnerPaymentReceiptHtml(selectedTenant.id, recordId);
       openReceiptWindow(html);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || requestError.message || "Unable to open payment receipt.");
+      setError(getApiErrorMessage(requestError, "Unable to open payment receipt."));
     } finally {
       setSavingPaymentId("");
     }

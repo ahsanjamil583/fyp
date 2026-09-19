@@ -1,6 +1,8 @@
 import unittest
 from datetime import datetime, timezone
 
+from bson import ObjectId
+
 from fastapi import HTTPException
 
 from app.services.otp_service import (
@@ -55,3 +57,37 @@ class Phase29PhoneOtpTests(unittest.TestCase):
         self.assertNotIn("status", update)
         self.assertEqual(remaining, 3)
         self.assertFalse(locked)
+
+
+class VerifyPhoneReachabilityTests(unittest.IsolatedAsyncioTestCase):
+    """Adding a phone number to an account that has none is the whole point of
+    verify_phone, so requiring the number to already be on a user made the flow
+    impossible to reach: a customer never gets users.phone until this succeeds."""
+
+    async def _validate(self, *, existing_user, for_user_id):
+        from unittest.mock import AsyncMock, patch
+
+        from app.services import otp_service
+
+        with patch.object(otp_service, "_find_user_by_phone", AsyncMock(return_value=existing_user)):
+            await otp_service._validate_purpose_against_user("03001234567", "customer", "verify_phone", for_user_id)
+
+    async def test_an_authenticated_user_can_verify_a_number_they_do_not_have_yet(self):
+        await self._validate(existing_user=None, for_user_id=ObjectId())
+
+    async def test_re_verifying_your_own_number_is_allowed(self):
+        user_id = ObjectId()
+        await self._validate(existing_user={"_id": user_id, "status": "active"}, for_user_id=user_id)
+
+    async def test_a_number_owned_by_someone_else_is_refused(self):
+        with self.assertRaises(HTTPException) as caught:
+            await self._validate(existing_user={"_id": ObjectId(), "status": "active"}, for_user_id=ObjectId())
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertIn("another account", caught.exception.detail)
+
+    async def test_without_an_authenticated_user_the_old_rule_still_applies(self):
+        """Unauthenticated purposes such as login and password reset must still require
+        an existing account."""
+        with self.assertRaises(HTTPException) as caught:
+            await self._validate(existing_user=None, for_user_id=None)
+        self.assertEqual(caught.exception.status_code, 404)

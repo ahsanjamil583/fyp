@@ -9,6 +9,7 @@ import { getCustomFields } from "../../services/customFieldApi.js";
 import { createCustomer, deleteCustomer, getCustomerInsights, getCustomers, updateCustomer } from "../../services/customerApi.js";
 import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { formatApiError } from "../../utils/apiErrors.js";
 
 const emptyForm = {
   type: "customer",
@@ -146,7 +147,8 @@ export function CustomersPage() {
         setCustomErrors(detail);
         setServerError("Please fix custom field validation errors.");
       } else {
-        setServerError(detail || "Unable to save customer.");
+        // detail can be an object as well as a string; rendering one throws.
+        setServerError(formatApiError(detail, "Unable to save customer."));
       }
     } finally {
       setIsSaving(false);

@@ -16,6 +16,8 @@ logged, or returned.
 
 from __future__ import annotations
 
+import asyncio
+
 import logging
 from datetime import datetime, timedelta, timezone
 from math import ceil
@@ -170,7 +172,9 @@ async def start_payment_challenge(
     document["_id"] = (await db[CHALLENGE_COLLECTION].insert_one(document)).inserted_id
 
     try:
-        send_payment_otp_email(
+        # Blocking SMTP: see the note in otp_service.
+        await asyncio.to_thread(
+            send_payment_otp_email,
             to_email=customer_email,
             code=code,
             amount=amount,

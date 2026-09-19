@@ -3,9 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Alert, Card } from "../../components/ui/index.jsx";
-import { getApiErrorMessage } from "../../services/apiError.js";
 import { createCashierOrder, getCashierCatalog, getCashierDashboard } from "../../services/cashierApi.js";
 import { formatMoney } from "./cashierShared.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 /**
  * The till screen.
@@ -84,7 +84,9 @@ export function CashierNewOrderPage() {
     setLines((current) => {
       const existing = current.find((line) => line.key === key);
       if (existing) {
-        return current.map((line) => (line.key === key ? { ...line, quantity: Math.min(line.quantity + 1, 999) } : line));
+        // 99 is what the backend enforces per line; 999 here meant the till let a
+        // cashier build an order the API would then refuse.
+        return current.map((line) => (line.key === key ? { ...line, quantity: Math.min(line.quantity + 1, 99) } : line));
       }
       return [
         ...current,
@@ -118,7 +120,10 @@ export function CashierNewOrderPage() {
         itemId: "",
         name,
         unitPrice,
-        quantity: Math.max(1, Number(customDraft.quantity) || 1),
+        // Capped at the same 99 the API enforces. Narrowing the schema without clamping
+        // here meant a manual line above 99 was accepted by the till and refused by the
+        // server.
+        quantity: Math.max(1, Math.min(99, Math.floor(Number(customDraft.quantity) || 1))),
         selectedVariantIndex: null,
         isStockTracked: false,
         availableQuantity: null,
@@ -131,7 +136,8 @@ export function CashierNewOrderPage() {
   function changeQuantity(key, delta) {
     setLines((current) =>
       current
-        .map((line) => (line.key === key ? { ...line, quantity: Math.max(0, line.quantity + delta) } : line))
+        // Capped at the same 99 the API enforces, like the two sibling handlers above.
+        .map((line) => (line.key === key ? { ...line, quantity: Math.min(99, Math.max(0, line.quantity + delta)) } : line))
         .filter((line) => line.quantity > 0),
     );
   }

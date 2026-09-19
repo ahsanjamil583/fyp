@@ -3,9 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { Alert, Card, EmptyState } from "../../components/ui/index.jsx";
-import { getApiErrorMessage } from "../../services/apiError.js";
 import { getCashierOrders, getCashierProfile } from "../../services/cashierApi.js";
 import { formatMoney, formatOrderTime, orderStatusTone, paymentStatusTone, StatusPill } from "./cashierShared.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const STATUS_FILTERS = [
   { value: "", label: "All" },
@@ -125,7 +125,12 @@ export function CashierOrdersPage({ receiptsMode = false }) {
 
       {isLoading ? <div className="py-8 text-center text-sm text-muted">Loading orders...</div> : null}
 
-      {!isLoading && !orders.length ? (
+      {!isLoading && !orders.length && error ? (
+        <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center text-sm text-muted">
+          We could not load these orders. This is a problem reaching the server, not an empty list.
+        </div>
+      ) : null}
+      {!isLoading && !orders.length && !error ? (
         <EmptyState
           icon={Receipt}
           title="Nothing here yet"

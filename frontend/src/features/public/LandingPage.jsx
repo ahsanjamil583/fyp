@@ -7,18 +7,25 @@ import {
   Globe,
   MessageCircle,
   Package,
-  ShoppingBag,
   Sparkles,
   Store,
-  Zap,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+
+import { BackgroundGlow } from "./components/BackgroundGlow.jsx";
+import { HeroAiShowcase } from "./components/HeroAiShowcase.jsx";
+import { FeatureCard } from "./components/FeatureCard.jsx";
+import { HowItWorksFlow } from "./components/HowItWorksFlow.jsx";
+import { AudienceShowcase } from "./components/AudienceShowcase.jsx";
+import { FaqAccordion } from "./components/FaqAccordion.jsx";
 
 /**
- * Public landing page.
- *
- * Written for a visitor who has never heard of the product: what it does for them and
- * what they get, rather than the internal build/phase language this page used to show.
+ * Premium Modern AI SaaS Landing Page for BizXusAI.
+ * 
+ * Strict content preservation: all titles, descriptions, button labels,
+ * and information hierarchy are fully retained while elevating design,
+ * typography, interactivity, and animations to world-class startup quality.
  */
 
 const FEATURES = [
@@ -61,9 +68,21 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { n: "1", title: "Create your business", text: "Tell us your business name and category. We suggest the modules and layout that fit it." },
-  { n: "2", title: "Add what you sell", text: "Products or services, with prices, photos and variants. Import a spreadsheet if you already have one." },
-  { n: "3", title: "Go live", text: "Publish your storefront, switch on the AI assistant, and start taking orders." },
+  {
+    n: "1",
+    title: "Create your business",
+    text: "Tell us your business name and category. We suggest the modules and layout that fit it.",
+  },
+  {
+    n: "2",
+    title: "Add what you sell",
+    text: "Products or services, with prices, photos and variants. Import a spreadsheet if you already have one.",
+  },
+  {
+    n: "3",
+    title: "Go live",
+    text: "Publish your storefront, switch on the AI assistant, and start taking orders.",
+  },
 ];
 
 const HERO_FLOW = [
@@ -111,319 +130,272 @@ const FAQ = [
   },
 ];
 
-const TILE = {
-  violet: "bg-brand-100 text-brand",
-  purple: "bg-blue-100 text-blue-700",
-  green: "bg-blue-50 text-blue-600",
-  blue: "bg-blue-50 text-blue-500",
-  orange: "bg-sky-100 text-sky-700",
-};
-
 export function LandingPage() {
   return (
-    <>
-      {/* ------------------------------------------------------------ hero -- */}
-      <section className="relative isolate overflow-hidden bg-sidebar-bottom text-white">
-        <div
-          aria-hidden="true"
-          className="calm-motion-field pointer-events-none absolute inset-0"
-        />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(8,24,39,0.84),rgba(8,24,39,0.48),rgba(8,24,39,0.74))]" />
-        <div className="relative mx-auto max-w-7xl px-5 pb-16 pt-14 lg:px-8 lg:pb-24 lg:pt-20">
-          <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur">
-                <Sparkles size={14} />
-                Built for Pakistani businesses
-              </span>
+    <div className="relative overflow-hidden">
+      {/* ------------------------------------------------------------ HERO -- */}
+      <section className="relative isolate overflow-hidden border-b border-blue-100 bg-[#f8fbff] pb-20 pt-14 text-slate-950 lg:pb-28 lg:pt-20">
+        {/* Modern AI Ambient Glow & Tech Grid */}
+        <BackgroundGlow variant="heroLight" />
 
-              <h1 className="mt-5 text-4xl font-black leading-[1.08] tracking-tight text-white md:text-[3.4rem]">
+        <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
+          <div className="mx-auto max-w-4xl text-center">
+            {/* Left Hero Content */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {/* Eyebrow Badge */}
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-1.5 text-xs font-bold text-blue-700 shadow-sm backdrop-blur-md">
+                <Sparkles size={14} className="text-blue-500" />
+                <span>Built for Pakistani businesses</span>
+              </div>
+
+              {/* Display Headline */}
+              <h1 className="mt-6 text-4xl font-black leading-[1.05] tracking-tight text-slate-950 sm:text-5xl lg:text-7xl">
                 BizXusAI helps your shop{" "}
-                <span className="kinetic-word text-blue-200">publish,</span>{" "}
-                <span className="kinetic-word text-blue-200">answer,</span>{" "}
-                <span className="kinetic-word text-sky-100">sell.</span>
+                <span className="bg-gradient-to-r from-blue-900 via-blue-700 to-sky-600 bg-clip-text text-transparent">
+                  publish,
+                </span>{" "}
+                <span className="bg-gradient-to-r from-blue-800 via-blue-600 to-sky-500 bg-clip-text text-transparent">
+                  answer,
+                </span>{" "}
+                <span className="bg-gradient-to-r from-blue-700 via-sky-600 to-blue-500 bg-clip-text text-transparent">
+                  sell.
+                </span>
               </h1>
 
-              <p className="mt-5 max-w-xl text-lg leading-8 text-white/78">
+              {/* Subheading */}
+              <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-slate-600 md:text-lg">
                 BizXusAI gives your business a storefront, an AI assistant that knows your stock, WhatsApp
                 replies, and payments — without hiring a developer or paying for five different tools.
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link to="/register" className="ui-btn-primary !px-6 !py-3.5 !text-base">
+              {/* Action Buttons */}
+              <div className="mt-9 flex flex-col justify-center gap-3.5 sm:flex-row sm:items-center">
+                <Link
+                  to="/register"
+                  className="ui-btn-primary ai-btn-shimmer !px-7 !py-4 !text-base shadow-[0_0_25px_rgba(37,99,235,0.35)]"
+                >
                   Start free
                   <ArrowRight size={18} />
                 </Link>
-                <Link to="/customer/marketplace" className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/12 px-6 py-3.5 text-base font-bold text-white backdrop-blur transition hover:bg-white/18">
-                  <Store size={18} />
+                <Link
+                  to="/customer/marketplace"
+                  className="inline-flex items-center justify-center gap-2.5 rounded-xl border border-blue-100 bg-white px-7 py-4 text-base font-bold text-slate-800 shadow-sm backdrop-blur-xl transition-all duration-200 hover:border-blue-200 hover:bg-blue-50"
+                >
+                  <Store size={18} className="text-blue-600" />
                   Browse the marketplace
                 </Link>
               </div>
 
-              <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2">
+              {/* Trust Indicators */}
+              <ul className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2.5">
                 {["Free plan available", "No card required", "Live in one day"].map((t) => (
-                  <li key={t} className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/78">
-                    <Check size={15} className="text-blue-200" strokeWidth={3} />
+                  <li
+                    key={t}
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600"
+                  >
+                    <span className="grid h-4 w-4 place-items-center rounded-full bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                      <Check size={11} strokeWidth={3.5} />
+                    </span>
                     {t}
                   </li>
                 ))}
               </ul>
-            </div>
+            </motion.div>
 
-            {/* A concrete picture of the product, not a checklist of build phases. */}
-            <div className="relative">
-              <div className="rounded-card border border-white/18 bg-white/12 p-5 shadow-lift backdrop-blur-md">
-                <div className="flex items-center gap-2 border-b border-white/15 pb-3">
-                  <span className="h-2.5 w-2.5 rounded-full bg-blue-300" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-blue-400" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-sky-300" />
-                  <span className="ml-2 truncate text-xs font-semibold text-white/60">
-                    bizxus.ai/your-shop
-                  </span>
-                </div>
-
-                <div className="space-y-3 pt-4">
-                  <div className="flex items-start gap-2.5">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/14 text-xs font-bold text-white/70">
-                      C
-                    </span>
-                    <p className="rounded-2xl rounded-tl-sm bg-white/14 px-3.5 py-2.5 text-sm text-white">
-                      Grey tracksuit ka price kya hai? Available hai?
-                    </p>
-                  </div>
-                  <div className="flex items-start justify-end gap-2.5">
-                    <p className="rounded-2xl rounded-tr-sm bg-white px-3.5 py-2.5 text-sm font-bold text-brand">
-                      Grey Tracksuit is PKR 4,800 and in stock. Want me to place the order?
-                    </p>
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sidebar-active text-white">
-                      <Bot size={15} />
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/15 pt-4">
-                  {[
-                    { k: "Orders today", v: "12" },
-                    { k: "Revenue", v: "PKR 58K" },
-                    { k: "Replies sent", v: "47" },
-                  ].map((s) => (
-                    <div key={s.k} className="rounded-xl bg-white/12 px-3 py-2.5">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-white/55">{s.k}</div>
-                      <div className="mt-0.5 text-base font-extrabold text-white">{s.v}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="absolute -bottom-4 -left-4 hidden items-center gap-2 rounded-xl border border-white/18 bg-white px-3.5 py-2.5 shadow-card sm:flex">
-                <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50 text-blue-600">
-                  <Zap size={16} />
-                </span>
-                <div>
-                  <div className="text-xs font-bold text-ink">Answered in 2 seconds</div>
-                  <div className="text-[11px] text-subtle">Even at 2am</div>
-                </div>
-              </div>
-            </div>
           </div>
 
-          <div className="mt-10 rounded-card border border-white/18 bg-white/12 p-3 shadow-lift backdrop-blur-md">
+          {/* Interactive AI Product Showcase Animation */}
+          <motion.div
+            initial={{ opacity: 0, y: 34, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="mx-auto mt-14 max-w-5xl"
+          >
+            <HeroAiShowcase />
+          </motion.div>
+
+          {/* 5-Step Hero Flow Pipeline */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.3, ease: "easeOut" }}
+            className="mx-auto mt-12 max-w-6xl rounded-2xl border border-blue-100 bg-white/80 p-3 shadow-xl backdrop-blur-xl"
+          >
             <ol className="grid gap-2 sm:grid-cols-5">
-              {HERO_FLOW.map((step, index) => (
-                <li key={step.label} className="rounded-xl bg-white/12 px-3 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-brand">
-                      <step.icon size={15} strokeWidth={2.4} />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
-                        Step {index + 1}
+              {HERO_FLOW.map((step, index) => {
+                const Icon = step.icon;
+                return (
+                  <li
+                    key={step.label}
+                    className="group relative rounded-xl border border-blue-100 bg-white p-3 transition-all duration-300 hover:border-blue-200 hover:bg-blue-50/60"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-tr from-blue-600 to-sky-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110">
+                        <Icon size={16} strokeWidth={2.4} />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-blue-500">
+                          Step {index + 1}
+                        </div>
+                        <div className="truncate text-sm font-extrabold text-slate-950">
+                          {step.label}
+                        </div>
                       </div>
-                      <div className="truncate text-sm font-extrabold text-white">{step.label}</div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ol>
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* -------------------------------------------------------- features -- */}
-      <section id="features" className="scroll-mt-20 border-t border-line bg-page py-16 lg:py-24">
-        <div className="mx-auto max-w-7xl px-5 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">What you get</span>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-ink md:text-4xl">
+      {/* -------------------------------------------------------- FEATURES -- */}
+      <section
+        id="features"
+        className="relative scroll-mt-20 border-t border-line bg-page py-20 lg:py-28"
+      >
+        <BackgroundGlow variant="light" />
+
+        <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
+          <motion.div
+            className="mx-auto max-w-2xl text-center"
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.45 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            <span className="inline-block rounded-full bg-blue-50 px-3.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">
+              What you get
+            </span>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-ink md:text-4xl lg:text-5xl">
               Everything your business needs, already connected
             </h2>
-            <p className="mt-3 text-base leading-7 text-muted">
-              Most businesses stitch together a website, a spreadsheet, a WhatsApp inbox and a receipt book.
-              Here they are one system that agrees with itself.
+            <p className="mt-4 text-base leading-8 text-muted md:text-lg">
+              Most businesses stitch together a website, a spreadsheet, a WhatsApp inbox and a receipt
+              book. Here they are one system that agrees with itself.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f) => (
-              <article
+          <div className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((f, i) => (
+              <FeatureCard
                 key={f.title}
-                className="group rounded-card border border-line bg-white p-6 shadow-card transition hover:-translate-y-0.5 hover:shadow-lift"
-              >
-                <span className={`grid h-12 w-12 place-items-center rounded-xl ${TILE[f.tone]}`}>
-                  <f.icon size={22} strokeWidth={2.1} />
-                </span>
-                <h3 className="mt-4 text-lg font-bold text-ink">{f.title}</h3>
-                <p className="mt-2 text-sm leading-7 text-muted">{f.text}</p>
-              </article>
+                icon={f.icon}
+                tone={f.tone}
+                title={f.title}
+                text={f.text}
+                index={i}
+              />
             ))}
           </div>
         </div>
       </section>
 
-      {/* ----------------------------------------------------- how it works -- */}
-      <section id="how-it-works" className="scroll-mt-20 py-16 lg:py-24">
-        <div className="mx-auto max-w-7xl px-5 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">How it works</span>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-ink md:text-4xl">
+      {/* ----------------------------------------------------- HOW IT WORKS -- */}
+      <section id="how-it-works" className="relative scroll-mt-20 py-20 lg:py-28 bg-white border-t border-line">
+        <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
+          <motion.div
+            className="mx-auto max-w-2xl text-center"
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.45 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            <span className="inline-block rounded-full bg-blue-50 px-3.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">
+              How it works
+            </span>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-ink md:text-4xl lg:text-5xl">
               Online in three steps
             </h2>
-          </div>
+          </motion.div>
 
-          <div className="relative mt-12 grid gap-6 md:grid-cols-3">
-            <div
-              aria-hidden="true"
-              className="absolute left-[16%] right-[16%] top-7 hidden h-px bg-line md:block"
-            />
-            {STEPS.map((s) => (
-              <div key={s.n} className="relative text-center">
-                <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-sidebar-active text-xl font-black text-white shadow-nav-active">
-                  {s.n}
-                </span>
-                <h3 className="mt-4 text-lg font-bold text-ink">{s.title}</h3>
-                <p className="mx-auto mt-2 max-w-xs text-sm leading-7 text-muted">{s.text}</p>
-              </div>
-            ))}
-          </div>
+          <HowItWorksFlow steps={STEPS} />
         </div>
       </section>
 
-      {/* --------------------------------------------------------- audience -- */}
-      <section id="audience" className="scroll-mt-20 border-t border-line bg-page py-16 lg:py-24">
-        <div className="mx-auto max-w-7xl px-5 lg:px-8">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <PerkCard
-              icon={ShoppingBag}
-              tone="violet"
-              eyebrow="For business owners"
-              title="Run the whole shop from one screen"
-              perks={BUSINESS_PERKS}
-              cta={{ to: "/register", label: "Create your business" }}
-              secondary={{ to: "/login", label: "I already have an account" }}
-              highlight
-            />
-            <PerkCard
-              icon={Store}
-              tone="blue"
-              eyebrow="For customers"
-              title="Find local businesses and order in seconds"
-              perks={CUSTOMER_PERKS}
-              cta={{ to: "/customer/register", label: "Create a customer account" }}
-              secondary={{ to: "/customer/marketplace", label: "Browse the marketplace" }}
-            />
-          </div>
-        </div>
+      {/* --------------------------------------------------------- AUDIENCE -- */}
+      <section
+        id="audience"
+        className="relative scroll-mt-20 border-t border-line bg-page py-20 lg:py-28"
+      >
+        <BackgroundGlow variant="light" />
+
+        <motion.div
+          className="relative mx-auto max-w-7xl px-5 lg:px-8"
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.16 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <AudienceShowcase
+            businessPerks={BUSINESS_PERKS}
+            customerPerks={CUSTOMER_PERKS}
+          />
+        </motion.div>
       </section>
 
-      {/* -------------------------------------------------------------- faq -- */}
-      <section id="faq" className="scroll-mt-20 py-16 lg:py-24">
+      {/* -------------------------------------------------------------- FAQ -- */}
+      <section id="faq" className="relative scroll-mt-20 border-t border-line bg-white py-20 lg:py-28">
         <div className="mx-auto max-w-3xl px-5 lg:px-8">
-          <div className="text-center">
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Questions</span>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-ink md:text-4xl">Before you start</h2>
-          </div>
-          <div className="mt-10 grid gap-3">
-            {FAQ.map((item) => (
-              <details
-                key={item.q}
-                className="group rounded-card border border-line bg-white px-5 py-4 shadow-card [&_summary::-webkit-details-marker]:hidden"
-              >
-                <summary className="flex cursor-pointer items-center justify-between gap-4 text-base font-bold text-ink">
-                  {item.q}
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface text-muted transition group-open:rotate-45">
-                    +
-                  </span>
-                </summary>
-                <p className="mt-3 text-sm leading-7 text-muted">{item.a}</p>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* --------------------------------------------------------- final CTA -- */}
-      <section className="px-5 pb-20 lg:px-8">
-        <div className="mx-auto max-w-7xl overflow-hidden rounded-card bg-ai-card px-6 py-14 text-center shadow-lift lg:px-16">
-          <h2 className="text-3xl font-black tracking-tight text-white md:text-4xl">
-            Put your business online today
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-base leading-7 text-white/70">
-            Create your storefront on the free plan and see how it feels before you pay anything.
-          </p>
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link
-              to="/register"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3.5 text-base font-bold text-ink transition hover:bg-white/90"
-            >
-              Start free
-              <ArrowRight size={18} />
-            </Link>
-            <Link
-              to="/customer/marketplace"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-3.5 text-base font-bold text-white transition hover:bg-white/10"
-            >
-              See a live storefront
-            </Link>
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-
-function PerkCard({ icon: Icon, tone, eyebrow, title, perks, cta, secondary, highlight = false }) {
-  return (
-    <article
-      className={`rounded-card border bg-white p-7 shadow-card ${
-        highlight ? "border-brand-200 ring-1 ring-brand-200" : "border-line"
-      }`}
-    >
-      <span className={`grid h-12 w-12 place-items-center rounded-xl ${TILE[tone]}`}>
-        <Icon size={22} strokeWidth={2.1} />
-      </span>
-      <div className="mt-4 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">{eyebrow}</div>
-      <h3 className="mt-1.5 text-2xl font-black tracking-tight text-ink">{title}</h3>
-
-      <ul className="mt-5 grid gap-2.5">
-        {perks.map((p) => (
-          <li key={p} className="flex items-start gap-2.5 text-sm leading-6 text-muted">
-            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-blue-50 text-blue-600">
-              <Check size={12} strokeWidth={3.5} />
+          <motion.div
+            className="text-center"
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.45 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            <span className="inline-block rounded-full bg-blue-50 px-3.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-brand">
+              Questions
             </span>
-            {p}
-          </li>
-        ))}
-      </ul>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-ink md:text-4xl">
+              Before you start
+            </h2>
+          </motion.div>
 
-      <div className="mt-7 flex flex-col gap-2 sm:flex-row">
-        <Link to={cta.to} className="ui-btn-primary">
-          {cta.label}
-          <ArrowRight size={16} />
-        </Link>
-        <Link to={secondary.to} className="ui-btn-secondary">
-          {secondary.label}
-        </Link>
-      </div>
-    </article>
+          <div className="mt-12">
+            <FaqAccordion items={FAQ} />
+          </div>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------------- FINAL CTA -- */}
+      <section className="relative px-5 pb-24 pt-4 lg:px-8">
+        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl bg-gradient-to-br from-[#071329] via-[#091b36] to-[#0d284f] px-7 py-16 text-center text-white shadow-2xl lg:px-20 lg:py-20 border border-white/15">
+          {/* Subtle Glow Overlay */}
+          <div className="ai-glow-animate pointer-events-none absolute -top-32 left-1/2 h-[350px] w-[600px] -translate-x-1/2 rounded-full bg-blue-600/30 blur-[120px]" />
+          <div className="ai-grid-bg pointer-events-none absolute inset-0 opacity-50" />
+
+          <div className="relative z-10 mx-auto max-w-3xl">
+            <h2 className="text-3xl font-black tracking-tight text-white md:text-4xl lg:text-5xl">
+              Put your business online today
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-base leading-8 text-slate-300 md:text-lg">
+              Create your storefront on the free plan and see how it feels before you pay anything.
+            </p>
+
+            <div className="mt-9 flex flex-col justify-center gap-3.5 sm:flex-row sm:items-center">
+              <Link
+                to="/register"
+                className="ui-btn-primary ai-btn-shimmer !bg-white !text-slate-900 !px-8 !py-4 !text-base font-extrabold shadow-xl hover:!bg-slate-100"
+              >
+                Start free
+                <ArrowRight size={18} className="text-slate-900" />
+              </Link>
+              <Link
+                to="/customer/marketplace"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-8 py-4 text-base font-bold text-white backdrop-blur-xl transition-all hover:bg-white/20"
+              >
+                See a live storefront
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

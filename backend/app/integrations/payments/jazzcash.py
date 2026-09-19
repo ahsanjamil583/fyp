@@ -113,6 +113,9 @@ def verify_callback(payload: dict[str, str], integrity_salt: str = "") -> dict:
 
     return {
         "signatureValid": signature_valid,
+        # The HMAC is computed over every pp_ field including pp_ResponseCode, so a
+        # verified signature really does attest to the outcome and not just the request.
+        "outcomeSigned": True,
         "paid": paid,
         "txnRef": str(payload.get("pp_TxnRefNo") or ""),
         "amount": amount,

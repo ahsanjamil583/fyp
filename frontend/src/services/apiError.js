@@ -12,6 +12,16 @@ export function getApiErrorMessage(error, fallback = "Request failed.") {
     }
   }
 
+  // Some endpoints raise a structured detail, e.g. an approval refusal that carries both
+  // a sentence and the list of unmet criteria. Without this branch the sentence was
+  // dropped and the user saw only the generic fallback.
+  if (data?.detail && typeof data.detail === "object") {
+    const message = data.detail.message || data.detail.msg || data.detail.error;
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+  }
+
   if (typeof data?.message === "string" && data.message.trim()) {
     return data.message;
   }

@@ -34,7 +34,7 @@ from app.services.customer_service import sync_customer_stats_for_transaction
 from app.services.inventory_service import deduct_transaction_stock, reserve_transaction_stock
 from app.services.localization_service import normalize_optional_email, normalize_optional_pk_phone_or_blank
 from app.services.order_validation_service import normalize_notes
-from app.services.smart_order_service import build_transaction_line
+from app.services.smart_order_service import MAX_LINE_QUANTITY, build_transaction_line
 from app.services.transaction_number_service import generate_transaction_number
 
 CASHIER_SOURCE = "cashier"
@@ -180,6 +180,13 @@ async def _resolve_cashier_lines(tenant_oid: ObjectId, requested_items: list, pe
     for index, requested in enumerate(requested_items):
         item_id = str(getattr(requested, "itemId", "") or "").strip()
         quantity = int(getattr(requested, "quantity", 1) or 1)
+        # A manual line bypasses build_transaction_line entirely, so the cap that path
+        # enforces has to be applied here too rather than silently clamping.
+        if quantity > MAX_LINE_QUANTITY:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Line {index + 1}: quantity cannot be more than {MAX_LINE_QUANTITY}. Split it across more than one line.",
+            )
 
         if not item_id:
             if not permissions.get("canAddCustomItems", True):
@@ -333,8 +340,25 @@ async def create_cashier_order(account: dict, payload) -> dict:
         "updatedAt": now,
     }
     if is_paid and payload.amountReceived is not None:
+        # Clamping change at zero silently recorded a short payment as a full one: the
+        # order became "paid" with a full-amount payment record while the till was down
+        # the difference. Refuse it instead and let the cashier correct the amount.
+        shortfall = _money(pricing["total"] - float(payload.amountReceived))
+        if shortfall > 0.009:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"The amount received ({_money(float(payload.amountReceived)):g}) is less than the order total "
+                    f"({pricing['total']:g}). Take the full amount, or record the order as unpaid."
+                ),
+            )
         transaction["payment"]["changeDue"] = max(0.0, _money(float(payload.amountReceived) - pricing["total"]))
 
+    # No submission claim here, deliberately. A counter till sells the same coffee to
+    # different customers minute after minute, and a fingerprint built from the cashier,
+    # the total and the lines cannot tell that apart from a double-tap. Refusing a real
+    # sale at the counter is a worse failure than the duplicate it would prevent, and the
+    # cashier sees the order appear immediately either way.
     transaction["_id"] = (await db.transactions.insert_one(transaction)).inserted_id
     try:
         # A paid counter sale leaves the shop with the goods, so the stock is gone rather

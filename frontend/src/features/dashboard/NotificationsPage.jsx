@@ -8,6 +8,8 @@ import {
   markBusinessNotificationRead,
   refreshBusinessStockAlerts,
 } from "../../services/notificationApi.js";
+import { OrderMessageSettings } from "./OrderMessageSettings.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function NotificationsPage() {
   const { selectedTenant, isLoadingTenants } = useTenant();
@@ -46,7 +48,7 @@ export function NotificationsPage() {
       setNotifications(result.items || []);
       setMeta(result.meta || {});
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load business notifications.");
+      setError(getApiErrorMessage(requestError, "Unable to load business notifications."));
     } finally {
       setIsLoading(false);
     }
@@ -60,7 +62,7 @@ export function NotificationsPage() {
       await markBusinessNotificationRead(selectedTenant.id, notificationId);
       await refreshNotifications();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to update notification.");
+      setError(getApiErrorMessage(requestError, "Unable to update notification."));
     }
   }
 
@@ -73,7 +75,7 @@ export function NotificationsPage() {
       setMessage(`${result.updatedCount || 0} notifications marked as read.`);
       await refreshNotifications();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to mark all notifications as read.");
+      setError(getApiErrorMessage(requestError, "Unable to mark all notifications as read."));
     }
   }
 
@@ -87,7 +89,7 @@ export function NotificationsPage() {
       setMessage(`Stock alerts refreshed. ${result.activeLowStockAlerts || 0} active, ${result.clearedAlerts || 0} cleared.`);
       await refreshNotifications();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to refresh stock alerts.");
+      setError(getApiErrorMessage(requestError, "Unable to refresh stock alerts."));
     } finally {
       setIsRefreshingStock(false);
     }
@@ -102,7 +104,12 @@ export function NotificationsPage() {
   }
 
   if (!notificationsEnabled) {
-    return <section className="text-sm text-muted">Enable the notifications module to review business alerts.</section>;
+    return (
+      <section className="space-y-6">
+        <div className="text-sm text-muted">Enable the notifications module to review business alerts.</div>
+        <OrderMessageSettings tenantId={selectedTenant.id} />
+      </section>
+    );
   }
 
   const filters = meta.filters || {};
@@ -194,6 +201,8 @@ export function NotificationsPage() {
           <div className="rounded-xl border border-dashed border-line bg-surface p-6 text-sm text-muted">No business alerts matched your filters.</div>
         ) : null}
       </div>
+
+      <OrderMessageSettings tenantId={selectedTenant.id} />
     </section>
   );
 }

@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useTenant } from "../../context/TenantContext.jsx";
-import { applyLaunchProfile, finalizeLaunch, getLaunchStatus } from "../../services/onboardingApi.js";
+import { finalizeLaunch, getLaunchStatus } from "../../services/onboardingApi.js";
 import { formatApiError } from "../../utils/apiErrors.js";
-import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 function StatusPill({ status }) {
   const className =
@@ -65,7 +65,7 @@ export function LaunchWizardPage() {
       const data = await getLaunchStatus(selectedTenant.id);
       setStatus(data);
     } catch (err) {
-      setError(formatApiError(err.response?.data?.detail, "Unable to load launch wizard."));
+      setError(getApiErrorMessage(err, "Unable to load launch wizard."));
     } finally {
       setLoading(false);
     }
@@ -88,26 +88,7 @@ export function LaunchWizardPage() {
       if (latest) selectTenant(latest);
       setMessage(data.finalized?.publishError ? `Launch saved, but publish needs attention: ${formatApiError(data.finalized.publishError.detail)}` : "Launch finalized and submitted for admin website review.");
     } catch (err) {
-      setError(formatApiError(err.response?.data?.detail, "Unable to finalize launch."));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleProfile(profileCode, profile) {
-    if (!selectedTenant?.id) return;
-    setLoading(true);
-    setMessage("");
-    setError("");
-    try {
-      const data = await applyLaunchProfile(selectedTenant.id, { profileCode, autoUpgradePlan: true });
-      setStatus(data);
-      const tenants = await refreshTenants();
-      const latest = tenants.find((tenant) => tenant.id === selectedTenant.id);
-      if (latest) selectTenant(latest);
-      setMessage(`${profile.name} setup applied.`);
-    } catch (err) {
-      setError(formatApiError(err.response?.data?.detail, "Unable to apply launch package."));
+      setError(getApiErrorMessage(err, "Unable to finalize launch."));
     } finally {
       setLoading(false);
     }
@@ -125,7 +106,6 @@ export function LaunchWizardPage() {
 
   const summary = status?.summary || {};
   const checks = status?.checks || [];
-  const profiles = Object.entries(status?.profiles || {});
 
   return (
     <div className="space-y-6">
@@ -171,41 +151,6 @@ export function LaunchWizardPage() {
 
       {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{message}</div> : null}
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-
-      {profiles.length ? (
-        <div className="grid gap-4 lg:grid-cols-3">
-          {profiles.map(([code, profile]) => {
-            const selected = summary.profileCode === code;
-            return (
-              <article key={code} className={selected ? "rounded-xl border border-brand bg-brand-50 p-5 shadow-card" : "rounded-xl border border-line bg-white p-5 shadow-card"}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <SectionTitle>{profile.name}</SectionTitle>
-                    <p className="mt-2 text-sm leading-6 text-muted">{profile.description}</p>
-                  </div>
-                  <span className="rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700 ring-1 ring-green-200">
-                    {profile.priceLabel || "Free"}
-                  </span>
-                </div>
-                <div className="mt-4 text-sm font-semibold text-ink">Plan: {profile.targetPlanDisplayName || profile.targetPlanName}</div>
-                <div className="mt-3 space-y-1 text-sm text-muted">
-                  {(profile.features || []).map((feature) => (
-                    <div key={feature}>- {feature}</div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleProfile(code, profile)}
-                  disabled={loading}
-                  className="mt-4 w-full rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
-                >
-                  {selected ? "Reapply setup" : "Apply setup"}
-                </button>
-              </article>
-            );
-          })}
-        </div>
-      ) : null}
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">

@@ -12,6 +12,13 @@ class SmsSendError(Exception):
     """Raised when an SMS provider cannot deliver an outbound message."""
 
 
+def _redact_if_otp(message_text: str, raw_context: dict | None) -> str:
+    """Strip the code from an OTP message before it is written to the log."""
+    if str((raw_context or {}).get("source") or "").lower() == "otp":
+        return "[OTP code redacted]"
+    return message_text
+
+
 def _normalize_provider(provider: str | None) -> str:
     normalized = str(provider or settings.sms_provider or "mock").strip().lower()
     return normalized if normalized in {"mock", "http"} else "mock"
@@ -40,7 +47,10 @@ async def send_sms_text(
         "provider": normalized_provider,
         "direction": "outbound",
         "toPhone": to_phone,
-        "messageText": message_text[:600],
+        # An OTP body contains the code itself. Storing it defeats the point of keeping
+        # only a hash in otp_challenges, so the body is redacted for OTP sends while the
+        # log row (recipient, provider, status) is still kept for support.
+        "messageText": _redact_if_otp(message_text, raw_context)[:600],
         "deliveryStatus": "queued",
         "rawContext": raw_context or {},
         "createdAt": now,

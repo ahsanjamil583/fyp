@@ -6,9 +6,9 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../context/AuthContext.jsx";
-import { getApiErrorMessage } from "../../services/apiError.js";
 import { registerBusinessWithEmail, requestBusinessEmailOtp, verifyBusinessEmailOtp } from "../../services/authApi.js";
 import { AuthAlert, AuthField, AuthFooterLinks, AuthLayout, AuthStepper, AuthSubmit } from "./AuthLayout.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const schema = Joi.object({
   email: Joi.string().email({ tlds: false }).required().label("Email"),

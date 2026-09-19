@@ -1,9 +1,13 @@
+import logging
 import secrets
 from datetime import datetime, timezone
 
 from bson import ObjectId
 from fastapi import HTTPException, status
+from pymongo import ReturnDocument
 
+from app.ai.agents.actions import checkout_readiness
+from app.ai.agents.basket import resolve_basket
 from app.ai.agents.orchestrator_agent import run_customer_agent
 from app.ai.agents.tools import detect_language_mode  # re-exported: single source of truth for language detection
 from app.core.module_guard import ensure_tenant_ai_budget, ensure_tenant_module_enabled, ensure_tenant_module_usage_available
@@ -13,7 +17,9 @@ from app.db.mongodb import get_database
 from app.services.customer_portal_common_service import get_customer_profile_and_user, get_marketplace_tenant_or_404
 from app.services.payment_service import get_customer_payment_options_for_tenant
 
-__all__ = ["detect_language_mode", "save_message", "load_conversation_messages", "build_ai_reply", "get_customer_chat_state", "send_customer_chat_message", "clear_customer_conversation_draft", "get_public_chat_state", "send_public_chat_message", "list_owner_conversations", "get_owner_conversation_detail"]
+logger = logging.getLogger(__name__)
+
+__all__ = ["detect_language_mode", "save_message", "load_conversation_messages", "build_ai_reply", "build_ai_turn", "get_customer_chat_state", "send_customer_chat_message", "clear_customer_conversation_draft", "get_public_chat_state", "send_public_chat_message", "list_owner_conversations", "get_owner_conversation_detail"]
 
 
 async def _serialize_chat_tenant(tenant: dict) -> dict:
@@ -166,15 +172,12 @@ async def get_public_chat_tenant_or_404(slug: str) -> dict:
 
 
 async def build_ai_reply(tenant: dict, user_message: str, recent_messages: list[dict], channel: str = "customer_portal") -> tuple[str, dict, list[dict], list[dict], dict]:
-    """Build an AI reply through the Phase 23 agent tool layer.
+    """Build an AI reply through the agent tool layer.
 
-    The return shape stays compatible with existing public chat, customer
-    portal chat, and WhatsApp code while the implementation now runs a
-    real tool/orchestrator pipeline instead of keeping all steps hidden in
-    this service.
+    The five-value return shape is kept for callers that only want a reply. Anything
+    that also needs the basket calls :func:`build_ai_turn` instead.
     """
-
-    result = await run_customer_agent(tenant, user_message, recent_messages, channel=channel)
+    result = await build_ai_turn(tenant, user_message, recent_messages, channel=channel)
     return (
         result["reply"],
         result["draftOrder"],
@@ -184,6 +187,149 @@ async def build_ai_reply(tenant: dict, user_message: str, recent_messages: list[
     )
 
 
+async def _claim_pending_basket_confirmation(conversation: dict | None) -> dict:
+    """Take the outstanding cart proposal, so that only one turn can act on it.
+
+    Reading it and writing it back at the end of the turn is check-then-act, and this is
+    the one piece of conversation state a "yes" turns into a real cart change. Two
+    requests arriving together - a double-tap, a client retry, a WhatsApp webhook
+    redelivery - both read the same proposal and both applied it, so one "shall I add 2 x
+    Zinger Burger?" produced four. A turn that raised after the customer message was
+    saved left the proposal armed, and the retry applied it a second time.
+
+    So it is claimed the way `pendingOrderDraft` already is: whoever wins the atomic
+    update owns it, everyone else sees nothing outstanding and simply re-reads the
+    message. The turn writes the new state back when it finishes, which is also what
+    restores a proposal that is being carried rather than answered.
+    """
+    conversation_id = (conversation or {}).get("_id")
+    if not conversation_id:
+        return {}
+    stored = (conversation or {}).get("pendingBasketConfirmation") or {}
+    if not stored.get("actions"):
+        # Nothing to race over. `awaitingDetails` is advisory and read-only here.
+        return stored
+    db = get_database()
+    claimed = await db.conversations.find_one_and_update(
+        {"_id": conversation_id, "pendingBasketConfirmation.actions.0": {"$exists": True}},
+        {"$set": {"pendingBasketConfirmation": {"awaitingDetails": stored.get("awaitingDetails") or []}}},
+        return_document=ReturnDocument.BEFORE,
+    )
+    if not claimed:
+        # Another request got there first.
+        return {"awaitingDetails": stored.get("awaitingDetails") or []}
+    return claimed.get("pendingBasketConfirmation") or {}
+
+
+async def _restore_pending_basket_confirmation(conversation: dict | None, pending: dict) -> None:
+    """Undo a claim whose turn never finished.
+
+    Only restores what was actually claimed, and only over a slot nothing else has taken
+    in the meantime, so a concurrent turn that legitimately stored a new proposal wins.
+    """
+    conversation_id = (conversation or {}).get("_id")
+    if not conversation_id or not (pending or {}).get("actions"):
+        return
+    try:
+        await get_database().conversations.update_one(
+            {"_id": conversation_id, "pendingBasketConfirmation.actions.0": {"$exists": False}},
+            {"$set": {"pendingBasketConfirmation": pending}},
+        )
+    except Exception:
+        logger.exception("Could not restore the pending basket confirmation after a failed turn.")
+
+
+async def build_ai_turn(
+    tenant: dict,
+    user_message: str,
+    recent_messages: list[dict],
+    *,
+    channel: str = "customer_portal",
+    customer_user: dict | None = None,
+    conversation: dict | None = None,
+    phone: str = "",
+) -> dict:
+    """Run one turn, with a basket when this conversation can have one.
+
+    Which basket - the customer's real cart or a draft on the conversation - is decided
+    by ``resolve_basket`` from the identity available on this channel, never by the
+    caller. An owner preview has neither, and simply runs without a basket.
+    """
+    basket = await resolve_basket(
+        tenant,
+        channel=channel,
+        customer_user=customer_user,
+        conversation_id=(conversation or {}).get("_id"),
+        phone=phone,
+    )
+    pending = await _claim_pending_basket_confirmation(conversation)
+    outcome: dict = {}
+    try:
+        return await run_customer_agent(
+            tenant,
+            user_message,
+            recent_messages,
+            channel=channel,
+            basket=basket,
+            pending_confirmation=pending,
+            outcome=outcome,
+        )
+    except Exception:
+        # The claim is a lock, not a consumption. If the turn dies the customer gets no
+        # reply, and destroying their outstanding question as well would mean their "yes"
+        # vanished with nothing to show for it: the transcript keeps the message, the
+        # retry finds nothing to answer, and they are never told. Put it back.
+        #
+        # UNLESS the cart was already written. The turn does several more things after
+        # applying a confirmed proposal, and any of them can raise; restoring the proposal
+        # then re-arms an action that has already happened, and the retry applies it a
+        # second time. That is the double-apply this claim exists to prevent, so a turn
+        # that got as far as the cart keeps its claim consumed.
+        if not outcome.get("basketApplied"):
+            await _restore_pending_basket_confirmation(conversation, pending)
+        raise
+
+
+async def basket_snapshot(
+    tenant: dict,
+    *,
+    channel: str,
+    customer_user: dict | None = None,
+    conversation: dict | None = None,
+    phone: str = "",
+) -> dict:
+    """Read the basket without running the agent.
+
+    Used by the GET chat endpoints, which restore a conversation rather than advancing
+    it, so the panel shows the current basket on page load.
+    """
+    basket = await resolve_basket(
+        tenant,
+        channel=channel,
+        customer_user=customer_user,
+        conversation_id=(conversation or {}).get("_id"),
+        phone=phone,
+    )
+    if basket is None:
+        return {"basket": {}, "checkoutDraft": {}, "checkoutReadiness": {}}
+
+    summary = await basket.summary()
+    draft = await basket.get_checkout_draft()
+    allowed_fulfillment = (
+        ((tenant.get("settings") or {}).get("categoryHints") or {}).get("fulfillment") or {}
+    ).get("allowedTypes") or ["none", "pickup", "delivery"]
+    return {
+        "basket": summary,
+        "checkoutDraft": draft,
+        "checkoutReadiness": checkout_readiness(
+            summary,
+            draft,
+            has_account=bool(basket.identity.customerUserId),
+            allowed_fulfillment_types=allowed_fulfillment,
+        ),
+    }
+
+
 async def get_customer_chat_state(slug: str, current_user: dict) -> dict:
     tenant = await get_marketplace_tenant_or_404(slug)
     if "ai_chat" not in tenant.get("enabledModuleCodes", []):
@@ -191,11 +337,15 @@ async def get_customer_chat_state(slug: str, current_user: dict) -> dict:
 
     conversation = await get_or_create_customer_conversation(tenant, current_user)
     messages = await load_conversation_messages(conversation["_id"])
+    snapshot = await basket_snapshot(
+        tenant, channel="customer_portal", customer_user=current_user, conversation=conversation
+    )
     return {
         "tenant": await _serialize_chat_tenant(tenant),
         "conversation": serialize_document(conversation),
         "messages": messages,
         "draftOrder": serialize_document(conversation.get("pendingOrderDraft")) or {},
+        **snapshot,
     }
 
 
@@ -212,7 +362,19 @@ async def send_customer_chat_message(slug: str, message_text: str, current_user:
     language_mode = detect_language_mode(message_text)
     await save_message(conversation, tenant["_id"], "customer", message_text, intent="customer_chat", confidence=1.0)
     recent_messages = await load_conversation_messages(conversation["_id"])
-    ai_text, draft_order, rag_sources, tool_calls, reply_meta = await build_ai_reply(tenant, message_text, recent_messages, channel="customer_portal")
+    turn = await build_ai_turn(
+        tenant,
+        message_text,
+        recent_messages,
+        channel="customer_portal",
+        customer_user=current_user,
+        conversation=conversation,
+    )
+    ai_text = turn["reply"]
+    draft_order = turn["draftOrder"]
+    rag_sources = turn["ragSources"]
+    tool_calls = turn["toolCalls"]
+    reply_meta = turn["meta"]
 
     now = datetime.now(timezone.utc)
     await db.conversations.update_one(
@@ -221,6 +383,9 @@ async def send_customer_chat_message(slug: str, message_text: str, current_user:
             "$set": {
                 "languageDetected": language_mode,
                 "pendingOrderDraft": draft_order,
+                # An unanswered "shall I clear your cart?" has to survive to the next
+                # message, or "yes" arrives with nothing to attach itself to.
+                "pendingBasketConfirmation": turn.get("pendingConfirmation") or {},
                 "summary": ai_text,
                 "lastIntent": reply_meta["intent"],
                 "lastIntentConfidence": reply_meta["confidence"],
@@ -249,6 +414,9 @@ async def send_customer_chat_message(slug: str, message_text: str, current_user:
         "conversation": serialize_document(conversation),
         "messages": messages,
         "draftOrder": serialize_document(conversation.get("pendingOrderDraft")) or {},
+        "basket": turn.get("basket") or {},
+        "checkoutDraft": turn.get("checkoutDraft") or {},
+        "checkoutReadiness": turn.get("checkoutReadiness") or {},
     }
 
 
@@ -286,6 +454,7 @@ async def get_public_chat_state(slug: str, conversation_id: str | None = None) -
         "conversation": public_conversation_view(conversation),
         "messages": messages,
         "draftOrder": serialize_document(conversation.get("pendingOrderDraft")) or {},
+        **(await basket_snapshot(tenant, channel="website", conversation=conversation)),
     }
 
 
@@ -300,7 +469,18 @@ async def send_public_chat_message(slug: str, message_text: str, conversation_id
     language_mode = detect_language_mode(message_text)
     await save_message(conversation, tenant["_id"], "customer", message_text, intent="public_chat", confidence=1.0)
     recent_messages = await load_conversation_messages(conversation["_id"])
-    ai_text, draft_order, rag_sources, tool_calls, reply_meta = await build_ai_reply(tenant, message_text, recent_messages, channel="website")
+    turn = await build_ai_turn(
+        tenant,
+        message_text,
+        recent_messages,
+        channel="website",
+        conversation=conversation,
+    )
+    ai_text = turn["reply"]
+    draft_order = turn["draftOrder"]
+    rag_sources = turn["ragSources"]
+    tool_calls = turn["toolCalls"]
+    reply_meta = turn["meta"]
     now = datetime.now(timezone.utc)
     await db.conversations.update_one(
         {"_id": conversation["_id"]},
@@ -308,6 +488,9 @@ async def send_public_chat_message(slug: str, message_text: str, conversation_id
             "$set": {
                 "languageDetected": language_mode,
                 "pendingOrderDraft": draft_order,
+                # Without this the website chat forgets that it asked "are you sure?",
+                # so a "yes" re-plans the original message and asks again forever.
+                "pendingBasketConfirmation": turn.get("pendingConfirmation") or {},
                 "summary": ai_text,
                 "lastIntent": reply_meta["intent"],
                 "lastIntentConfidence": reply_meta["confidence"],
@@ -336,6 +519,9 @@ async def send_public_chat_message(slug: str, message_text: str, conversation_id
         "conversation": public_conversation_view(conversation),
         "messages": messages,
         "draftOrder": serialize_document(conversation.get("pendingOrderDraft")) or {},
+        "basket": turn.get("basket") or {},
+        "checkoutDraft": turn.get("checkoutDraft") or {},
+        "checkoutReadiness": turn.get("checkoutReadiness") or {},
     }
 
 

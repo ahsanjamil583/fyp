@@ -8,10 +8,10 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getPublicBusinessCategories } from "../../services/businessCategoryApi.js";
 import { createTenant, publishTenant, unpublishTenant, updateTenant } from "../../services/tenantApi.js";
-import { formatApiError } from "../../utils/apiErrors.js";
 import { languageModeOptions, pakistanProvinces } from "../../utils/localization.js";
 import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const schema = Joi.object({
   name: Joi.string().min(2).required().label("Business name"),
@@ -181,7 +181,7 @@ export function BusinessProfile() {
       setServerMessage(selectedTenant ? "Business profile updated and onboarding completed." : "Business created. Onboarding completed.");
       selectTenant(saved);
     } catch (error) {
-      setServerError(error.response?.data?.detail || "Unable to save business profile.");
+      setServerError(getApiErrorMessage(error, "Unable to save business profile."));
     }
   }
 
@@ -202,7 +202,7 @@ export function BusinessProfile() {
         }
         setServerMessage("Step progress saved.");
       } catch (error) {
-        setServerError(error.response?.data?.detail || "Unable to save onboarding progress.");
+        setServerError(getApiErrorMessage(error, "Unable to save onboarding progress."));
         return;
       }
     }
@@ -229,7 +229,7 @@ export function BusinessProfile() {
       selectTenant(saved);
       setServerMessage(saved.websiteStatus === "pending_review" ? "Website request sent to admin for review." : "Website status updated.");
     } catch (error) {
-      setServerError(formatApiError(error.response?.data?.detail, "Unable to submit website request."));
+      setServerError(getApiErrorMessage(error, "Unable to submit website request."));
     }
   }
 

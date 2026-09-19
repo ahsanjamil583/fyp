@@ -18,7 +18,9 @@ class ItemCategoryUpdateRequest(BaseModel):
 class StockRequest(BaseModel):
     quantity: float = 0
     lowStockThreshold: float = 0
-    reservedQuantity: float = 0
+    # reservedQuantity is deliberately absent. It is live inventory state owned by the
+    # reservation workflow, and accepting it here let an ordinary item edit reset every
+    # outstanding reservation to zero.
 
 
 class ImageMetadataRequest(BaseModel):

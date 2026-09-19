@@ -487,3 +487,162 @@ class MockCredentialFallbackTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StripeSettlementGuardTests(unittest.TestCase):
+    """What Stripe actually has to say before an order is treated as paid."""
+
+    def test_only_payment_status_settles_an_order(self):
+        from app.services.payment_service import stripe_session_is_paid
+
+        self.assertTrue(stripe_session_is_paid({"payment_status": "paid"}))
+        self.assertTrue(stripe_session_is_paid({"payment_status": "no_payment_required"}))
+
+    def test_a_completed_but_unpaid_session_is_not_paid(self):
+        """Stripe sends checkout.session.completed with payment_status "unpaid" for
+        delayed-notification methods; the money may never arrive."""
+        from app.services.payment_service import stripe_session_is_paid
+
+        self.assertFalse(stripe_session_is_paid({"status": "complete", "payment_status": "unpaid"}))
+        self.assertFalse(stripe_session_is_paid({"status": "complete"}))
+        self.assertFalse(stripe_session_is_paid({}))
+        self.assertFalse(stripe_session_is_paid(None))
+
+
+class StripeCurrencyTests(unittest.TestCase):
+    def test_the_order_currency_is_used(self):
+        from unittest.mock import patch
+
+        from app.services import payment_service
+
+        with patch.object(payment_service.settings, "stripe_currency", "PKR"):
+            self.assertEqual(payment_service._stripe_currency_for({"pricing": {"currency": "PKR"}}), "PKR")
+
+    def test_a_mismatch_is_refused_rather_than_charged_in_the_wrong_currency(self):
+        """There are no exchange rates here, so there is no correct number to send."""
+        from unittest.mock import patch
+
+        from app.services import payment_service
+
+        with patch.object(payment_service.settings, "stripe_currency", "PKR"):
+            with self.assertRaises(HTTPException) as caught:
+                payment_service._stripe_currency_for({"pricing": {"currency": "USD"}})
+        self.assertEqual(caught.exception.status_code, 422)
+        self.assertIn("USD", caught.exception.detail)
+        self.assertIn("PKR", caught.exception.detail)
+
+    def test_an_order_with_no_currency_falls_back_to_the_configured_one(self):
+        from unittest.mock import patch
+
+        from app.services import payment_service
+
+        with patch.object(payment_service.settings, "stripe_currency", "PKR"):
+            self.assertEqual(payment_service._stripe_currency_for({"pricing": {}}), "PKR")
+
+
+class StripeWebhookClaimTests(unittest.TestCase):
+    """The dedupe claim must not use upsert against a unique index.
+
+    `eventId` is unique, so an upsert whose filter excludes the existing row makes Mongo
+    attempt an insert and raise DuplicateKeyError instead of returning None. That turned
+    every ordinary Stripe retry into a 500, and Stripe then retried forever.
+    """
+
+    def test_the_claim_does_not_upsert_past_the_unique_index(self):
+        import inspect
+
+        from app.services import payment_service
+
+        source = inspect.getsource(payment_service.process_stripe_webhook)
+        claim = source[source.index("find_one_and_update"):source.index("try:")]
+        self.assertNotIn("upsert=True", claim, "upsert against a unique eventId raises instead of returning None")
+        self.assertIn("DuplicateKeyError", source, "the insert race must be caught and reported as a duplicate")
+        self.assertIn('"duplicate": True', source)
+
+    def test_the_event_id_index_is_still_unique(self):
+        """If this ever stops being unique the two-step claim above is no longer safe."""
+        import inspect
+
+        from app.db import indexes
+
+        source = inspect.getsource(indexes.create_indexes)
+        # Created through _ensure_index now, which raises rather than swallowing a
+        # failed unique build. The property the claim depends on is unchanged.
+        self.assertIn('_ensure_index(db.stripe_webhook_events, "eventId", unique=True)', source)
+
+
+class GatewayCallbackBalanceCapTests(unittest.TestCase):
+    def test_the_gateway_credit_is_capped_at_the_live_balance(self):
+        """The OTP path re-read the balance before crediting; the gateway callback did
+        not, so two attempts opened back to back could each settle the full total."""
+        import inspect
+
+        from app.services import payment_service
+
+        source = inspect.getsource(payment_service.complete_gateway_payment)
+        self.assertIn("_calculate_payment_summary", source)
+        self.assertIn("min(reported_amount", source)
+
+    def test_superseding_covers_the_whole_order_not_one_provider(self):
+        import inspect
+
+        from app.services import payment_service
+
+        source = inspect.getsource(payment_service._supersede_pending_attempts)
+        self.assertIn('"provider": {"$nin": ["", None]}', source)
+
+
+class StripeSettlementProtectionsTests(unittest.TestCase):
+    """The Stripe settle path was the only one of three that never received the claim,
+    the balance cap or the supersede its JazzCash and Easypaisa twins have."""
+
+    def test_the_settlement_is_a_compare_and_set(self):
+        import inspect
+
+        from app.services import payment_service
+
+        source = inspect.getsource(payment_service.mark_stripe_checkout_completed)
+        self.assertIn('"status": "pending_verification"', source)
+        self.assertIn("claimed.modified_count", source)
+
+    def test_the_settlement_is_capped_at_the_live_balance(self):
+        import inspect
+
+        from app.services import payment_service
+
+        source = inspect.getsource(payment_service.mark_stripe_checkout_completed)
+        self.assertIn("_calculate_payment_summary", source)
+        self.assertIn("min(paid_amount", source)
+
+    def test_both_stripe_creation_sites_supersede(self):
+        import inspect
+
+        from app.services import payment_service
+
+        for name in ("create_customer_stripe_checkout_session", "create_public_stripe_checkout_session"):
+            source = inspect.getsource(getattr(payment_service, name))
+            self.assertIn("_supersede_pending_attempts", source, name)
+
+
+class CodBucketTests(unittest.TestCase):
+    def test_cod_records_are_retired_once_cash_arrives(self):
+        """Nothing closed the COD placeholder when the money was collected, so the same
+        order was counted in both the received and the COD totals."""
+        import inspect
+
+        from app.services import payment_service
+
+        self.assertTrue(hasattr(payment_service, "close_cod_records_for_transaction"))
+        # Wired into the one function every settlement path funnels through.
+        sync = inspect.getsource(payment_service._sync_transaction_payment_status)
+        self.assertIn("close_cod_records_for_transaction", sync)
+
+    def test_the_importer_records_a_refund_amount(self):
+        """The guard accepted `refunded` while the amount feeding it stayed 0, so the
+        reconciling call was dead code."""
+        import inspect
+
+        from app.services import order_import_service
+
+        source = inspect.getsource(order_import_service)
+        self.assertIn('paid_amount = total if payment_status in {"paid", "cod", "refunded"}', source)

@@ -37,12 +37,15 @@ async def register_customer(payload) -> dict:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=duplicate_account_detail(existing, normalized_email, normalized_phone))
 
     validate_password_strength(payload.password, normalized_email, normalized_phone, payload.fullName)
-    await verify_email_otp(
+    # Consume the code BEFORE creating anything. Verifying without consuming, inserting,
+    # then consuming left the account behind whenever the consuming check failed, so a
+    # wrong code still created a row that blocked the real owner with a 409.
+    verification = await verify_email_otp(
         email=normalized_email,
         code=payload.code,
         account_type="customer",
         purpose="register",
-        consume=False,
+        consume=True,
     )
 
     user = {
@@ -76,19 +79,16 @@ async def register_customer(payload) -> dict:
         )
     except DuplicateKeyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This email is already registered. Please login.") from exc
-    verification = await verify_email_otp(
-        email=normalized_email,
-        code=payload.code,
-        account_type="customer",
-        purpose="register",
-        consume=True,
-    )
     await sync_registered_customer_records(
         customer_user_id=user["_id"],
         name=user["fullName"],
         phone=user.get("phone", ""),
         email=user.get("email", ""),
         source_tag="customer_portal",
+        # The email was just proved by the registration OTP. The phone was only typed
+        # in, so it must not be used to claim anyone else's guest records.
+        email_verified=True,
+        phone_verified=bool(user.get("isPhoneVerified")),
     )
     data = auth_payload(user)
     data["otp"] = verification
@@ -118,12 +118,22 @@ async def update_customer_profile(user_id: str, payload) -> dict:
         update["phone"] = normalize_optional_pk_phone(payload.phone)
 
     await db.customer_profiles.update_one({"userId": user_id}, {"$set": update})
+    profile_phone = update.get("phone") or user.get("phone", "")
+    # isPhoneVerified refers to the number on the USER record, not to whatever was just
+    # typed into the profile. Passing the new number alongside the old number's flag let
+    # someone verify their own phone once and then claim a stranger's guest records by
+    # typing that stranger's number in. The flag only counts when the two agree.
+    phone_is_verified = bool(user.get("isPhoneVerified")) and profile_phone == user.get("phone", "")
     await sync_registered_customer_records(
         customer_user_id=user["_id"],
         name=user.get("fullName", ""),
-        phone=update.get("phone") or user.get("phone", ""),
+        phone=profile_phone,
         email=user.get("email", ""),
         address=payload.defaultAddress or {},
         source_tag="customer_portal",
+        # A profile save proves nothing about the details typed into it. Only details
+        # this account has actually verified may claim guest records.
+        email_verified=bool(user.get("isEmailVerified")),
+        phone_verified=phone_is_verified,
     )
     return await get_customer_profile(user_id)

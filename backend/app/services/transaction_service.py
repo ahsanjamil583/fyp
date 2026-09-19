@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 import re
 
@@ -10,7 +11,7 @@ from app.services.business_notification_service import create_business_notificat
 from app.services.customer_notification_service import create_customer_notification
 from app.services.customer_service import sync_customer_stats_for_transaction
 from app.services.inventory_service import apply_transaction_inventory_transition, get_inventory_movements_for_transaction, restore_transaction_stock
-from app.services.payment_service import summarize_payment_records_for_transaction
+from app.services.payment_service import summarize_payment_records_for_transaction, write_reconciling_payment_record
 from app.services.transaction_workflow_service import (
     ALLOWED_TRANSACTION_TYPES,
     get_allowed_payment_statuses,
@@ -18,6 +19,8 @@ from app.services.transaction_workflow_service import (
     validate_payment_status,
     validate_transaction_status,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def _ensure_transaction_access(tenant_id: str, user: dict):
@@ -175,6 +178,37 @@ async def update_transaction(tenant_id: str, transaction_id: str, payload, user:
             updated = await apply_transaction_inventory_transition(existing, updated, user.get("_id"))
         if updated and any(entry["field"] == "paymentStatus" and entry["to"] == "refunded" for entry in history_entries):
             updated = await restore_transaction_stock(updated, user.get("_id"))
+        # The owner may set paymentStatus directly. Payment records are what
+        # _calculate_payment_summary reads, so without a matching record the order said
+        # "paid" while the summary said nothing had been received: the balance stayed at
+        # the full total and the order could be collected again, and the first customer
+        # proof upload flipped the status straight back.
+        payment_entry = next((entry for entry in history_entries if entry["field"] == "paymentStatus"), None)
+        if updated and payment_entry and payment_entry["to"] in {"paid", "cod", "refunded"}:
+            # amount=0 means "whatever is still outstanding"; the helper works that out
+            # from the existing records so real payments are not double-counted.
+            #
+            # Best effort: the status change the owner asked for is the primary action
+            # and has already been applied. Failing the whole update because the
+            # reconciling record could not be written would be a worse outcome than the
+            # inconsistency it is there to prevent, so this is logged rather than raised.
+            try:
+                written = await write_reconciling_payment_record(
+                    tenant_oid,
+                    updated,
+                    amount=0,
+                    status_value=payment_entry["to"],
+                    method=str((updated.get("payment") or {}).get("method") or "manual"),
+                    note=f"Marked {payment_entry['to']} by the business.",
+                    actor_user_id=user.get("_id"),
+                )
+                if written:
+                    updated = await db.transactions.find_one({"_id": transaction_oid, "tenantId": tenant_oid}) or updated
+            except Exception:
+                logger.exception(
+                    "Could not write the reconciling payment record for %s.",
+                    updated.get("transactionNumber"),
+                )
     except Exception:
         rollback = {key: existing.get(key) for key in updates if key not in {"workflowOperation", "updatedAt"}}
         await db.transactions.update_one(

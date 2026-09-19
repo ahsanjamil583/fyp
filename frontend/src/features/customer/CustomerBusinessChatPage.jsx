@@ -3,10 +3,12 @@ import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { Bot, CheckCircle2, MessageCircle, ShoppingCart } from "lucide-react";
 
 import { BusinessAiChatExperience, BusinessAiDraftOrderSummary } from "../../components/chat/BusinessAiChatExperience.jsx";
+import { BusinessAiBasketPanel } from "../../components/chat/BusinessAiBasketPanel.jsx";
 import { confirmCustomerDraftTransaction, getCustomerChatState, sendCustomerChatMessage } from "../../services/customerPortalApi.js";
 import { formatTransactionSuccess } from "../../utils/transaction.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
-const emptyReply = { tenant: null, conversation: null, messages: [], draftOrder: {} };
+const emptyReply = { tenant: null, conversation: null, messages: [], draftOrder: {}, basket: {}, checkoutReadiness: {} };
 
 export function CustomerBusinessChatPage() {
   const { tenantSlug } = useParams();
@@ -28,7 +30,7 @@ export function CustomerBusinessChatPage() {
         const data = await getCustomerChatState(tenantSlug);
         setChatState(data);
       } catch (requestError) {
-        setError(requestError.response?.data?.detail || "Unable to load customer chat. Please refresh and try again.");
+        setError(getApiErrorMessage(requestError, "Unable to load customer chat. Please refresh and try again."));
       }
     }
 
@@ -53,7 +55,7 @@ export function CustomerBusinessChatPage() {
       });
       setMessageText("");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Something went wrong while asking the assistant. Please try again.");
+      setError(getApiErrorMessage(requestError, "Something went wrong while asking the assistant. Please try again."));
     } finally {
       setIsSending(false);
     }
@@ -80,7 +82,8 @@ export function CustomerBusinessChatPage() {
         paymentMethod: fulfillmentDraft.paymentMethod || chatState.tenant?.paymentOptions?.defaultMethod || undefined,
         items: chatState.draftOrder.items.map((item) => ({
           itemId: item.itemId,
-          quantity: Number(draftQuantities[item.itemId] || item.quantity || 1),
+          // Clamped like the cart page, for the same reason.
+          quantity: Math.max(1, Math.min(99, Math.floor(Number(draftQuantities[item.itemId] || item.quantity) || 1))),
           selectedVariantIndex: item.selectedVariantIndex ?? null,
           selectedVariantName: item.selectedVariantName || "",
           selectedOptions: item.selectedOptions || {},
@@ -96,7 +99,7 @@ export function CustomerBusinessChatPage() {
       setNotice(`Your order has been confirmed. ${formatTransactionSuccess(order)}`);
       navigate(`/customer/orders/${order.id}`);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Something went wrong while creating your order. Please try again.");
+      setError(getApiErrorMessage(requestError, "Something went wrong while creating your order. Please try again."));
     } finally {
       setIsConfirming(false);
     }
@@ -111,24 +114,48 @@ export function CustomerBusinessChatPage() {
       return undefined;
     }
 
+    // One panel, not two. The basket is the live cart; the draft summary is the older
+    // "AI suggested this" flow. Stacking them put the same item on screen twice with two
+    // different totals. The draft only appears when it has something the basket does
+    // not, and never as an empty shell under an already-empty basket.
+    const hasBasketLines = Boolean((chatState.basket?.lines || []).length);
+    const hasDraftLines = Boolean((chatState.draftOrder?.items || []).length);
+
     setCustomerSidebarPanel(
-      <BusinessAiDraftOrderSummary
-        business={business}
-        compact
-        showEmpty
-        draftOrder={chatState.draftOrder || {}}
-        draftQuantities={draftQuantities}
-        fulfillmentDraft={fulfillmentDraft}
-        isConfirming={isConfirming}
-        onConfirmDraft={confirmDraft}
-        setDraftQuantities={setDraftQuantities}
-        setFulfillmentDraft={setFulfillmentDraft}
-        setMessageText={setMessageText}
-      />
+      <div className="space-y-3">
+        <BusinessAiBasketPanel
+          basket={chatState.basket || {}}
+          compact
+          readiness={chatState.checkoutReadiness || {}}
+        />
+        {!hasBasketLines && hasDraftLines ? (
+          <BusinessAiDraftOrderSummary
+            business={business}
+            compact
+            draftOrder={chatState.draftOrder || {}}
+            draftQuantities={draftQuantities}
+            fulfillmentDraft={fulfillmentDraft}
+            isConfirming={isConfirming}
+            onConfirmDraft={confirmDraft}
+            setDraftQuantities={setDraftQuantities}
+            setFulfillmentDraft={setFulfillmentDraft}
+            setMessageText={setMessageText}
+          />
+        ) : null}
+      </div>
     );
 
     return () => setCustomerSidebarPanel(null);
-  }, [business, chatState.draftOrder, draftQuantities, fulfillmentDraft, isConfirming, setCustomerSidebarPanel]);
+  }, [
+    business,
+    chatState.basket,
+    chatState.checkoutReadiness,
+    chatState.draftOrder,
+    draftQuantities,
+    fulfillmentDraft,
+    isConfirming,
+    setCustomerSidebarPanel,
+  ]);
 
   if (error && !business) {
     return (

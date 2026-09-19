@@ -7,6 +7,7 @@ import { useTenant } from "../../context/TenantContext.jsx";
 import { getCustomFields } from "../../services/customFieldApi.js";
 import { getItem, resolveUploadUrl, uploadItemImage } from "../../services/itemApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function ItemDetailPage() {
   const { itemId } = useParams();
@@ -35,7 +36,7 @@ export function ItemDetailPage() {
       setItem(itemData);
       setFields(fieldData.filter((field) => field.isActive));
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load item.");
+      setError(getApiErrorMessage(requestError, "Unable to load item."));
     } finally {
       setIsLoading(false);
     }
@@ -51,7 +52,7 @@ export function ItemDetailPage() {
       setItem(updated);
       setMessage("Image uploaded.");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to upload image.");
+      setError(getApiErrorMessage(requestError, "Unable to upload image."));
     }
   }
 

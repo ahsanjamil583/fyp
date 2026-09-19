@@ -6,6 +6,7 @@ import { useTenant } from "../../context/TenantContext.jsx";
 import { importItems } from "../../services/itemApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function ItemImportPage() {
   const { selectedTenant } = useTenant();
@@ -25,7 +26,7 @@ export function ItemImportPage() {
       const data = await importItems(selectedTenant.id, file);
       setResult(data);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to import items.");
+      setError(getApiErrorMessage(requestError, "Unable to import items."));
     } finally {
       setIsImporting(false);
     }

@@ -5,10 +5,10 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 
-import { getApiErrorMessage } from "../../services/apiError.js";
 import { requestBusinessEmailPasswordResetOtp, resetBusinessPasswordWithEmailOtp } from "../../services/authApi.js";
 import { requestCustomerEmailPasswordResetOtp, resetCustomerPasswordWithEmailOtp } from "../../services/customerAuthApi.js";
 import { AuthAlert, AuthField, AuthLayout, AuthSubmit } from "./AuthLayout.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const emailSchema = Joi.object({
   email: Joi.string().email({ tlds: false }).required().label("Email"),

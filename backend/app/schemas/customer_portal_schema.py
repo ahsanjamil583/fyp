@@ -1,10 +1,22 @@
 from pydantic import BaseModel, ConfigDict, Field
+from app.services.smart_order_service import MAX_LINE_QUANTITY  # one definition of the per-line cap
 
 
 class CartItemCreateRequest(BaseModel):
+    """Add one catalog line to the cart.
+
+    The variant fields mirror the ones the order builder already reads back out of the
+    cart. Without them a customer who picked "Blue / Large" had that choice silently
+    resolved to the default variant at checkout.
+    """
+
     tenantId: str
     itemId: str
-    quantity: int = Field(default=1, ge=1, le=99)
+    quantity: int = Field(default=1, ge=1, le=MAX_LINE_QUANTITY)
+    selectedVariantIndex: int | None = None
+    selectedVariantName: str = Field(default="", max_length=120)
+    selectedOptions: dict = Field(default_factory=dict)
+    variantSku: str = Field(default="", max_length=80)
 
 
 class FavoriteItemRequest(BaseModel):
@@ -13,7 +25,7 @@ class FavoriteItemRequest(BaseModel):
 
 
 class CartItemUpdateRequest(BaseModel):
-    quantity: int = Field(ge=1, le=99)
+    quantity: int = Field(ge=1, le=MAX_LINE_QUANTITY)
 
 
 class CustomerOrderCreateRequest(BaseModel):

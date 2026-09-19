@@ -38,6 +38,8 @@ async def seed_default_admin() -> None:
         {
             "fullName": settings.default_admin_full_name,
             "email": email,
+            # The guard above refuses to seed unless every value is set, so this is
+            # never the empty string that the unique-sparse users.phone index rejects.
             "phone": settings.default_admin_phone,
             "passwordHash": hash_password(settings.default_admin_password),
             "accountType": "business_owner",

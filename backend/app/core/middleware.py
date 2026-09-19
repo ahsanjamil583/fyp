@@ -38,6 +38,25 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+def _resolve_client_ip(request: Request) -> str:
+    """The address the rate limiter should count against.
+
+    Behind a load balancer every request arrives from the proxy, so keying on the socket
+    peer puts all users in one bucket. X-Forwarded-For carries the real client, but it
+    is caller-supplied and trivially spoofed, so it is only believed when the immediate
+    peer is a proxy the operator has explicitly listed in TRUSTED_PROXY_IPS.
+    """
+    peer = request.client.host if request.client else ""
+    trusted = settings.trusted_proxy_ips or []
+    if trusted and (("*" in trusted) or (peer in trusted)):
+        forwarded = request.headers.get("x-forwarded-for", "")
+        # Left-most entry is the original client; the rest are intermediate proxies.
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return first
+    return peer or "unknown"
+
+
 class SimpleRateLimitMiddleware(BaseHTTPMiddleware):
     """Applies the per-route budgets declared in ``app.core.rate_limit``.
 
@@ -47,11 +66,13 @@ class SimpleRateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        if not settings.rate_limit_enabled or "/health" in path:
+        # A substring test also exempted every tenant whose slug begins with "health",
+        # for example /public/businesses/health-clinic/chat/messages.
+        if not settings.rate_limit_enabled or path.startswith(f"{settings.api_v1_prefix}/health"):
             return await call_next(request)
 
         rule = resolve_rule(request.method, path)
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = _resolve_client_ip(request)
         allowed, retry_after = await check_rate_limit(rule, client_ip)
 
         if not allowed:

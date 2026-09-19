@@ -5,6 +5,7 @@ import { useTenant } from "../../context/TenantContext.jsx";
 import { getUserFacingSourceTitles, humanizeInternalName, isDebugMode } from "../../utils/displaySafety.js";
 import { getAgentTools, previewAgentRun } from "../../services/agentApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 function ToolEventCard({ event }) {
   return (
@@ -52,7 +53,7 @@ export function AgentToolsPage() {
       const data = await getAgentTools(selectedTenant.id);
       setCatalog(data);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load agent tool catalog.");
+      setError(getApiErrorMessage(requestError, "Unable to load agent tool catalog."));
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +76,7 @@ export function AgentToolsPage() {
       setPreview(data);
       setNotice("Agent preview completed. This did not save a customer message or place an order.");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to run agent preview.");
+      setError(getApiErrorMessage(requestError, "Unable to run agent preview."));
     } finally {
       setIsPreviewing(false);
     }

@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timezone
 
 from bson import ObjectId
@@ -13,6 +14,8 @@ from app.core.security import (
     verify_password,
 )
 from app.services.otp_service import mark_user_phone_verified, optional_email_to_document, verify_email_otp, verify_phone_otp
+from pymongo.errors import DuplicateKeyError
+
 from app.db.mongodb import get_database
 from app.services.localization_service import normalize_optional_email, normalize_pk_phone
 
@@ -85,7 +88,12 @@ async def register_business_owner(payload) -> dict:
     user = {
         "fullName": payload.fullName,
         **optional_email_to_document(normalized_email),
-        "phone": normalized_phone,
+        # users.phone is a unique SPARSE index, which skips a missing field but not an
+        # empty string. normalize_pk_phone returns "" for anything it cannot parse, and
+        # the schema only checks length, so "abcdefg" arrives here as "". Writing that
+        # made the second such registration a duplicate-key 500 - the same defect that
+        # was fixed on the cashier path and missed here.
+        **({"phone": normalized_phone} if normalized_phone else {}),
         "passwordHash": hash_password(payload.password),
         "accountType": "business_owner",
         "globalRole": "user",
@@ -96,7 +104,15 @@ async def register_business_owner(payload) -> dict:
         "createdAt": now,
         "updatedAt": now,
     }
-    user["_id"] = (await db.users.insert_one(user)).inserted_id
+    try:
+        user["_id"] = (await db.users.insert_one(user)).inserted_id
+    except DuplicateKeyError as exc:
+        # The pre-check cannot see a collision the unique index still rejects, so this
+        # answers with a conflict rather than an unhandled 500.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with these details already exists. Please login instead.",
+        ) from exc
     return auth_payload(user)
 
 
@@ -133,10 +149,23 @@ async def register_business_owner_with_email_otp(payload) -> dict:
     }
     if payload.businessName:
         user["pendingBusinessName"] = str(payload.businessName).strip()
-    user["_id"] = (await db.users.insert_one(user)).inserted_id
+    try:
+        user["_id"] = (await db.users.insert_one(user)).inserted_id
+    except DuplicateKeyError as exc:
+        # The pre-check cannot see a collision the unique index still rejects, so this
+        # answers with a conflict rather than an unhandled 500.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with these details already exists. Please login instead.",
+        ) from exc
     data = auth_payload(user)
     data["otp"] = verification
     return data
+
+
+# A real bcrypt hash of a value nobody can log in with, used only to spend the same
+# time on an unknown email as on a known one. Computed once at import.
+_TIMING_EQUALISER_HASH = hash_password(secrets.token_urlsafe(32))
 
 
 async def login_user(email: str, password: str, expected_account_type: str | set[str] | None = None) -> dict:
@@ -145,7 +174,13 @@ async def login_user(email: str, password: str, expected_account_type: str | set
     if not normalized_email:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Email is required for password login.")
     user = await db.users.find_one({"email": normalized_email})
-    if not user or not verify_password(password, user["passwordHash"]):
+    # Verify against a dummy hash when the account does not exist. Skipping bcrypt
+    # entirely made an unknown email answer in about a millisecond and a known one in
+    # about 250, which tells an attacker which addresses are registered.
+    if not user:
+        verify_password(password, _TIMING_EQUALISER_HASH)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
+    if not verify_password(password, user["passwordHash"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
 
     if user["status"] != "active":
@@ -196,6 +231,20 @@ async def change_password(current_user: dict, current_password: str, new_passwor
     )
     updated = await db.users.find_one({"_id": current_user["_id"]})
     return auth_payload(updated)
+
+
+async def revoke_user_sessions(user_id) -> None:
+    """End every session for this user by bumping their session version.
+
+    Logout used to return success without doing anything, so a stolen refresh token
+    stayed valid for its full seven days after the user had "logged out". Access tokens
+    carry the session version and are rejected once it moves.
+    """
+    db = get_database()
+    await db.users.update_one(
+        {"_id": user_id},
+        {"$inc": {"sessionVersion": 1}, "$set": {"updatedAt": datetime.now(timezone.utc)}},
+    )
 
 
 async def refresh_auth_token(refresh_token: str) -> dict:

@@ -171,17 +171,39 @@ async def seed_modules() -> None:
 
     db = get_database()
     now = datetime.now(timezone.utc)
+    # Fields a platform admin can edit through update_admin_module are seeded on insert
+    # only. `$set`ting the whole default document on every boot silently reverted every
+    # admin change to dependencies, availability, usage limits and names on restart.
+    # Mirrors the field list update_admin_module accepts (admin_service). Missing three
+    # of them still let a restart overwrite an admin's edit, which is the same bug.
+    admin_editable = {
+        "name",
+        "description",
+        "category",
+        "dependencies",
+        "permissions",
+        "configSchema",
+        "frontendRoutes",
+        "apiPrefix",
+        "aiTools",
+        "availability",
+        "usageLimits",
+        "isActive",
+    }
     for module in DEFAULT_MODULES:
+        always = {key: value for key, value in module.items() if key not in admin_editable}
+        on_insert = {key: value for key, value in module.items() if key in admin_editable}
         await db.modules.update_one(
             {"code": module["code"]},
             {
-                "$set": {**module, "updatedAt": now},
+                "$set": {**always, "updatedAt": now},
                 "$setOnInsert": {
                     "permissions": [],
                     "configSchema": {},
                     "aiTools": [],
                     "isActive": True,
                     "createdAt": now,
+                    **on_insert,
                 },
             },
             upsert=True,

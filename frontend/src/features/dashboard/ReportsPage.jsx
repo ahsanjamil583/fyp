@@ -12,6 +12,7 @@ import {
 } from "../../services/reportApi.js";
 import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 function todayDateValue() {
   return new Date().toISOString().slice(0, 10);
@@ -66,7 +67,7 @@ export function ReportsPage() {
       const data = await getDailySummaryReport(selectedTenant.id, { date: dateValue });
       setReport(data);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load the daily summary.");
+      setError(getApiErrorMessage(requestError, "Unable to load the daily summary."));
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +83,7 @@ export function ReportsPage() {
       setDeliveryForm({ ...defaultDeliveryForm, ...(settingsData.settings || {}) });
       setDeliveryLogs(logsData.items || []);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load daily report delivery settings.");
+      setError(getApiErrorMessage(requestError, "Unable to load daily report delivery settings."));
     }
   }
 
@@ -96,7 +97,7 @@ export function ReportsPage() {
       setReport(data);
       setMessage(`Daily summary generated for ${summaryDate}.`);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to generate the daily summary.");
+      setError(getApiErrorMessage(requestError, "Unable to generate the daily summary."));
     } finally {
       setIsGenerating(false);
     }
@@ -118,7 +119,7 @@ export function ReportsPage() {
       setMessage("Daily report delivery settings saved.");
       await loadDeliveryWorkspace();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to save delivery settings.");
+      setError(getApiErrorMessage(requestError, "Unable to save delivery settings."));
     } finally {
       setIsSavingDelivery(false);
     }
@@ -140,7 +141,7 @@ export function ReportsPage() {
       setMessage(dryRun ? "Dry-run delivery logged successfully." : `Daily report delivery status: ${data.deliveryStatus}.`);
       await loadDeliveryWorkspace();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to deliver the daily summary.");
+      setError(getApiErrorMessage(requestError, "Unable to deliver the daily summary."));
     } finally {
       setIsDelivering(false);
     }

@@ -26,6 +26,7 @@ import { useTenant } from "../../context/TenantContext.jsx";
 import { getAnalyticsSummary } from "../../services/analyticsApi.js";
 import { formatTransactionType } from "../../utils/transaction.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const STATUS_TONE = {
   paid: "green",
@@ -57,7 +58,7 @@ export function AnalyticsPage() {
         const data = await getAnalyticsSummary(selectedTenant.id);
         setAnalytics(data);
       } catch (requestError) {
-        setError(requestError.response?.data?.detail || "Unable to load analytics.");
+        setError(getApiErrorMessage(requestError, "Unable to load analytics."));
       } finally {
         setIsLoading(false);
       }

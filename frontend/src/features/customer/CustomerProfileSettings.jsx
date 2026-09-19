@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { useCustomer } from "../../context/CustomerContext.jsx";
 import { updateCustomerProfile } from "../../services/customerAuthApi.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function CustomerProfileSettings() {
   const { customer, customerProfile, refreshCustomerMe } = useCustomer();
@@ -36,7 +37,7 @@ export function CustomerProfileSettings() {
       await refreshCustomerMe();
       setMessage("Customer profile updated.");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to update profile.");
+      setError(getApiErrorMessage(requestError, "Unable to update profile."));
     }
   }
 

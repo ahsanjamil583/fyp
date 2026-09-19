@@ -52,7 +52,7 @@ def hash_payment_otp_code(payment_record_id: str, code: str, provider: str) -> s
     not verify against another even if both were minted in the same second.
     """
     message = f"{payment_record_id}:{normalize_payment_otp_code(code)}:{provider}:payment_otp".encode("utf-8")
-    return hmac.new(settings.jwt_secret_key.encode("utf-8"), message, sha256).hexdigest()
+    return hmac.new(settings.signing_key.encode("utf-8"), message, sha256).hexdigest()
 
 
 def verify_payment_otp_code(payment_record_id: str, code: str, provider: str, expected_hash: str) -> bool:

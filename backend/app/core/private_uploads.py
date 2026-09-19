@@ -13,7 +13,7 @@ from app.core.object_ids import serialize_document
 
 
 def _signature(path: str, expires: int) -> str:
-    return hmac.new(settings.jwt_secret_key.encode(), f"proof:{path}:{expires}".encode(), hashlib.sha256).hexdigest()
+    return hmac.new(settings.signing_key.encode(), f"proof:{path}:{expires}".encode(), hashlib.sha256).hexdigest()
 
 
 def payment_record_view(record: dict | None) -> dict | None:
@@ -61,7 +61,10 @@ def customer_payment_result(data: dict) -> dict:
     if isinstance(result.get("transaction"), dict):
         result["transaction"] = customer_order_view(result["transaction"])
     if isinstance(result.get("payment"), dict):
-        result["payment"] = payment_record_view(result["payment"])
-        for field in ("actorUserId", "createdBy", "updatedBy", "verifiedBy", "internalNotes", "providerResponse", "gatewayResponse"):
-            result["payment"].pop(field, None)
+        # The same strip the other two customer-facing serializers use. Keeping a
+        # separate, shorter list here is how ownerDecisionNotes and the verification
+        # actor ids kept reaching the customer after the other two were fixed.
+        from app.services.payment_service import _customer_safe_payment_record
+
+        result["payment"] = _customer_safe_payment_record(result["payment"])
     return result

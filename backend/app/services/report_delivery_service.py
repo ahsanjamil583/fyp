@@ -295,6 +295,15 @@ async def _deliver_channel(*, tenant_oid: ObjectId, tenant: dict, summary: dict,
         if channel == "whatsapp":
             integration = await db.whatsapp_integrations.find_one({"tenantId": tenant_oid, "isConnected": True})
             provider = (integration or {}).get("provider") or settings.whatsapp_provider
+            # Same gate the order-confirmation path uses. `isConnected` alone says a
+            # bridge was once paired, not that one is listening now, so reports were
+            # queued against a dead bridge and logged as delivered.
+            from app.services.whatsapp_service import whatsapp_connection_status
+
+            if whatsapp_connection_status(integration) != "connected":
+                base_log["deliveryStatus"] = "skipped"
+                base_log["error"] = "WhatsApp is not connected for this business."
+                return base_log
             provider_log = await send_whatsapp_text(
                 tenant_id=tenant_oid,
                 conversation_id=None,

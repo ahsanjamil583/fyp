@@ -54,7 +54,6 @@ export function CustomerLayout() {
         <LogOut size={18} className="shrink-0" />
         Logout
       </button>
-      {sidebarPanel ? <div className="pt-2">{sidebarPanel}</div> : null}
     </div>
   );
 
@@ -68,12 +67,16 @@ export function CustomerLayout() {
     </button>
   );
 
+  // The page-supplied panel goes in asideExtra, which sits inside the rail's scrolling
+  // region. In asideFooter it sat below the scroll container, so a tall cart ran off the
+  // bottom of the screen with no way to reach it.
   return (
     <Shell
       title="Customer Portal"
       subtitle="Marketplace, cart, and orders"
       navItems={navItems}
       navSections={navSections}
+      asideExtra={sidebarPanel}
       asideFooter={asideFooter}
       headerActions={headerActions}
       flowSteps={[

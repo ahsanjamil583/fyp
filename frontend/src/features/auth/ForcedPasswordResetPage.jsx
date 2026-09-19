@@ -7,10 +7,10 @@ import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useCustomer } from "../../context/CustomerContext.jsx";
-import { getApiErrorMessage } from "../../services/apiError.js";
 import { changeBusinessPassword } from "../../services/authApi.js";
 import { changeCustomerPassword } from "../../services/customerAuthApi.js";
 import { AuthAlert, AuthField, AuthLayout, AuthSubmit } from "./AuthLayout.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const schema = Joi.object({
   currentPassword: Joi.string().required().label("Current password"),

@@ -1,12 +1,12 @@
 import { AlertTriangle, CheckCircle2, Loader2, Mail, ShieldCheck, Smartphone, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { getApiErrorMessage } from "../../services/apiError.js";
 import {
   resendWalletOtpCheckout,
   startWalletOtpCheckout,
   verifyWalletOtpCheckout,
 } from "../../services/customerPortalApi.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 /**
  * The emailed-code payment step.

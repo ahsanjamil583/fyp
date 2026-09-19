@@ -23,6 +23,7 @@ from app.services.auth_service import (
     change_password,
     login_user,
     refresh_auth_token,
+    revoke_user_sessions,
     register_business_owner,
     register_business_owner_with_email_otp,
     reset_password_with_email_otp,
@@ -42,6 +43,17 @@ async def register(payload: BusinessRegisterRequest):
 
 @router.post("/register/phone")
 async def register_with_phone_otp(payload: PhoneBusinessRegisterRequest):
+    # Check without consuming first: registration can still fail on a duplicate account
+    # or the password policy, and burning the code there forced the user to wait out the
+    # resend cooldown for a new SMS.
+    await verify_phone_otp(
+        phone=payload.phone,
+        code=payload.code,
+        account_type="business_owner",
+        purpose="register",
+        consume=False,
+    )
+    data = await register_business_owner(payload)
     otp = await verify_phone_otp(
         phone=payload.phone,
         code=payload.code,
@@ -49,7 +61,6 @@ async def register_with_phone_otp(payload: PhoneBusinessRegisterRequest):
         purpose="register",
         consume=True,
     )
-    data = await register_business_owner(payload)
     await mark_user_phone_verified(data["user"]["id"], otp["phone"])
     data["user"]["isPhoneVerified"] = True
     data["otp"] = otp
@@ -182,7 +193,13 @@ async def refresh(payload: RefreshTokenRequest):
 
 
 @router.post("/logout")
-async def logout():
+async def logout(current_user: dict = Depends(get_current_user)):
+    """Authenticated, so the session can actually be ended.
+
+    Returning success without revoking anything left a stolen refresh token valid for
+    its full lifetime after the user believed they had logged out.
+    """
+    await revoke_user_sessions(current_user["_id"])
     return success_response("Logged out successfully.")
 
 
@@ -205,6 +222,7 @@ async def request_current_phone_verification(payload: PhoneOtpRequest, current_u
         account_type="business_owner",
         purpose="verify_phone",
         channel=payload.channel,
+        for_user_id=current_user["_id"],
     )
     return success_response("Phone verification OTP sent successfully.", data)
 

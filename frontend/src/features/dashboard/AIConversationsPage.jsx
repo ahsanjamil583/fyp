@@ -4,6 +4,7 @@ import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { formatAnswerSource, formatDisplayValue, getUserFacingSourceTitles, isDebugMode } from "../../utils/displaySafety.js";
 import { getOwnerConversationDetail, getOwnerConversations, getTenantRagStatus, reindexTenantRag } from "../../services/aiConversationApi.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function AIConversationsPage() {
   const { selectedTenant, isLoadingTenants } = useTenant();
@@ -36,7 +37,7 @@ export function AIConversationsPage() {
         const ragData = await getTenantRagStatus(selectedTenant.id);
         setRagStatus(ragData.rag || null);
       } catch (requestError) {
-        setError(requestError.response?.data?.detail || "Unable to load AI conversations.");
+        setError(getApiErrorMessage(requestError, "Unable to load AI conversations."));
       } finally {
         setIsLoading(false);
       }
@@ -55,7 +56,7 @@ export function AIConversationsPage() {
         const data = await getOwnerConversationDetail(selectedTenant.id, selectedConversationId);
         setDetail(data);
       } catch (requestError) {
-        setError(requestError.response?.data?.detail || "Unable to load conversation detail.");
+        setError(getApiErrorMessage(requestError, "Unable to load conversation detail."));
       }
     }
 
@@ -72,7 +73,7 @@ export function AIConversationsPage() {
       setRagStatus(data.rag || null);
       setNotice("RAG reindex completed successfully.");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to reindex tenant knowledge.");
+      setError(getApiErrorMessage(requestError, "Unable to reindex tenant knowledge."));
     } finally {
       setIsReindexing(false);
     }

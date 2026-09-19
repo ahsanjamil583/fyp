@@ -20,6 +20,7 @@ from app.services.rag_index_service import index_tenant_profile_for_rag
 from app.services.rag_vector_service import hybrid_retrieve_knowledge
 from app.services.smart_order_service import get_line_availability
 from app.services.phase32_utils import likely_food_or_unavailable_keywords
+from app.services.smart_order_service import MAX_LINE_QUANTITY  # one definition of the per-line cap
 
 ROMAN_URDU_NUMBER_WORDS = {
     "aik": 1,
@@ -208,16 +209,42 @@ ATTRIBUTE_SYNONYMS = {
 }
 
 SAFETY_BLOCK_HINTS = {
-    "ignore previous", "ignore instructions", "system prompt", "developer message", "admin password", "api key", "secret key",
+    "system prompt", "developer message", "admin password", "api key", "secret key",
     "change price", "free order", "zero price", "bypass payment", "bypass stock", "mark paid", "hack",
 }
+
+# A fixed list of phrases could not survive a single inserted word: "ignore previous
+# instructions" was caught and "ignore ALL previous instructions" was not. These match the
+# SHAPE of an override attempt instead, so the filler between the verb and the noun does
+# not matter.
+SAFETY_BLOCK_PATTERNS = (
+    # ignore / disregard / forget / override ... instructions / prompt / rules / context
+    re.compile(
+        r"\b(?:ignore|disregard|forget|override|bypass|skip|discard)\b[^.!?]{0,40}?"
+        r"\b(?:instruction|instructions|prompt|prompts|rule|rules|context|directive|directives|above|prior|previous|earlier)\b"
+    ),
+    # "you are now ...", "act as ...", "pretend to be ..." - persona overrides
+    re.compile(r"\byou\s+are\s+now\b"),
+    re.compile(r"\b(?:act|behave|respond)\s+as\s+(?:a|an|if)\b"),
+    re.compile(r"\bpretend\s+(?:to\s+be|you)\b"),
+    re.compile(r"\bdeveloper\s+mode\b"),
+    re.compile(r"\bjailbreak\b"),
+    # Fake role or system markers pasted into the message.
+    re.compile(r"(?:^|\s)(?:system|assistant|user)\s*[:\]]"),
+    re.compile(r"\bnew\s+instructions?\b"),
+)
 MEDICAL_ADVICE_HINTS = {"dose", "dosage", "kitni medicine", "kitni tablet", "pregnant", "pregnancy", "blood pressure", "heart", "allergy"}
 
 
 def normalize_message_text(text: str) -> str:
     normalized = str(text or "").lower().strip()
     for old, new in NORMALIZATION_REPLACEMENTS.items():
-        normalized = normalized.replace(old, new)
+        # On word boundaries. A plain substring replace rewrote the inside of ordinary
+        # English words: "hy" -> "hai" turned WHY into "whai", so every guard that looks
+        # for a question word went blind on the most common question there is, and
+        # "mai" -> "main" turned "email" into "emain". Every key in the table is a whole
+        # word or a whole phrase, so nothing legitimate depended on matching mid-word.
+        normalized = re.sub(rf"\b{re.escape(old)}\b", new, normalized)
     normalized = re.sub(r"[^a-z0-9\s]", " ", normalized)
     normalized = re.sub(r"\s+", " ", normalized).strip()
     return normalized
@@ -367,7 +394,7 @@ def extract_numeric_quantity(text: str) -> int | None:
             return ROMAN_URDU_NUMBER_WORDS[token]
     digit_match = re.search(r"\b(\d{1,2})\b", normalize_message_text(text))
     if digit_match:
-        return max(1, min(int(digit_match.group(1)), 99))
+        return max(1, min(int(digit_match.group(1)), MAX_LINE_QUANTITY))
     return None
 
 
@@ -382,7 +409,7 @@ def extract_quantity(message_text: str, item_name: str) -> int:
     for pattern in patterns:
         match = re.search(pattern, normalized_text)
         if match:
-            return max(1, min(int(match.group(1)), 99))
+            return max(1, min(int(match.group(1)), MAX_LINE_QUANTITY))
     return quantity_value or 1
 
 
@@ -635,7 +662,12 @@ def classify_message_intent(message_text: str, matched_items: list[dict[str, Any
 def run_safety_guard(message_text: str, tenant: dict[str, Any]) -> dict[str, Any]:
     lowered = normalize_message_text(message_text)
     category_name = str((tenant.get("categoryConfig") or {}).get("name") or "").lower()
-    prompt_injection = any(hint in lowered for hint in SAFETY_BLOCK_HINTS)
+    # The raw text as well as the normalised form: normalisation strips the punctuation
+    # that markers like "### SYSTEM:" are made of.
+    raw = str(message_text or "").lower()
+    prompt_injection = any(hint in lowered for hint in SAFETY_BLOCK_HINTS) or any(
+        pattern.search(lowered) or pattern.search(raw) for pattern in SAFETY_BLOCK_PATTERNS
+    )
     medical_advice = "pharmacy" in category_name and any(hint in lowered for hint in MEDICAL_ADVICE_HINTS)
     return {
         "allowed": not prompt_injection,

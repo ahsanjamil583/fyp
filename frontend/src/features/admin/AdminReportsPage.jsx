@@ -3,6 +3,7 @@ import { BarChart3, FileText, Globe, SquareStack } from "lucide-react";
 
 import { getAdminReports } from "../../services/adminApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 function planLabel(planCode) {
   return { starter: "Basic", growth: "AI Ordering", scale: "Full Agent" }[planCode] || "Basic";
@@ -29,7 +30,7 @@ export function AdminReportsPage() {
       })
       .catch((requestError) => {
         if (active) {
-          setError(requestError.response?.data?.detail || "Unable to load admin reports.");
+          setError(getApiErrorMessage(requestError, "Unable to load admin reports."));
         }
       })
       .finally(() => {

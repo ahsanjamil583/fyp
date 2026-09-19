@@ -9,6 +9,7 @@ import { WhatsAppAgentCta } from "../../components/whatsapp/WhatsAppAgentCta.jsx
 import { createPublicStripeCheckout, createPublicTransaction, getPublicBusiness, getPublicItems, resolveUploadUrl } from "../../services/publicWebsiteApi.js";
 import { capitalize, formatTransactionLabel, formatTransactionSuccess, transactionTypeOptions } from "../../utils/transaction.js";
 import { buildBusinessHighlights, buildWebsiteTheme, getVisibleSections } from "../public-website/websiteBuilderConfig.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export const emptyPublicRequest = {
   customerName: "",
@@ -41,7 +42,7 @@ export function usePublicBusinessSite(tenantSlug, { limit = 12 } = {}) {
         setItems(itemData.items);
         setMeta(itemData.meta);
       } catch (requestError) {
-        setError(requestError.response?.data?.detail || "Published business not found.");
+        setError(getApiErrorMessage(requestError, "Published business not found."));
       } finally {
         setIsLoading(false);
       }
@@ -51,10 +52,18 @@ export function usePublicBusinessSite(tenantSlug, { limit = 12 } = {}) {
   }, [limit, tenantSlug]);
 
   async function loadItems(params = {}) {
-    const result = await getPublicItems(tenantSlug, { page: 1, limit, ...params });
-    setItems(result.items);
-    setMeta(result.meta);
-    return result;
+    // This really does own the error state now. It did not before, so a failed search on
+    // the public catalog showed nothing at all.
+    try {
+      const result = await getPublicItems(tenantSlug, { page: 1, limit, ...params });
+      setItems(result.items);
+      setMeta(result.meta);
+      setError("");
+      return result;
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to load items for this business."));
+      return null;
+    }
   }
 
   return { business, items, meta, isLoading, error, setError, loadItems };
@@ -439,7 +448,8 @@ export function PublicTransactionSection({ tenantSlug, business = {}, items, the
         customerEmail: order.customerEmail,
         transactionType: order.transactionType,
         paymentMethod: order.paymentMethod || getDefaultPaymentMethod(business.paymentOptions || {}),
-        items: order.itemId ? [{ itemId: order.itemId, quantity: Number(order.quantity || 1) }] : [],
+        // Clamped like the customer pages; the API caps a line at 99 and rejects 0.
+        items: order.itemId ? [{ itemId: order.itemId, quantity: Math.max(1, Math.min(99, Math.floor(Number(order.quantity) || 1))) }] : [],
         fulfillment: {
           type: order.fulfillmentType,
           address: { line1: order.addressLine1, city: order.city },
@@ -457,7 +467,7 @@ export function PublicTransactionSection({ tenantSlug, business = {}, items, the
       setMessage(formatTransactionSuccess({ ...created, transactionType: created.transactionType || activeRequestType }));
       setOrder((current) => ({ ...emptyPublicRequest, itemId: current.itemId || items[0]?.id || "" }));
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to submit request.");
+      setError(getApiErrorMessage(requestError, "Unable to submit request."));
     }
   }
 

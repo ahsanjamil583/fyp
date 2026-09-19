@@ -7,6 +7,7 @@ import { useTenant } from "../../context/TenantContext.jsx";
 import { getCustomFields } from "../../services/customFieldApi.js";
 import { getCustomer } from "../../services/customerApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function CustomerProfilePage() {
   const { customerId } = useParams();
@@ -31,7 +32,7 @@ export function CustomerProfilePage() {
         setCustomer(customerData);
         setFields(fieldData.filter((field) => field.isActive));
       } catch (requestError) {
-        setError(requestError.response?.data?.detail || "Unable to load customer profile.");
+        setError(getApiErrorMessage(requestError, "Unable to load customer profile."));
       } finally {
         setIsLoading(false);
       }

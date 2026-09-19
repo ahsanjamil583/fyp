@@ -252,7 +252,10 @@ class StripeProvider(BasePaymentProvider):
             "payment_intent_data[metadata][tenantId]": context.tenant_id,
             "payment_intent_data[metadata][transactionId]": context.order_id,
             "payment_intent_data[metadata][paymentRecordId]": context.reference,
-            "line_items[0][price_data][currency]": settings.stripe_currency.lower(),
+            # The order's currency, carried on the context, not whatever STRIPE_CURRENCY
+            # happens to be. Hardcoding the setting charged a tenant trading in one
+            # currency as if they traded in another.
+            "line_items[0][price_data][currency]": (context.currency or settings.stripe_currency).lower(),
             "line_items[0][price_data][product_data][name]": f"{context.order_number or 'BizXusAI order'} payment",
             "line_items[0][price_data][unit_amount]": str(max(1, int(round(context.amount * 100)))),
             "line_items[0][quantity]": "1",

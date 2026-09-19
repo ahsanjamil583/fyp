@@ -5,18 +5,37 @@ import { ArrowRight, PackageCheck } from "lucide-react";
 import { PaymentProofBadge, PaymentStatusBadge } from "../../components/payments/PaymentStatusBadge.jsx";
 import { getCustomerTransactions, reorderCustomerTransaction } from "../../services/customerPortalApi.js";
 import { formatTransactionType } from "../../utils/transaction.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function CustomerOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [meta, setMeta] = useState({});
   const [message, setMessage] = useState("");
 
+  const [error, setError] = useState("");
+
   useEffect(() => {
-    getCustomerTransactions({ page: 1, limit: 20 }).then((result) => {
-      setOrders(result.items);
-      setMeta(result.meta);
-    });
+    // A bare .then() rendered the "no orders yet" empty state to a customer who does
+    // have orders, and left an unhandled rejection behind.
+    getCustomerTransactions({ page: 1, limit: 20 })
+      .then((result) => {
+        setOrders(result.items);
+        setMeta(result.meta);
+        setError("");
+      })
+      .catch((requestError) => setError(getApiErrorMessage(requestError, "Unable to load your orders.")));
   }, []);
+
+  async function reorder(order) {
+    setMessage("");
+    setError("");
+    try {
+      const result = await reorderCustomerTransaction(order.id);
+      setMessage(`Items from ${order.transactionNumber} were added to your cart for ${result.tenantSlug}.`);
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "That order could not be added to your cart."));
+    }
+  }
 
   return (
     <section className="space-y-6">
@@ -26,6 +45,7 @@ export function CustomerOrdersPage() {
         <p className="mt-3 text-sm text-muted">{meta.total || 0} orders found. Open an order to pay, upload proof, view receipts, or reorder.</p>
       </div>
       {message ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div> : null}
+      {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       <div className="grid gap-3 lg:hidden">
         {orders.map((order) => (
           <article key={order.id} className="rounded-xl border border-line bg-white p-4 shadow-card">
@@ -54,10 +74,7 @@ export function CustomerOrdersPage() {
               <button
                 type="button"
                 className="ui-btn-secondary !py-2"
-                onClick={async () => {
-                  const result = await reorderCustomerTransaction(order.id);
-                  setMessage(`Items from ${order.transactionNumber} were added to your cart for ${result.tenantSlug}.`);
-                }}
+                onClick={() => reorder(order)}
               >
                 Reorder
               </button>
@@ -101,10 +118,7 @@ export function CustomerOrdersPage() {
                     </Link>
                     <button
                       className="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold text-ink"
-                      onClick={async () => {
-                        const result = await reorderCustomerTransaction(order.id);
-                        setMessage(`Items from ${order.transactionNumber} were added to your cart for ${result.tenantSlug}.`);
-                      }}
+                      onClick={() => reorder(order)}
                     >
                       Reorder
                     </button>
@@ -115,7 +129,14 @@ export function CustomerOrdersPage() {
           </tbody>
         </table>
       </div>
-      {!orders.length ? (
+      {!orders.length && error ? (
+        <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center">
+          <PackageCheck className="mx-auto text-brand" size={30} />
+          <div className="mt-3 font-bold text-ink">We could not load your orders</div>
+          <p className="mt-1 text-sm text-muted">This is a problem reaching the server, not an empty order history.</p>
+        </div>
+      ) : null}
+      {!orders.length && !error ? (
         <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center">
           <PackageCheck className="mx-auto text-brand" size={30} />
           <div className="mt-3 font-bold text-ink">No orders yet</div>

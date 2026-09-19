@@ -5,7 +5,6 @@ import { Link } from "react-router-dom";
 import { Alert, Card, EmptyState, PageHeader, StatCard } from "../../components/ui/index.jsx";
 import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
-import { getApiErrorMessage } from "../../services/apiError.js";
 import {
   createTenantCashier,
   getTenantCashiers,
@@ -15,6 +14,7 @@ import {
   updateTenantCashier,
 } from "../../services/cashierApi.js";
 import { enableTenantModule } from "../../services/moduleApi.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const EMPTY_FORM = {
   fullName: "",

@@ -10,14 +10,17 @@ from urllib.parse import urljoin
 
 import httpx
 from bson import ObjectId
+from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 from fastapi import HTTPException, status
 
 from app.core.config import settings
 from app.integrations.payments import gateways, providers
-from app.integrations.payments.provider_base import FLOW_OTP, PaymentContext, PaymentProviderError
+from app.integrations.payments.provider_base import FLOW_OTP, FLOW_REDIRECT, PaymentContext, PaymentProviderError
 from app.core.module_guard import ensure_tenant_module_enabled
 from app.core.object_ids import parse_object_id, serialize_document
 from app.core.private_uploads import payment_record_view
+from app.core.public_views import customer_order_view
 from app.core.permissions import get_owned_tenant_or_403
 from app.db.mongodb import get_database
 from app.services.business_notification_service import create_business_notification
@@ -304,17 +307,61 @@ def normalize_customer_payment_preference(payment_method: str | None, payment_op
     }
 
 
+# Fields the owner writes for themselves, which must never reach the customer.
+_OWNER_ONLY_RECORD_FIELDS = (
+    "actorUserId",
+    "createdBy",
+    "updatedBy",
+    "verifiedBy",
+    "internalNotes",
+    "providerResponse",
+    "gatewayResponse",
+    "ownerDecisionNotes",
+    # `notes` carries the provider's raw failure text, which is the same account and
+    # parameter detail that was deliberately kept out of the HTTP error body.
+    "notes",
+)
+_OWNER_ONLY_VERIFICATION_FIELDS = (
+    "verifiedByUserId",
+    "rejectedByUserId",
+    "submittedByCustomerUserId",
+    "decisionNotes",
+)
+
+
+def _customer_safe_payment_record(record: dict | None) -> dict | None:
+    """A payment record with the owner's private fields removed.
+
+    Both customer-facing serializers go through this, so a field added to one strip list
+    cannot be forgotten in the other.
+    """
+    view = payment_record_view(record)
+    if not view:
+        return view
+    for key in _OWNER_ONLY_RECORD_FIELDS:
+        view.pop(key, None)
+    verification = view.get("verification")
+    if isinstance(verification, dict):
+        for key in _OWNER_ONLY_VERIFICATION_FIELDS:
+            verification.pop(key, None)
+    return view
+
+
 async def list_customer_payment_records_for_transaction(transaction: dict) -> list[dict[str, Any]]:
     db = get_database()
     cursor = db.payment_records.find({"transactionId": transaction["_id"]}).sort("createdAt", -1)
-    records = [payment_record_view(record) async for record in cursor]
-    for record in records:
-        for key in ("actorUserId", "createdBy", "updatedBy", "verifiedBy", "internalNotes", "providerResponse", "gatewayResponse"):
-            record.pop(key, None)
-    return records
+    return [_customer_safe_payment_record(record) async for record in cursor]
 
 
-async def summarize_payment_records_for_transaction(transaction: dict, db=None) -> dict[str, Any]:
+async def summarize_payment_records_for_transaction(transaction: dict, db=None, *, for_customer: bool = False) -> dict[str, Any]:
+    """Payment-proof summary for one order.
+
+    `for_customer` decides whether `latest` is stripped of the owner's private fields.
+    It defaults to False because most callers here are owner-facing — the transactions
+    list, the order detail and the payments dashboard all render these notes deliberately
+    — and stripping unconditionally quietly removed the owner's own decision notes from
+    their own screens.
+    """
     db = db if db is not None else get_database()
     empty_summary = {
         "latest": None,
@@ -338,7 +385,10 @@ async def summarize_payment_records_for_transaction(transaction: dict, db=None) 
     refunds = [record for record in records if record.get("recordType") == "refund" or record.get("status") == "refunded"]
     return {
         **empty_summary,
-        "latest": payment_record_view(latest) if latest else None,
+        # Stripped only for the customer. Served on their own orders list and order
+        # detail, where it used to return the owner's private decision notes and the
+        # internal actor ids unfiltered.
+        "latest": (_customer_safe_payment_record(latest) if for_customer else payment_record_view(latest)) if latest else None,
         "pendingCount": len(pending),
         "approvedCount": len(approved),
         "rejectedCount": len(rejected),
@@ -564,7 +614,11 @@ async def get_customer_payment_receipt_html(order_id: str, payment_record_id: st
     if not record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment record not found for this order.")
     tenant = await db.tenants.find_one({"_id": transaction["tenantId"]}) or {}
-    return _build_payment_receipt_html(tenant, transaction, record)
+    # The customer's copy of the receipt. `notes` carries the payment provider's raw
+    # failure text, which is the same detail deliberately kept out of the HTTP error
+    # body, so the record is stripped exactly as it is for every other customer view.
+    # The owner's receipt above is unchanged and still shows everything.
+    return _build_payment_receipt_html(tenant, transaction, _customer_safe_payment_record(record) or {})
 
 
 async def _ensure_payment_access(tenant_id: str, user: dict) -> tuple[ObjectId, dict]:
@@ -655,9 +709,25 @@ async def _calculate_payment_summary(tenant_oid: ObjectId, transaction: dict) ->
     rejected = sum(float(row.get("amount", 0) or 0) for row in records if row.get("recordType") == "payment" and row.get("status") in {"rejected", "failed"})
     refunded = sum(float(row.get("amount", 0) or 0) for row in records if row.get("recordType") == "refund" or row.get("status") == "refunded")
     total = float(((transaction.get("pricing") or {}).get("total")) or 0)
-    net_paid = max(0.0, paid - refunded)
-    balance = max(0.0, total - net_paid)
-    return {"total": total, "paid": net_paid, "pending": pending, "cod": cod, "rejected": rejected, "refunded": refunded, "balance": balance}
+    # Round every figure to the minor unit. Summing floats left balances like 1e-14,
+    # which reported a fully paid order as partially paid and, on Stripe, produced a
+    # one-paisa charge for the "remaining" amount.
+    total = round(total, 2)
+    paid = round(paid, 2)
+    refunded = round(refunded, 2)
+    net_paid = round(max(0.0, paid - refunded), 2)
+    balance = round(max(0.0, total - net_paid), 2)
+    if balance < 0.01:
+        balance = 0.0
+    return {
+        "total": total,
+        "paid": net_paid,
+        "pending": round(pending, 2),
+        "cod": round(cod, 2),
+        "rejected": round(rejected, 2),
+        "refunded": refunded,
+        "balance": balance,
+    }
 
 
 def _payment_status_from_summary(transaction: dict, summary: dict[str, float]) -> str:
@@ -678,9 +748,99 @@ def _payment_status_from_summary(transaction: dict, summary: dict[str, float]) -
     return "unpaid"
 
 
-async def _sync_transaction_payment_status(tenant_oid: ObjectId, transaction: dict, actor_user_id: ObjectId | None, note: str) -> dict:
+async def write_reconciling_payment_record(
+    tenant_oid: ObjectId,
+    transaction: dict,
+    *,
+    amount: float,
+    status_value: str,
+    method: str,
+    note: str,
+    actor_user_id: ObjectId | None = None,
+) -> dict | None:
+    """Create the payment record implied by a status set outside the payment flow.
+
+    Payment records are the single source of truth for what an order has been paid:
+    `_calculate_payment_summary` recomputes from them and ignores any stored status. Two
+    paths used to set `paymentStatus` with no record behind it — the owner's manual
+    override and the historical-order import — so an order could read as paid while the
+    summary said nothing had been received. That made an imported paid order collectable
+    a second time, and made an owner-marked paid order flip back the moment a customer
+    uploaded a proof.
+
+    Writing the record here keeps those two paths honest without changing what the owner
+    or the importer is allowed to express.
+    """
+    if status_value not in {"paid", "cod", "refunded"}:
+        return None
+
     db = get_database()
+    # Work out what is actually missing rather than trusting the caller: the order may
+    # already have real payments against it, and writing the full total again would
+    # double-count. `amount` is a ceiling, not an instruction.
     summary = await _calculate_payment_summary(tenant_oid, transaction)
+    if status_value == "refunded":
+        # There is nothing to refund beyond what was actually received - except on an
+        # import, where the order arrives already refunded and has no prior payment
+        # record to measure against. The caller's amount is the historical figure.
+        outstanding = float(summary["paid"]) or round(float(amount or 0), 2)
+    elif status_value == "cod":
+        # COD sits in its own bucket which does NOT reduce `balance`, so using the
+        # balance here meant an existing COD record was invisible and marking an order
+        # cod a second time wrote another full-total row, doubling the dashboard figure.
+        outstanding = max(0.0, float(summary["total"]) - float(summary["paid"]) - float(summary["cod"]))
+    else:
+        outstanding = float(summary["balance"])
+    amount = round(min(float(amount or 0) or outstanding, outstanding), 2)
+    if amount <= 0:
+        return None
+    now = datetime.now(timezone.utc)
+    record = {
+        "tenantId": tenant_oid,
+        "transactionId": transaction["_id"],
+        "transactionNumber": transaction.get("transactionNumber", ""),
+        "customerSnapshot": transaction.get("customerSnapshot", {}),
+        "recordType": "refund" if status_value == "refunded" else "payment",
+        "amount": amount,
+        "currency": (transaction.get("pricing") or {}).get("currency") or "PKR",
+        "method": method,
+        "methodLabel": _public_method_label(method),
+        "status": status_value,
+        "referenceNumber": "",
+        "notes": note,
+        "submittedBy": "business",
+        "reconciling": True,
+        "verification": {"requiresOwnerApproval": False, "verifiedByUserId": actor_user_id, "verifiedAt": now},
+        "createdBy": actor_user_id,
+        "createdAt": now,
+        "updatedAt": now,
+    }
+    record["_id"] = (await db.payment_records.insert_one(record)).inserted_id
+    return record
+
+
+async def _sync_transaction_payment_status(tenant_oid: ObjectId, transaction: dict, actor_user_id: ObjectId | None, note: str) -> dict:
+    """Recompute an order's payment status from its records.
+
+    Every settlement path funnels through here, which is why the COD cleanup lives here
+    too: putting it in the individual settle paths is how the gateway path got it and the
+    Stripe path did not.
+    """
+    db = get_database()
+    # Retire any COD placeholder first: the money arrived by another route, so the
+    # "cash expected on delivery" row must stop counting or the same order shows up in
+    # both the received and the COD totals on the owner's dashboard.
+    summary = await _calculate_payment_summary(tenant_oid, transaction)
+    # Only retire the COD expectation once the money actually covers the order. Firing on
+    # any payment at all meant a 200 part-payment against a 1000 COD order closed the
+    # placeholder and reported the order settled, so the outstanding 800 was never chased.
+    # .get() throughout: this runs against summaries built by several callers, and a
+    # missing key here must not take down a settlement.
+    cod_outstanding = float(summary.get("cod", 0) or 0)
+    total_due = float(summary.get("total", 0) or 0)
+    if cod_outstanding > 0 and total_due > 0 and float(summary.get("paid", 0) or 0) >= total_due - 0.01:
+        await close_cod_records_for_transaction(db, transaction["_id"])
+        summary = await _calculate_payment_summary(tenant_oid, transaction)
     payment_status = _payment_status_from_summary(transaction, summary)
     now = datetime.now(timezone.utc)
     history = {
@@ -696,7 +856,17 @@ async def _sync_transaction_payment_status(tenant_oid: ObjectId, transaction: di
     if payment_status != transaction.get("paymentStatus"):
         update_doc["$push"] = {"statusHistory": history}
     await db.transactions.update_one({"_id": transaction["_id"]}, update_doc)
-    return await db.transactions.find_one({"_id": transaction["_id"]})
+    updated = await db.transactions.find_one({"_id": transaction["_id"]})
+
+    # Every route that settles money lands here - gateway callback, Stripe webhook,
+    # owner-recorded payment, cashier till - so this is the one place a payment
+    # confirmation needs to be triggered from. Imported lazily to avoid a cycle:
+    # order_message_service reaches back into this module's receipt helpers.
+    if updated and payment_status != transaction.get("paymentStatus"):
+        from app.services.order_message_service import notify_payment_confirmed
+
+        await notify_payment_confirmed(updated)
+    return updated
 
 
 async def submit_customer_payment_proof(
@@ -718,12 +888,20 @@ async def submit_customer_payment_proof(
 
     tenant_oid = transaction["tenantId"]
     tenant = await db.tenants.find_one({"_id": tenant_oid}) or {}
-    payment_options = transaction.get("paymentInstructions") or await get_customer_payment_options_for_tenant(tenant_oid)
+    # Validate against the tenant's live settings, never the snapshot stored on the
+    # order. The snapshot froze at order time, so a method the owner enabled afterwards
+    # was refused for existing orders and one they disabled was still accepted.
+    payment_options = await get_customer_payment_options_for_tenant(tenant_oid)
     selected_method = _normalize_method(method or (transaction.get("paymentPreference") or {}).get("method") or payment_options.get("defaultMethod"))
     if selected_method == "cod":
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="COD does not require payment proof. The business will collect cash directly.")
     normalize_customer_payment_preference(selected_method, payment_options)
 
+    # Defence in depth: the route's own gt=0 is the first check, but this service is
+    # also reachable from other callers.
+    amount = round(float(amount), 2)
+    if amount <= 0:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Payment amount must be greater than zero.")
     current_summary = await _calculate_payment_summary(tenant_oid, transaction)
     if amount > current_summary["balance"] + 0.01:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Payment proof amount cannot exceed the remaining balance.")
@@ -813,8 +991,11 @@ async def decide_payment_record(tenant_id: str, payment_record_id: str, payload,
     else:
         verification_update.update({"rejectedByUserId": user.get("_id"), "rejectedAt": now})
 
-    await db.payment_records.update_one(
-        {"_id": record_oid},
+    # Filtered on the state the balance check above was made against, so two concurrent
+    # approvals of two full-total proofs cannot both credit the order. Every other path
+    # that writes "paid" claims the record this way; this one was check-then-act.
+    decided = await db.payment_records.update_one(
+        {"_id": record_oid, "status": "pending_verification"},
         {
             "$set": {
                 "status": next_status,
@@ -825,6 +1006,12 @@ async def decide_payment_record(tenant_id: str, payment_record_id: str, payload,
             }
         },
     )
+    if not decided.modified_count:
+        # Another approval reached it first; crediting again would double the payment.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This payment proof has already been decided. Reload to see the current state.",
+        )
     updated_record = await db.payment_records.find_one({"_id": record_oid})
     updated_transaction = await _sync_transaction_payment_status(tenant_oid, transaction, user.get("_id"), f"Payment proof {next_status}.")
 
@@ -936,7 +1123,13 @@ async def record_transaction_payment(tenant_id: str, transaction_id: str, payloa
         record_status = "cod"
 
     current_summary = await _calculate_payment_summary(tenant_oid, transaction)
-    if record_status in {"paid", "cod"} and payload.amount > current_summary["balance"] + 0.01:
+    # COD sits in its own summary bucket that does NOT reduce `balance`, so comparing a
+    # COD entry against the balance alone made an existing COD record invisible and let
+    # the owner record the full total twice.
+    allowance = current_summary["balance"]
+    if record_status == "cod":
+        allowance = max(0.0, float(current_summary["total"]) - float(current_summary["paid"]) - float(current_summary["cod"]))
+    if record_status in {"paid", "cod"} and payload.amount > allowance + 0.01:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Payment amount cannot exceed the remaining balance.")
 
     now = datetime.now(timezone.utc)
@@ -1091,7 +1284,83 @@ def _verify_stripe_signature(payload: bytes, signature_header: str) -> bool:
     return any(hmac.compare_digest(expected, signature) for signature in signatures)
 
 
-async def _active_stripe_session_for_transaction(db, transaction_id: ObjectId) -> dict[str, Any] | None:
+# Stripe Checkout Sessions expire 24 hours after creation. Reusing one past that point
+# hands the customer a dead link with no way to get a new one.
+STRIPE_SESSION_MAX_AGE_SECONDS = 24 * 60 * 60
+
+
+def _stripe_currency_for(transaction: dict) -> str:
+    """The currency a Stripe charge for this order must be made in.
+
+    The order's own currency is authoritative. Charging the numeric balance in whatever
+    STRIPE_CURRENCY happened to be set to meant a tenant trading in one currency had
+    their balance charged as another, and the payment summary then added up amounts in
+    two different currencies as if they were the same.
+
+    A mismatch is refused rather than silently converted: this codebase has no exchange
+    rates, so there is no correct number to send.
+    """
+    order_currency = str((transaction.get("pricing") or {}).get("currency") or "").strip().upper()
+    configured = str(settings.stripe_currency or "").strip().upper()
+    if not order_currency:
+        return configured
+    if configured and order_currency != configured:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"This order is priced in {order_currency}, but Stripe is configured for {configured}. "
+                "Use another payment method, or set STRIPE_CURRENCY to match the business currency."
+            ),
+        )
+    return order_currency
+
+
+async def close_cod_records_for_transaction(db, transaction_id: ObjectId, *, keep_id: ObjectId | None = None) -> None:
+    """Retire the COD placeholders once the money has actually arrived.
+
+    A COD record means "cash is expected on delivery". Nothing ever retired it when the
+    cash was collected, so `_calculate_payment_summary` kept counting the same order in
+    both the `cod` bucket and the `paid` bucket, and the owner's dashboard showed the
+    money twice.
+    """
+    query = {"transactionId": transaction_id, "recordType": "payment", "status": "cod"}
+    if keep_id is not None:
+        query["_id"] = {"$ne": keep_id}
+    await db.payment_records.update_many(
+        query,
+        # "cancelled" belongs to no bucket in _calculate_payment_summary. "completed" was
+        # the wrong terminal status: it is counted as PAID, so retiring the placeholder
+        # that way moved the double count rather than removing it.
+        {"$set": {"status": "cancelled", "notes": "Superseded: the money arrived by another route.", "updatedAt": datetime.now(timezone.utc)}},
+    )
+
+
+async def _supersede_pending_attempts(db, transaction_id: ObjectId, provider: str, *, keep_id: ObjectId | None = None) -> None:
+    """Fail earlier unfinished attempts for this provider on this order.
+
+    Every click of "pay" used to insert another pending record for the full balance,
+    with no attempt to close the previous one. Those piled up: they kept the order
+    showing as awaiting review, inflated the owner's dashboard, and two OTP attempts
+    started back to back could each be verified, crediting the order twice.
+    """
+    # Scoped to the ORDER, not to one provider. Scoping by provider let a customer open
+    # a JazzCash attempt and an Easypaisa attempt back to back and settle both for the
+    # full total. `provider` is kept only for the note.
+    query = {
+        "transactionId": transaction_id,
+        "recordType": "payment",
+        "provider": {"$nin": ["", None]},
+        "status": "pending_verification",
+    }
+    if keep_id is not None:
+        query["_id"] = {"$ne": keep_id}
+    await db.payment_records.update_many(
+        query,
+        {"$set": {"status": "failed", "notes": "Superseded by a newer payment attempt.", "updatedAt": datetime.now(timezone.utc)}},
+    )
+
+
+async def _active_stripe_session_for_transaction(db, transaction_id: ObjectId, balance: float | None = None) -> dict[str, Any] | None:
     record = await db.payment_records.find_one(
         {
             "transactionId": transaction_id,
@@ -1103,14 +1372,34 @@ async def _active_stripe_session_for_transaction(db, transaction_id: ObjectId) -
         },
         sort=[("createdAt", -1)],
     )
-    if record and record.get("providerSessionUrl"):
-        return {
-            "checkoutUrl": record.get("providerSessionUrl", ""),
-            "sessionId": record.get("providerSessionId", ""),
-            "paymentRecordId": str(record["_id"]),
-            "reused": True,
-        }
-    return None
+    if not record or not record.get("providerSessionUrl"):
+        return None
+
+    created_at = record.get("createdAt")
+    if isinstance(created_at, datetime):
+        age = (datetime.now(timezone.utc) - created_at.replace(tzinfo=created_at.tzinfo or timezone.utc)).total_seconds()
+        if age > STRIPE_SESSION_MAX_AGE_SECONDS:
+            await db.payment_records.update_one(
+                {"_id": record["_id"], "status": "pending_verification"},
+                {"$set": {"status": "failed", "notes": "Stripe checkout session expired.", "updatedAt": datetime.now(timezone.utc)}},
+            )
+            return None
+
+    # A partial payment since this attempt started makes the stored amount wrong, so the
+    # customer would be charged the old balance.
+    if balance is not None and abs(float(record.get("amount", 0) or 0) - float(balance)) > 0.009:
+        await db.payment_records.update_one(
+            {"_id": record["_id"], "status": "pending_verification"},
+            {"$set": {"status": "failed", "notes": "Order balance changed; a new checkout is needed.", "updatedAt": datetime.now(timezone.utc)}},
+        )
+        return None
+
+    return {
+        "checkoutUrl": record.get("providerSessionUrl", ""),
+        "sessionId": record.get("providerSessionId", ""),
+        "paymentRecordId": str(record["_id"]),
+        "reused": True,
+    }
 
 
 async def _retrieve_stripe_checkout_session(session_id: str) -> dict[str, Any]:
@@ -1131,7 +1420,10 @@ async def _retrieve_stripe_checkout_session(session_id: str) -> dict[str, Any]:
             stripe_error = response.json().get("error", {}).get("message")
         except Exception:
             stripe_error = ""
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=stripe_error or "Unable to retrieve Stripe checkout session.")
+        # Stripe's own message can name the account, the API version and the exact
+        # parameter at fault. The owner gets it in the log; the caller gets a sentence.
+        logger.warning("Stripe session retrieval failed: %s", stripe_error)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unable to retrieve Stripe checkout session.")
     return response.json()
 
 
@@ -1159,13 +1451,16 @@ async def create_customer_stripe_checkout_session(order_id: str, current_user: d
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This transaction cannot be paid online.")
 
     tenant_oid = transaction["tenantId"]
-    payment_options = transaction.get("paymentInstructions") or await get_customer_payment_options_for_tenant(tenant_oid)
+    # Validate against the tenant's live settings, never the snapshot stored on the
+    # order. The snapshot froze at order time, so a method the owner enabled afterwards
+    # was refused for existing orders and one they disabled was still accepted.
+    payment_options = await get_customer_payment_options_for_tenant(tenant_oid)
     normalize_customer_payment_preference("stripe_test", payment_options)
     current_summary = await _calculate_payment_summary(tenant_oid, transaction)
     balance = current_summary["balance"]
     if balance <= 0:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This transaction has no remaining balance.")
-    active_session = await _active_stripe_session_for_transaction(db, transaction["_id"])
+    active_session = await _active_stripe_session_for_transaction(db, transaction["_id"], balance)
     if active_session:
         return {**active_session, "transaction": serialize_document(transaction)}
 
@@ -1177,7 +1472,7 @@ async def create_customer_stripe_checkout_session(order_id: str, current_user: d
         "customerSnapshot": transaction.get("customerSnapshot", {}),
         "recordType": "payment",
         "amount": float(balance),
-        "currency": settings.stripe_currency.upper(),
+        "currency": _stripe_currency_for(transaction),
         "method": "stripe_test",
         "methodLabel": _public_method_label("stripe_test"),
         "status": "pending_verification",
@@ -1192,6 +1487,10 @@ async def create_customer_stripe_checkout_session(order_id: str, current_user: d
         "createdAt": now,
         "updatedAt": now,
     }
+    # Close the previous unfinished attempt, as the gateway and OTP paths do. These two
+    # Stripe creation sites were the only ones that never did, so a customer could hold a
+    # live Stripe session and a live wallet attempt against the same order at once.
+    await _supersede_pending_attempts(db, transaction["_id"], "stripe")
     record["_id"] = (await db.payment_records.insert_one(record)).inserted_id
 
     stripe_provider = providers.StripeProvider()
@@ -1199,7 +1498,7 @@ async def create_customer_stripe_checkout_session(order_id: str, current_user: d
         provider="stripe",
         reference=str(record["_id"]),
         amount=float(balance),
-        currency=settings.stripe_currency.upper(),
+        currency=_stripe_currency_for(transaction),
         order_id=str(transaction["_id"]),
         order_number=transaction.get("transactionNumber", ""),
         tenant_id=str(tenant_oid),
@@ -1214,7 +1513,11 @@ async def create_customer_stripe_checkout_session(order_id: str, current_user: d
             {"_id": record["_id"]},
             {"$set": {"status": "failed", "notes": str(exc), "updatedAt": datetime.now(timezone.utc)}},
         )
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+        logger.warning("Payment provider error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The payment provider could not be reached just now. Please try again in a moment.",
+        ) from exc
 
     session = {"id": initiation.provider_session_id, "url": initiation.provider_session_url}
     await db.payment_records.update_one(
@@ -1245,13 +1548,14 @@ async def create_public_stripe_checkout_session(slug: str, transaction_id: str, 
     transaction = await db.transactions.find_one({"_id": transaction_oid, "tenantId": tenant["_id"], "source": {"$in": ["public_website", "public_chat"]}})
     if not transaction:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Public transaction not found.")
-    payment_options = transaction.get("paymentInstructions") or await get_customer_payment_options_for_tenant(tenant["_id"])
+    # See the note above: eligibility comes from live settings, not the order snapshot.
+    payment_options = await get_customer_payment_options_for_tenant(tenant["_id"])
     normalize_customer_payment_preference("stripe_test", payment_options)
     current_summary = await _calculate_payment_summary(tenant["_id"], transaction)
     balance = current_summary["balance"]
     if balance <= 0:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This transaction has no remaining balance.")
-    active_session = await _active_stripe_session_for_transaction(db, transaction["_id"])
+    active_session = await _active_stripe_session_for_transaction(db, transaction["_id"], balance)
     if active_session:
         return {**active_session, "transaction": serialize_document(transaction)}
 
@@ -1263,7 +1567,7 @@ async def create_public_stripe_checkout_session(slug: str, transaction_id: str, 
         "customerSnapshot": transaction.get("customerSnapshot", {}),
         "recordType": "payment",
         "amount": float(balance),
-        "currency": settings.stripe_currency.upper(),
+        "currency": _stripe_currency_for(transaction),
         "method": "stripe_test",
         "methodLabel": _public_method_label("stripe_test"),
         "status": "pending_verification",
@@ -1277,6 +1581,10 @@ async def create_public_stripe_checkout_session(slug: str, transaction_id: str, 
         "createdAt": now,
         "updatedAt": now,
     }
+    # Close the previous unfinished attempt, as the gateway and OTP paths do. These two
+    # Stripe creation sites were the only ones that never did, so a customer could hold a
+    # live Stripe session and a live wallet attempt against the same order at once.
+    await _supersede_pending_attempts(db, transaction["_id"], "stripe")
     record["_id"] = (await db.payment_records.insert_one(record)).inserted_id
     public_success = success_url or urljoin(settings.frontend_base_url.rstrip("/") + "/", f"businesses/{slug}?payment=stripe_success&order={transaction['_id']}&session_id={{CHECKOUT_SESSION_ID}}")
     if "session_id=" not in public_success:
@@ -1294,7 +1602,7 @@ async def create_public_stripe_checkout_session(slug: str, transaction_id: str, 
         "payment_intent_data[metadata][tenantId]": str(tenant["_id"]),
         "payment_intent_data[metadata][transactionId]": str(transaction["_id"]),
         "payment_intent_data[metadata][paymentRecordId]": str(record["_id"]),
-        "line_items[0][price_data][currency]": settings.stripe_currency.lower(),
+        "line_items[0][price_data][currency]": _stripe_currency_for(transaction).lower(),
         "line_items[0][price_data][product_data][name]": f"{transaction.get('transactionNumber', 'BizXusAI public order')} payment",
         "line_items[0][price_data][unit_amount]": str(_stripe_amount_to_minor_units(balance)),
         "line_items[0][quantity]": "1",
@@ -1316,7 +1624,10 @@ async def create_public_stripe_checkout_session(slug: str, transaction_id: str, 
         except Exception:
             stripe_error = ""
         await db.payment_records.update_one({"_id": record["_id"]}, {"$set": {"status": "failed", "notes": stripe_error or "Stripe checkout session failed.", "updatedAt": datetime.now(timezone.utc)}})
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=stripe_error or "Unable to create Stripe checkout session.")
+        # This one is reachable unauthenticated from the public checkout, so it must not
+        # echo Stripe's message. It is kept on the payment record for the owner.
+        logger.warning("Stripe checkout creation failed: %s", stripe_error)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unable to create Stripe checkout session.")
     session = response.json()
     await db.payment_records.update_one(
         {"_id": record["_id"]},
@@ -1334,8 +1645,24 @@ async def create_public_stripe_checkout_session(slug: str, transaction_id: str, 
     return {"checkoutUrl": session.get("url", ""), "sessionId": session.get("id", ""), "paymentRecordId": str(record["_id"]), "transaction": serialize_document(updated_transaction)}
 
 
+def stripe_session_is_paid(session: dict[str, Any] | None) -> bool:
+    """Whether a Checkout Session really represents money received.
+
+    `status == "complete"` only means the customer finished the flow. For a
+    delayed-notification method Stripe sends `checkout.session.completed` with
+    `payment_status: "unpaid"`, and the funds may never arrive. Only `payment_status`
+    settles an order; `async_payment_succeeded` delivers the later confirmation.
+    """
+    return str((session or {}).get("payment_status") or "") in {"paid", "no_payment_required"}
+
+
 async def mark_stripe_checkout_completed(session: dict[str, Any]) -> dict[str, Any]:
     db = get_database()
+    if not stripe_session_is_paid(session):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This Stripe session has not been paid yet.",
+        )
     metadata = session.get("metadata") or {}
     transaction_oid = parse_object_id(metadata.get("transactionId") or session.get("client_reference_id"), "transactionId")
     tenant_oid = parse_object_id(metadata.get("tenantId"), "tenantId")
@@ -1355,10 +1682,21 @@ async def mark_stripe_checkout_completed(session: dict[str, Any]) -> dict[str, A
     if record and record.get("status") in {"paid", "completed"}:
         return {"payment": serialize_document(record), "transaction": serialize_document(transaction), "alreadyProcessed": True}
     if record:
-        await db.payment_records.update_one(
-            {"_id": record["_id"]},
-            {"$set": {"status": "paid", "amount": paid_amount or record.get("amount", 0), "providerPaymentIntentId": session.get("payment_intent", ""), "referenceNumber": session.get("payment_intent") or session.get("id", ""), "notes": "Stripe Checkout payment completed.", "updatedAt": now}},
+        # Capped at what the order still owes and claimed with a compare-and-set, exactly
+        # as the gateway callback does. Without the status filter a record this flow had
+        # already marked `failed` (superseded by another attempt, or expired) could be
+        # resurrected to `paid`, crediting the order twice.
+        live_summary = await _calculate_payment_summary(tenant_oid, transaction)
+        creditable = round(min(paid_amount or float(record.get("amount", 0) or 0), float(live_summary["balance"])), 2)
+        if creditable <= 0:
+            return {"payment": _customer_safe_payment_record(record), "transaction": serialize_document(transaction), "alreadyProcessed": True}
+        claimed = await db.payment_records.update_one(
+            {"_id": record["_id"], "status": "pending_verification"},
+            {"$set": {"status": "paid", "amount": creditable, "providerPaymentIntentId": session.get("payment_intent", ""), "referenceNumber": session.get("payment_intent") or session.get("id", ""), "notes": "Stripe Checkout payment completed.", "updatedAt": now}},
         )
+        if not claimed.modified_count:
+            return {"payment": serialize_document(record), "transaction": serialize_document(transaction), "alreadyProcessed": True}
+        await _supersede_pending_attempts(db, transaction_oid, "stripe", keep_id=record["_id"])
         record_id = record["_id"]
     else:
         record = {
@@ -1367,8 +1705,11 @@ async def mark_stripe_checkout_completed(session: dict[str, Any]) -> dict[str, A
             "transactionNumber": transaction.get("transactionNumber", ""),
             "customerSnapshot": transaction.get("customerSnapshot", {}),
             "recordType": "payment",
-            "amount": paid_amount,
-            "currency": settings.stripe_currency.upper(),
+            # Capped like the branch above. This fallback fires when no record matches
+            # the session, and crediting the raw session amount here would credit more
+            # than the order owes.
+            "amount": round(min(paid_amount, float((await _calculate_payment_summary(tenant_oid, transaction))["balance"]) or paid_amount), 2),
+            "currency": _stripe_currency_for(transaction),
             "method": "stripe_test",
             "methodLabel": _public_method_label("stripe_test"),
             "status": "paid",
@@ -1418,7 +1759,7 @@ async def sync_stripe_payment_record(tenant_id: str, payment_record_id: str, use
     session = await _retrieve_stripe_checkout_session(record.get("providerSessionId", ""))
     session = _ensure_session_metadata(session, transaction, record)
     now = datetime.now(timezone.utc)
-    if session.get("payment_status") == "paid" or session.get("status") == "complete":
+    if stripe_session_is_paid(session):
         result = await mark_stripe_checkout_completed(session)
         await db.payment_records.update_one({"_id": record_oid}, {"$set": {"lastProviderSyncAt": now, "lastProviderSyncStatus": "paid"}})
         return {**result, "synced": True, "providerStatus": "paid"}
@@ -1470,7 +1811,7 @@ async def sync_customer_stripe_checkout_session(order_id: str, session_id: str, 
     session = await _retrieve_stripe_checkout_session(session_id or record.get("providerSessionId", ""))
     session = _ensure_session_metadata(session, transaction, record)
     now = datetime.now(timezone.utc)
-    if session.get("payment_status") == "paid" or session.get("status") == "complete":
+    if stripe_session_is_paid(session):
         result = await mark_stripe_checkout_completed(session)
         await db.payment_records.update_one({"_id": record["_id"]}, {"$set": {"lastProviderSyncAt": now, "lastProviderSyncStatus": "paid"}})
         return {**result, "synced": True, "providerStatus": "paid"}
@@ -1516,17 +1857,26 @@ async def sync_public_stripe_checkout_session(slug: str, transaction_id: str, se
     session = await _retrieve_stripe_checkout_session(session_id or record.get("providerSessionId", ""))
     session = _ensure_session_metadata(session, transaction, record)
     now = datetime.now(timezone.utc)
-    if session.get("payment_status") == "paid" or session.get("status") == "complete":
+    if stripe_session_is_paid(session):
         result = await mark_stripe_checkout_completed(session)
         await db.payment_records.update_one({"_id": record["_id"]}, {"$set": {"lastProviderSyncAt": now, "lastProviderSyncStatus": "paid"}})
-        return {**result, "synced": True, "providerStatus": "paid"}
+        return {
+            **result,
+            "payment": _customer_safe_payment_record(result.get("payment")),
+            "transaction": customer_order_view(result.get("transaction") or transaction),
+            "synced": True,
+            "providerStatus": "paid",
+        }
     await db.payment_records.update_one(
         {"_id": record["_id"]},
         {"$set": {"lastProviderSyncAt": now, "lastProviderSyncStatus": session.get("payment_status") or session.get("status") or "unknown", "updatedAt": now}},
     )
     return {
-        "payment": serialize_document(await db.payment_records.find_one({"_id": record["_id"]})),
-        "transaction": serialize_document(transaction),
+        # This endpoint needs no account at all, so the record must be stripped like
+        # every other customer-facing one. It was returning the owner's decision notes,
+        # the internal actor ids and the raw provider response.
+        "payment": _customer_safe_payment_record(await db.payment_records.find_one({"_id": record["_id"]})),
+        "transaction": customer_order_view(transaction),
         "synced": True,
         "providerStatus": session.get("payment_status") or session.get("status") or "unknown",
     }
@@ -1550,28 +1900,48 @@ async def process_stripe_webhook(payload: bytes, signature_header: str) -> dict[
             tenant_oid = parse_object_id(metadata.get("tenantId"), "tenantId")
         except HTTPException:
             tenant_oid = None
-    existing = await db.stripe_webhook_events.find_one({"eventId": event_id})
-    if existing and existing.get("status") == "processed":
-        return {"processed": False, "duplicate": True, "eventType": event_type}
     now = datetime.now(timezone.utc)
-    await db.stripe_webhook_events.update_one(
-        {"eventId": event_id},
-        {
-            "$set": {
-                "eventType": event_type,
-                "tenantId": tenant_oid,
-                "transactionId": metadata.get("transactionId", ""),
-                "paymentRecordId": metadata.get("paymentRecordId", ""),
-                "stripeObjectId": session.get("id", ""),
-                "status": "processing",
-                "updatedAt": now,
-            },
-            "$setOnInsert": {"eventId": event_id, "createdAt": now},
+    # Claim the event atomically. Checking for "processed" and then writing "processing"
+    # as two steps let two concurrent deliveries of the same event both observe
+    # "processing" and both credit the order. The filter rejects an event already in
+    # either state, so exactly one delivery proceeds.
+    #
+    # `upsert` cannot be used together with a filter that excludes the existing row:
+    # `eventId` carries a unique index, so when a claim is already held Mongo tries to
+    # INSERT a second document and raises DuplicateKeyError instead of returning None.
+    # That turned every ordinary Stripe retry into a 500, so Stripe retried forever.
+    # The claim is therefore attempted in two steps that are each atomic on their own.
+    claim_update = {
+        "$set": {
+            "eventType": event_type,
+            "tenantId": tenant_oid,
+            "transactionId": metadata.get("transactionId", ""),
+            "paymentRecordId": metadata.get("paymentRecordId", ""),
+            "stripeObjectId": session.get("id", ""),
+            "status": "processing",
+            "updatedAt": now,
         },
-        upsert=True,
+    }
+    claim = await db.stripe_webhook_events.find_one_and_update(
+        {"eventId": event_id, "status": {"$nin": ["processing", "processed"]}},
+        claim_update,
+        return_document=ReturnDocument.AFTER,
     )
+    if claim is None:
+        # Either this event has never been seen, or another delivery already holds the
+        # claim. Inserting decides which: the unique index lets exactly one caller win.
+        try:
+            await db.stripe_webhook_events.insert_one(
+                {"eventId": event_id, "createdAt": now, **claim_update["$set"]}
+            )
+        except DuplicateKeyError:
+            return {"processed": False, "duplicate": True, "eventType": event_type}
     try:
-        if event_type == "checkout.session.completed":
+        # `completed` fires when the customer finishes the flow, which for a
+        # delayed-notification method is before the money arrives; Stripe then sends
+        # `async_payment_succeeded` once it actually has. Settling on `completed` alone
+        # marked unpaid orders as paid.
+        if event_type in {"checkout.session.completed", "checkout.session.async_payment_succeeded"} and stripe_session_is_paid(session):
             data = await mark_stripe_checkout_completed(session)
             await db.stripe_webhook_events.update_one({"eventId": event_id}, {"$set": {"status": "processed", "processedAt": datetime.now(timezone.utc), "error": ""}})
             return {"processed": True, "eventType": event_type, **data}
@@ -1674,6 +2044,9 @@ async def create_gateway_checkout(order_id: str, provider: str, current_user: di
         "createdAt": now,
         "updatedAt": now,
     }
+    # Close the previous abandoned attempt, so the order does not accumulate pending
+    # records that each keep it showing as awaiting owner review.
+    await _supersede_pending_attempts(db, transaction["_id"], provider)
     record["_id"] = (await db.payment_records.insert_one(record)).inserted_id
 
     txn_ref = _build_gateway_txn_ref(record["_id"])
@@ -1697,7 +2070,11 @@ async def create_gateway_checkout(order_id: str, provider: str, current_user: di
             {"_id": record["_id"]},
             {"$set": {"status": "failed", "notes": f"Could not start {gateway.label}: {exc}", "updatedAt": datetime.now(timezone.utc)}},
         )
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+        logger.warning("Payment provider error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The payment provider could not be reached just now. Please try again in a moment.",
+        ) from exc
     checkout = {
         "url": initiation.redirect.url,
         "method": initiation.redirect.method,
@@ -1743,13 +2120,26 @@ async def complete_gateway_payment(provider: str, payload: dict[str, Any]) -> di
     if provider not in ONLINE_GATEWAY_METHODS:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported payment gateway.")
 
+    # A gateway whose credentials are the built-in placeholders must never be able to
+    # settle a real order: the simulator salt is published in this repository, so any
+    # caller could sign a payload with it.
+    gateway_provider = providers.get_provider(provider)
+    if not gateway_provider.is_available():
+        logger.error("Refusing %s callback: the provider is not available in this environment.", provider)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment reference not recognised.")
+
     result = gateways.verify_callback(provider, payload)
     db = get_database()
     record_id = _record_id_from_txn_ref(result.get("txnRef"))
     record = None
     if record_id:
         try:
-            record = await db.payment_records.find_one({"_id": ObjectId(record_id)})
+            # The callback may only ever settle the record it actually belongs to.
+            # Matching on the id alone let a JazzCash callback mark a Stripe, manual or
+            # OTP record paid, because every checkout hands the customer its record id.
+            record = await db.payment_records.find_one(
+                {"_id": ObjectId(record_id), "provider": provider, "flow": FLOW_REDIRECT}
+            )
         except Exception:
             record = None
     if not record:
@@ -1758,21 +2148,18 @@ async def complete_gateway_payment(provider: str, payload: dict[str, Any]) -> di
 
     order_id = str(record["transactionId"])
     if not result["signatureValid"]:
-        # Either a misconfigured salt/key or a forged callback; both mean "not paid".
+        # A signature that does not verify proves nothing about the payment, so it must
+        # not change the record either: an unauthenticated caller could otherwise fail
+        # any pending payment at will. Log it and stop.
         logger.error("Rejecting %s callback for %s: signature did not verify.", provider, result.get("txnRef"))
-        await db.payment_records.update_one(
-            {"_id": record["_id"]},
-            {"$set": {"status": "failed", "notes": "Callback signature did not verify.", "updatedAt": datetime.now(timezone.utc)}},
-        )
-        transaction = await db.transactions.find_one({"_id": record["transactionId"], "tenantId": record["tenantId"]})
-        if transaction:
-            await _sync_transaction_payment_status(
-                record["tenantId"], transaction, None, f"{gateways.gateway_label(provider)} callback could not be verified."
-            )
         return {"paid": False, "redirectUrl": _frontend_order_url(order_id, "failed"), "reason": "invalid_signature"}
 
     if record.get("status") in {"paid", "completed"}:
         return {"paid": True, "redirectUrl": _frontend_order_url(order_id, "success"), "alreadyProcessed": True}
+
+    if record.get("status") != "pending_verification":
+        logger.warning("Ignoring %s callback for record %s in state %r.", provider, record["_id"], record.get("status"))
+        return {"paid": False, "redirectUrl": _frontend_order_url(order_id, "failed"), "reason": "not_awaiting_payment"}
 
     now = datetime.now(timezone.utc)
     if not result["paid"]:
@@ -1800,9 +2187,56 @@ async def complete_gateway_payment(provider: str, payload: dict[str, Any]) -> di
 
     # The gateway's amount is authoritative: a customer who pays less than the balance
     # must not close the order.
-    paid_amount = float(result.get("amount") or 0) or float(record.get("amount", 0))
-    await db.payment_records.update_one(
-        {"_id": record["_id"]},
+    if not result.get("outcomeSigned", True):
+        # The gateway's signature covers the request we sent, not the outcome it is
+        # reporting, and the customer holds that same signature. Crediting on it would
+        # let anyone mark their own order paid, so hold the payment for the owner to
+        # confirm against the gateway's own dashboard instead.
+        await db.payment_records.update_one(
+            {"_id": record["_id"], "status": "pending_verification"},
+            {"$set": {
+                "needsOwnerReview": True,
+                "providerTransactionId": result.get("providerTransactionId", ""),
+                "providerResponseCode": result.get("responseCode", ""),
+                "notes": (
+                    f"{gateways.gateway_label(provider)} reported this as paid, but its callback signature does "
+                    "not cover the payment outcome. Confirm the payment in your gateway dashboard before accepting it."
+                ),
+                "updatedAt": datetime.now(timezone.utc),
+            }},
+        )
+        await create_business_notification(
+            record["tenantId"],
+            "gateway_payment_needs_review",
+            f"{gateways.gateway_label(provider)} payment needs confirmation for {transaction.get('transactionNumber', 'transaction')}",
+            (
+                f"{gateways.gateway_label(provider)} reported a payment of {float(result.get('amount') or 0):g}, but its "
+                "callback cannot be trusted on its own. Confirm it in your gateway dashboard, then approve the payment."
+            ),
+            priority="high",
+            metadata={"transactionId": order_id, "paymentRecordId": str(record["_id"]), "provider": provider},
+        )
+        return {
+            "paid": False,
+            "redirectUrl": _frontend_order_url(order_id, "pending"),
+            "reason": "awaiting_owner_confirmation",
+        }
+
+    # Re-read the balance at settlement rather than trusting the amount this attempt was
+    # opened with. Without this, two attempts opened back to back could each credit the
+    # full total, and a partial payment taken in between would be credited twice over.
+    # The OTP path already did this; the gateway callback did not.
+    reported_amount = float(result.get("amount") or 0) or float(record.get("amount", 0))
+    live_summary = await _calculate_payment_summary(record["tenantId"], transaction)
+    paid_amount = round(min(reported_amount, float(live_summary["balance"])), 2)
+    if paid_amount <= 0:
+        logger.info("Ignoring %s callback for %s: the order has no outstanding balance.", provider, order_id)
+        return {"paid": True, "redirectUrl": _frontend_order_url(order_id, "success"), "alreadyProcessed": True}
+
+    # Claim the record so two concurrent deliveries of the same callback cannot both
+    # credit the order.
+    claimed = await db.payment_records.update_one(
+        {"_id": record["_id"], "status": "pending_verification"},
         {"$set": {
             "status": "paid",
             "amount": paid_amount,
@@ -1814,6 +2248,11 @@ async def complete_gateway_payment(provider: str, payload: dict[str, Any]) -> di
             "updatedAt": now,
         }},
     )
+    if not claimed.modified_count:
+        # Another delivery of the same callback got there first and has already credited
+        # the order; crediting again here would double the recorded payment.
+        return {"paid": True, "redirectUrl": _frontend_order_url(order_id, "success"), "alreadyProcessed": True}
+
     updated_transaction = await _sync_transaction_payment_status(
         record["tenantId"], transaction, None, f"{gateways.gateway_label(provider)} payment completed."
     )
@@ -1971,6 +2410,9 @@ async def start_wallet_otp_payment(order_id: str, provider_code: str, mobile_num
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This order is already paid.")
 
     tenant = await db.tenants.find_one({"_id": tenant_oid})
+    # Close any earlier unfinished attempt before opening a new one, so two codes cannot
+    # both be verified against the same balance.
+    await _supersede_pending_attempts(db, transaction["_id"], provider.code)
     now = datetime.now(timezone.utc)
     currency = (transaction.get("pricing") or {}).get("currency") or "PKR"
     record = {
@@ -2022,7 +2464,11 @@ async def start_wallet_otp_payment(order_id: str, provider_code: str, mobile_num
             {"_id": record["_id"]},
             {"$set": {"status": "failed", "notes": str(exc), "updatedAt": datetime.now(timezone.utc)}},
         )
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        logger.warning("Payment provider rejected the request: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="That payment could not be started. Please try a different payment method.",
+        ) from exc
 
     challenge = await payment_otp_service.start_payment_challenge(
         payment_record_id=record["_id"],
@@ -2117,11 +2563,19 @@ async def verify_wallet_otp_payment(order_id: str, payment_record_id: str, code:
     if not confirmation.paid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect code. Request a new one and try again.")
 
+    # Re-read the balance at settlement, not at the time the attempt started. Crediting
+    # the stored amount let two attempts opened back to back each settle the full total.
+    live_summary = await _calculate_payment_summary(transaction["tenantId"], transaction)
+    creditable = min(float(record.get("amount", 0) or 0), float(live_summary["balance"]))
+    if creditable <= 0:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This order has already been paid.")
+
     now = datetime.now(timezone.utc)
-    await db.payment_records.update_one(
-        {"_id": record["_id"]},
+    settled = await db.payment_records.update_one(
+        {"_id": record["_id"], "status": "pending_verification"},
         {"$set": {
             "status": "paid",
+            "amount": creditable,
             "providerTransactionId": confirmation.provider_transaction_id,
             "referenceNumber": confirmation.provider_transaction_id or record.get("referenceNumber", ""),
             "providerResponseCode": confirmation.response_code,
@@ -2135,6 +2589,9 @@ async def verify_wallet_otp_payment(order_id: str, payment_record_id: str, code:
             "updatedAt": now,
         }},
     )
+    if not settled.modified_count:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This payment has already been settled.")
+    await _supersede_pending_attempts(db, transaction["_id"], provider.code, keep_id=record["_id"])
     tenant = await db.tenants.find_one({"_id": transaction["tenantId"]})
     updated_transaction = await _sync_transaction_payment_status(
         transaction["tenantId"], transaction, current_user.get("_id"), f"{provider.label} demo payment verified."
@@ -2200,7 +2657,11 @@ async def resend_wallet_otp_payment(order_id: str, payment_record_id: str, curre
     try:
         initiation = await provider.initiate(context)
     except PaymentProviderError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        logger.warning("Payment provider rejected the request: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="That payment could not be started. Please try a different payment method.",
+        ) from exc
 
     challenge = await payment_otp_service.start_payment_challenge(
         payment_record_id=record["_id"],

@@ -19,6 +19,8 @@ import {
   uploadItemImage,
 } from "../../services/itemApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { formatApiError } from "../../utils/apiErrors.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const emptyItemForm = {
   itemType: "product",
@@ -307,7 +309,8 @@ export function ItemsPage() {
         setCustomErrors(detail);
         setServerError("Please fix custom field validation errors.");
       } else {
-        setServerError(detail || "Unable to save item.");
+        // detail can be an object as well as a string; rendering one throws.
+        setServerError(formatApiError(detail, "Unable to save item."));
       }
     } finally {
       setIsSaving(false);
@@ -324,7 +327,7 @@ export function ItemsPage() {
       setServerMessage("Category created.");
       await refreshCategories();
     } catch (error) {
-      setServerError(error.response?.data?.detail || "Unable to save category.");
+      setServerError(getApiErrorMessage(error, "Unable to save category."));
     }
   }
 

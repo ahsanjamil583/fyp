@@ -3,9 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Alert, Card, EmptyState, StatCard } from "../../components/ui/index.jsx";
-import { getApiErrorMessage } from "../../services/apiError.js";
 import { getCashierDashboard } from "../../services/cashierApi.js";
 import { formatMoney, formatOrderTime, orderStatusTone, paymentStatusTone, StatusPill } from "./cashierShared.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function CashierDashboard() {
   const [data, setData] = useState(null);

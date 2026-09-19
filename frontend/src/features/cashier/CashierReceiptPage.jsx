@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { Alert } from "../../components/ui/index.jsx";
-import { getApiErrorMessage } from "../../services/apiError.js";
 import { getCashierReceipt } from "../../services/cashierApi.js";
 import { formatMoney, formatOrderTime } from "./cashierShared.jsx";
 import { resolveUploadUrl } from "../../services/itemApi.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 /**
  * The printed artefact.

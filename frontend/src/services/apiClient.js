@@ -12,6 +12,12 @@ const businessRefreshKey = "bizxus_business_refresh_token";
 const businessUserKey = "bizxus_business_user";
 let businessRefreshRequest = null;
 
+const customerAccessKey = "bizxus_customer_access_token";
+const customerRefreshKey = "bizxus_customer_refresh_token";
+const customerUserKey = "bizxus_customer_user";
+const customerProfileKey = "bizxus_customer_profile";
+let customerRefreshRequest = null;
+
 function getBusinessSessionValue(key) {
   const sessionValue = sessionStorage.getItem(key);
   if (sessionValue) {
@@ -71,6 +77,52 @@ async function refreshBusinessAccessToken() {
   }
 
   return businessRefreshRequest;
+}
+
+/**
+ * The customer equivalent of refreshBusinessAccessToken.
+ *
+ * Without it a customer access token simply expired after an hour: the 401 was
+ * rejected, nothing cleared the stored token, and ProtectedRoute still saw a token and
+ * kept the customer "logged in" on a portal where every request failed.
+ */
+async function refreshCustomerAccessToken() {
+  const refreshToken = localStorage.getItem(customerRefreshKey);
+  if (!refreshToken) {
+    throw new Error("Missing customer refresh token.");
+  }
+
+  if (!customerRefreshRequest) {
+    customerRefreshRequest = axios
+      .post(
+        `${apiClient.defaults.baseURL}/customer/auth/refresh`,
+        { refreshToken },
+        { headers: { "Content-Type": "application/json" } },
+      )
+      .then((response) => {
+        const session = response.data?.data;
+        if (!session?.accessToken || !session?.refreshToken) {
+          throw new Error("Invalid refresh response.");
+        }
+        localStorage.setItem(customerAccessKey, session.accessToken);
+        localStorage.setItem(customerRefreshKey, session.refreshToken);
+        if (session.user) {
+          localStorage.setItem(customerUserKey, JSON.stringify(session.user));
+        }
+        return session.accessToken;
+      })
+      .finally(() => {
+        customerRefreshRequest = null;
+      });
+  }
+
+  return customerRefreshRequest;
+}
+
+function clearCustomerSession() {
+  [customerAccessKey, customerRefreshKey, customerUserKey, customerProfileKey].forEach((key) => {
+    localStorage.removeItem(key);
+  });
 }
 
 const PASSWORD_RESET_REQUIRED = "password_reset_required";
@@ -140,6 +192,36 @@ apiClient.interceptors.response.use(
         localStorage.removeItem(businessAccessKey);
         localStorage.removeItem(businessRefreshKey);
         localStorage.removeItem(businessUserKey);
+        return Promise.reject(refreshError);
+      }
+    }
+
+    if (
+      error.response?.status === 401 &&
+      !isBusinessRequest &&
+      !originalRequest?._retry &&
+      !isAuthRefreshRequest &&
+      !isAuthLoginRequest &&
+      !isAuthRegisterRequest
+    ) {
+      originalRequest._retry = true;
+
+      try {
+        const nextAccessToken = await refreshCustomerAccessToken();
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${nextAccessToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        // The session is genuinely over. Clear it and send them to login, rather than
+        // leaving a dead token behind that ProtectedRoute reads as "still signed in".
+        clearCustomerSession();
+        if (window.location.pathname !== "/customer/login") {
+          if (navigationHandler) {
+            navigationHandler("/customer/login");
+          } else {
+            window.location.assign("/customer/login");
+          }
+        }
         return Promise.reject(refreshError);
       }
     }

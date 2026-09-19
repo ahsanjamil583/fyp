@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from bson import ObjectId
@@ -7,6 +9,8 @@ from fastapi import HTTPException, status
 
 from app.core.object_ids import parse_object_id
 from app.db.mongodb import get_database
+
+logger = logging.getLogger(__name__)
 
 
 def _request_value(requested: Any, key: str, default: Any = None) -> Any:
@@ -139,11 +143,62 @@ def get_line_availability(item: dict[str, Any], quantity: int, variant: dict[str
     }
 
 
+# One line's maximum quantity. The cashier schema allows up to 999 per line, so this is
+# the tighter of the two and the one that actually decides.
+MAX_LINE_QUANTITY = 99
+
+# How long two identical submissions are treated as the same click. Long enough to cover
+# a double-tap, a retried request or an impatient refresh; short enough that someone who
+# genuinely wants the same thing twice is not blocked.
+ORDER_CLAIM_WINDOW_SECONDS = 90
+
+
+async def claim_order_submission(db, tenant_id, fingerprint_parts: list[str]) -> None:
+    """Refuse a second identical order submission inside a short window.
+
+    Paths that carry their items in the request body have no cart to claim, so a double
+    submit used to create two orders and reserve the stock twice. The claim is a unique
+    insert: whoever writes it first proceeds, and anyone repeating the same request
+    inside the window is told the order already exists.
+
+    Deliberately best-effort on infrastructure failure. Refusing to take an order because
+    the claim collection is unavailable would be worse than the duplicate it prevents.
+    """
+    from hashlib import sha256
+
+    from pymongo.errors import DuplicateKeyError
+
+    fingerprint = sha256("|".join(str(part) for part in fingerprint_parts).encode("utf-8")).hexdigest()
+    now = datetime.now(timezone.utc)
+    try:
+        await db.order_submission_claims.insert_one(
+            {
+                "_id": f"{tenant_id}:{fingerprint}",
+                "tenantId": tenant_id,
+                "createdAt": now,
+                "expiresAt": now + timedelta(seconds=ORDER_CLAIM_WINDOW_SECONDS),
+            }
+        )
+    except DuplicateKeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="That order has already been submitted. Check your orders before sending it again.",
+        ) from exc
+    except Exception:
+        logger.warning("Order submission claim unavailable; proceeding without duplicate protection.")
+
+
 def build_transaction_line(item: dict[str, Any], requested: Any) -> tuple[dict[str, Any], dict[str, Any]]:
     quantity = int(_request_value(requested, "quantity", 1) or 1)
     if quantity < 1:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Quantity must be at least 1.")
-    quantity = min(quantity, 99)
+    # Refuse rather than clamp. Silently reducing 150 to 99 charged and deducted the
+    # wrong amount while the till and the stock warning still reasoned about 150.
+    if quantity > MAX_LINE_QUANTITY:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Quantity cannot be more than {MAX_LINE_QUANTITY} per line. Split it across more than one line.",
+        )
 
     variant_index, variant = resolve_requested_variant(item, requested)
     availability = get_line_availability(item, quantity, variant)
@@ -155,7 +210,8 @@ def build_transaction_line(item: dict[str, Any], requested: Any) -> tuple[dict[s
         )
 
     unit_price = float((variant or {}).get("price") or item.get("price", 0) or 0)
-    subtotal = unit_price * quantity
+    # Rounded at the line, so the order total cannot accumulate float residue.
+    subtotal = round(unit_price * quantity, 2)
     line = {
         "itemId": item["_id"],
         "name": item.get("name", ""),
@@ -208,7 +264,7 @@ async def resolve_requested_order_items(tenant: dict[str, Any], requested_items:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="One or more requested items are unavailable.")
         line, availability = build_transaction_line(item, requested)
         line["stockSnapshot"] = availability
-        subtotal += float(line.get("subtotal", 0) or 0)
+        subtotal = round(subtotal + float(line.get("subtotal", 0) or 0), 2)
         resolved_items.append(item)
         transaction_items.append(line)
 

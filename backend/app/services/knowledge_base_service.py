@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import io
 import re
@@ -354,7 +355,10 @@ async def upload_knowledge_document(
     if not data:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Uploaded file is empty.")
 
-    extracted_text = _clean_text(_extract_upload_text(data, extension))
+    # Every extractor here is blocking: openpyxl, pypdf and python-docx all parse the
+    # whole document synchronously. Running them on the event loop stalled every other
+    # request for the duration of an upload.
+    extracted_text = _clean_text(await asyncio.to_thread(_extract_upload_text, data, extension))
     if not extracted_text:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No readable text found in this file.")
 

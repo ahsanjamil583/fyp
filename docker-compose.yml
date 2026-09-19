@@ -25,6 +25,10 @@ services:
       LOCAL_UPLOAD_DIR: /app/uploads
       TEMP_UPLOAD_DIR: /app/uploads/temp
       LOG_DIR: /app/logs
+      # Compose puts the backend behind no proxy, so nothing is trusted. Set this to the
+      # load balancer's address (or "*") when deploying behind one, or the rate limiter
+      # counts every user as the proxy.
+      TRUSTED_PROXY_IPS: ""
     depends_on:
       - mongo
     ports:

@@ -5,6 +5,7 @@ import { useTenant } from "../../context/TenantContext.jsx";
 import { isDebugMode } from "../../utils/displaySafety.js";
 import { getOwnerAgentHistory, getOwnerAgentInsights, sendOwnerAgentMessage } from "../../services/ownerAgentApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const quickPrompts = [
   "Summarize today's business performance",
@@ -57,7 +58,7 @@ export function OwnerAgentPage() {
       setInsights(insightData);
       setHistory(historyData.items || []);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load owner assistant workspace.");
+      setError(getApiErrorMessage(requestError, "Unable to load owner assistant workspace."));
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +89,7 @@ export function OwnerAgentPage() {
       const insightData = await getOwnerAgentInsights(selectedTenant.id);
       setInsights(insightData);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to get an owner assistant reply.");
+      setError(getApiErrorMessage(requestError, "Unable to get an owner assistant reply."));
     } finally {
       setIsSending(false);
     }

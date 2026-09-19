@@ -13,6 +13,7 @@ import {
   simulateWhatsAppInbound,
 } from "../../services/whatsappApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const defaultForm = {
   provider: "baileys",
@@ -128,7 +129,7 @@ export function WhatsAppAgentPage() {
       const conversationData = await getWhatsAppConversations(selectedTenant.id, { page: 1, limit: 8 });
       setConversations(conversationData.items || []);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load WhatsApp agent settings.");
+      setError(getApiErrorMessage(requestError, "Unable to load WhatsApp agent settings."));
     } finally {
       setIsLoading(false);
     }
@@ -179,7 +180,7 @@ export function WhatsAppAgentPage() {
       setNotice("WhatsApp agent settings saved successfully.");
       await loadWorkspace();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to save WhatsApp settings.");
+      setError(getApiErrorMessage(requestError, "Unable to save WhatsApp settings."));
     } finally {
       setIsSaving(false);
     }
@@ -197,7 +198,7 @@ export function WhatsAppAgentPage() {
       setNotice("WhatsApp agent disconnected.");
       await loadWorkspace();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to disconnect WhatsApp agent.");
+      setError(getApiErrorMessage(requestError, "Unable to disconnect WhatsApp agent."));
     }
   }
 
@@ -214,7 +215,7 @@ export function WhatsAppAgentPage() {
       setNotice("Mock customer message processed by the WhatsApp AI agent.");
       await loadWorkspace();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to process mock WhatsApp message.");
+      setError(getApiErrorMessage(requestError, "Unable to process mock WhatsApp message."));
     } finally {
       setIsSimulating(false);
     }
@@ -231,7 +232,7 @@ export function WhatsAppAgentPage() {
       setNotice("Test message logged successfully.");
       await loadWorkspace();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to send WhatsApp test message.");
+      setError(getApiErrorMessage(requestError, "Unable to send WhatsApp test message."));
     } finally {
       setIsSendingTest(false);
     }
@@ -249,7 +250,7 @@ export function WhatsAppAgentPage() {
       setSettings(data.settings);
       setNotice("WhatsApp bridge token refreshed. Update your bridge .env before restarting it.");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to refresh WhatsApp bridge token.");
+      setError(getApiErrorMessage(requestError, "Unable to refresh WhatsApp bridge token."));
     } finally {
       setIsRefreshingToken(false);
     }

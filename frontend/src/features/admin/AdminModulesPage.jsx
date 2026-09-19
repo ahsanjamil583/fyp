@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { createAdminModule, getAdminModules, updateAdminModule } from "../../services/moduleApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const emptyModule = {
   code: "",
@@ -47,7 +48,7 @@ export function AdminModulesPage() {
       setModules(data);
       setError("");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load modules.");
+      setError(getApiErrorMessage(requestError, "Unable to load modules."));
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +127,7 @@ export function AdminModulesPage() {
       resetForm();
       await refreshModules();
     } catch (requestError) {
-      setError(requestError.message || requestError.response?.data?.detail || "Unable to save module.");
+      setError(getApiErrorMessage(requestError, "Unable to save module."));
     } finally {
       setIsSaving(false);
     }

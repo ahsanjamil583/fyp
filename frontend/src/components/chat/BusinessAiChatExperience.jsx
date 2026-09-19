@@ -97,23 +97,42 @@ function stockLabel(stock) {
   return "In stock";
 }
 
-function DraftItemCard({ item, quantity, onQuantityChange }) {
+/**
+ * `compact` is the sidebar rail, which is only about 230px of usable width. At that size
+ * the wide layout fell apart: the name competed with the stock badge for the same row and
+ * wrapped to three lines, and the quantity/price pair was two unreadable columns. Compact
+ * stacks everything into one column instead.
+ */
+function DraftItemCard({ item, quantity, onQuantityChange, compact = false }) {
   const options = optionText(item.selectedOptions);
   const stock = item.stockSnapshot || {};
   const lineTotal = Number(quantity || item.quantity || 1) * Number(item.unitPrice || 0);
+  const outOfStock = stock.available === false;
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-semibold text-slate-950">{item.name}</div>
-          {item.selectedVariantName ? <div className="mt-1 text-xs text-slate-500">Variant: {item.selectedVariantName}</div> : null}
-          {options ? <div className="mt-1 text-xs text-slate-500">Options: {options}</div> : null}
+    <div className={`rounded-2xl border border-slate-200 bg-white shadow-card ${compact ? "p-3" : "p-4"}`}>
+      <div className={compact ? "space-y-1.5" : "flex items-start justify-between gap-3"}>
+        <div className="min-w-0">
+          <div className={`font-semibold leading-snug text-slate-950 ${compact ? "text-sm" : ""}`}>{item.name}</div>
+          {item.selectedVariantName ? (
+            <div className="mt-1 text-xs leading-snug text-slate-500">Variant: {item.selectedVariantName}</div>
+          ) : null}
+          {options ? (
+            // The option string can be long ("color: Black | size: 42 | material: ...").
+            // In the rail it is clamped rather than allowed to become a paragraph.
+            <div className={`mt-1 text-xs leading-snug text-slate-500 ${compact ? "line-clamp-2" : ""}`} title={options}>
+              Options: {options}
+            </div>
+          ) : null}
         </div>
-        <span className={stock.available === false ? "rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700" : "rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700"}>
-          {stock.available === false ? "Out of stock" : "Available"}
+        <span
+          className={`${compact ? "inline-flex w-fit" : ""} shrink-0 whitespace-nowrap rounded-full px-2 py-1 text-xs font-bold ${
+            outOfStock ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"
+          }`}
+        >
+          {outOfStock ? "Out of stock" : "Available"}
         </span>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+      <div className={`mt-3 gap-3 text-sm ${compact ? "space-y-2" : "grid grid-cols-2"}`}>
         <label className="block">
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quantity</span>
           <input
@@ -125,16 +144,18 @@ function DraftItemCard({ item, quantity, onQuantityChange }) {
             onChange={(event) => onQuantityChange(item, event.target.value)}
           />
         </label>
-        <div>
+        <div className={compact ? "flex items-baseline justify-between gap-2" : ""}>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Unit price</div>
-          <div className="mt-2 font-semibold text-slate-950">{formatMoney(item.currency, item.unitPrice)}</div>
+          <div className={`font-semibold text-slate-950 ${compact ? "whitespace-nowrap" : "mt-2"}`}>
+            {formatMoney(item.currency, item.unitPrice)}
+          </div>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm">
-        <span className="text-slate-500">Line total</span>
-        <span className="font-semibold text-slate-950">{formatMoney(item.currency, lineTotal)}</span>
+      <div className="mt-3 flex items-baseline justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm">
+        <span className="shrink-0 text-slate-500">Line total</span>
+        <span className="whitespace-nowrap font-semibold text-slate-950">{formatMoney(item.currency, lineTotal)}</span>
       </div>
-      <div className="mt-2 text-xs text-slate-500">{stockLabel(stock)}</div>
+      <div className="mt-2 text-xs leading-snug text-slate-500">{stockLabel(stock)}</div>
     </div>
   );
 }
@@ -225,6 +246,7 @@ export function BusinessAiDraftOrderSummary({
           {draftItems.map((item) => (
             <DraftItemCard
               key={`${draftOrder.conversationId || draftOrder.tenantId || "draft"}-${item.itemId}-${item.selectedVariantIndex ?? "base"}`}
+              compact={compact}
               item={item}
               quantity={draftQuantities[item.itemId] || item.quantity}
               onQuantityChange={updateDraftQuantity}

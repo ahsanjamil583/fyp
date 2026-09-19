@@ -156,7 +156,12 @@ def send_otp_email(*, to_email: str, code: str) -> dict:
             to_email,
             exc,
         )
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Email OTP delivery failed: {exc}") from exc
+        # The exception text carries SMTP server banners and the configured host, which
+        # the client has no business seeing. The specifics are in the log above.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We could not send the verification email just now. Please try again in a moment.",
+        ) from exc
     except Exception as exc:
         logger.exception(
             "SMTP email send failed provider=%s host=%s from=%s to=%s error=%s",
@@ -166,7 +171,12 @@ def send_otp_email(*, to_email: str, code: str) -> dict:
             to_email,
             type(exc).__name__,
         )
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Email OTP delivery failed: {exc}") from exc
+        # The exception text carries SMTP server banners and the configured host, which
+        # the client has no business seeing. The specifics are in the log above.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We could not send the verification email just now. Please try again in a moment.",
+        ) from exc
 
 
 def build_payment_otp_email_body(
@@ -321,6 +331,103 @@ def send_payment_otp_email(
             settings.smtp_host,
             to_email,
             type(exc).__name__,
+        )
+        raise EmailSendError(str(exc)) from exc
+
+    return {"provider": provider, "fromEmail": from_email, "toEmail": to_email, "subject": subject}
+
+
+def build_order_email_html(content: dict, business_name: str) -> str:
+    """The HTML twin of the plain-text body built in ``order_message_service``.
+
+    Both are rendered from the same ``content`` dict so the two versions of the message
+    can never disagree about the total or the receipt link.
+    """
+    safe_business = escape(str(business_name or "BizXusAI"))
+    rows = ""
+    for row in str(content.get("itemLines") or "").split("\n"):
+        cleaned = row.strip().lstrip("-").strip()
+        if cleaned:
+            rows += f'<tr><td style="padding:6px 0;border-bottom:1px solid #f1f5f9;">{escape(cleaned)}</td></tr>'
+
+    footer = str(content.get("footerNote") or "").strip()
+    footer_block = (
+        f'<p style="margin:18px 0 0;color:#64748b;font-size:13px;line-height:1.7;">{escape(footer)}</p>'
+        if footer else ""
+    )
+
+    return f"""\
+<!doctype html>
+<html>
+  <body style="margin:0;background:#eef3f9;font-family:Arial,Helvetica,sans-serif;color:#172033;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef3f9;padding:36px 12px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #d7e2ef;border-radius:22px;overflow:hidden;">
+          <tr>
+            <td style="padding:28px 32px;background:#172033;color:#ffffff;">
+              <div style="font-size:12px;font-weight:800;letter-spacing:0.22em;text-transform:uppercase;color:#93c5fd;">{safe_business}</div>
+              <h1 style="margin:12px 0 6px;font-size:26px;line-height:1.2;font-weight:800;">{escape(str(content.get("headline") or "Your order"))}</h1>
+              <p style="margin:0;color:#dbeafe;font-size:15px;line-height:1.6;">{escape(str(content.get("intro") or ""))}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;">
+                <tr><td style="color:#64748b;font-size:14px;padding:4px 0;">Order</td>
+                    <td align="right" style="font-weight:700;font-size:14px;padding:4px 0;">{escape(str(content.get("orderNumber") or ""))}</td></tr>
+                <tr><td style="color:#64748b;font-size:14px;padding:4px 0;">Total</td>
+                    <td align="right" style="font-weight:800;font-size:18px;padding:4px 0;">{escape(str(content.get("total") or ""))}</td></tr>
+              </table>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;color:#334155;margin:0 0 20px;">{rows}</table>
+              <p style="margin:0 0 20px;color:#334155;font-size:14px;line-height:1.7;">{escape(str(content.get("statusLine") or ""))}</p>
+              <a href="{escape(str(content.get("receiptLink") or ""))}"
+                 style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:700;font-size:14px;">
+                View your receipt
+              </a>
+              {footer_block}
+              <p style="margin:26px 0 0;color:#172033;font-size:14px;line-height:1.7;">Regards,<br /><strong>{safe_business}</strong></p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>
+"""
+
+
+def send_order_email(*, to_email: str, content: dict, business_name: str) -> dict:
+    """Send an order confirmation.
+
+    No demo short-circuit, for the same reason as the payment OTP: a confirmation the
+    customer never receives is worse than one that was never promised.
+    """
+    subject = str(content.get("subject") or "Your order").strip()[:200]
+    provider = str(settings.email_provider or "smtp").strip().lower()
+    if provider != "smtp":
+        raise EmailSendError(f"Unsupported email provider: {provider}")
+    smtp_username = str(settings.smtp_username or "").strip()
+    smtp_password = "".join(str(settings.smtp_password or "").split())
+    if not settings.smtp_host or not smtp_username or not smtp_password:
+        raise EmailSendError("SMTP is not configured. Please check EMAIL_PROVIDER and SMTP settings.")
+
+    from_email, from_name = _sender()
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = f"{from_name} <{from_email}>"
+    message["To"] = to_email
+    message.set_content(str(content.get("text") or ""))
+    message.add_alternative(build_order_email_html(content, business_name), subtype="html")
+
+    try:
+        with smtplib.SMTP(settings.smtp_host, int(settings.smtp_port), timeout=20) as smtp:
+            smtp.starttls()
+            smtp.login(smtp_username, smtp_password)
+            smtp.send_message(message)
+    except Exception as exc:
+        logger.error(
+            "Order confirmation email failed host=%s to=%s error=%s",
+            settings.smtp_host, to_email, type(exc).__name__,
         )
         raise EmailSendError(str(exc)) from exc
 

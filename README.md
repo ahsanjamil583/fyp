@@ -190,6 +190,7 @@ docs/phase-31-submission-center.md
 docs/payment-gateways.md
 docs/phase-38-cashier-module.md
 docs/phase-39-mock-otp-payments.md
+docs/phase-41-order-confirmations-and-receipts.md
 ```
 
 ## Safety Note
@@ -267,6 +268,27 @@ EASYPAISA_MODE=mock_otp
 For local development and demos only: the application refuses to start with a mock wallet
 when `APP_ENV=production`. Guests are never offered the code flow, since there is no
 account to email. See `docs/phase-39-mock-otp-payments.md`.
+
+
+## Phase 41: Order Confirmations and Online Order Receipts
+
+Online orders now confirm themselves. When a customer places an order, and again when the
+payment settles, the platform sends a confirmation on email and — when the business has a
+paired WhatsApp number — on WhatsApp. Both carry a link to a printable receipt for the
+whole order, served at an unguessable token so it opens without logging in:
+
+```
+GET /api/v1/receipts/{receiptToken}
+```
+
+Counter sales and imported historical orders stay silent. A unique index on
+`(transactionId, event, channel)` is claimed before the send, so a replayed gateway
+callback cannot produce a second copy. Nothing here can break an order: a dead SMTP server
+or an unpaired WhatsApp number is recorded and skipped.
+
+Owners control this per business at the bottom of the Notifications page — either channel
+can be switched off, either event can be silenced, and a short footer note can be appended.
+Defaults are on. See `docs/phase-41-order-confirmations-and-receipts.md`.
 
 
 ## WhatsApp Bridge

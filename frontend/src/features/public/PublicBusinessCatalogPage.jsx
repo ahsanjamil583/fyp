@@ -18,7 +18,12 @@ export function PublicBusinessCatalogPage() {
 
   async function searchItems(event) {
     event.preventDefault();
-    await loadItems({ search });
+    // A failed search used to be an unhandled rejection with nothing on screen.
+    try {
+      await loadItems({ search });
+    } catch {
+      // loadItems owns the error state; this only stops the rejection escaping.
+    }
   }
 
   if (isLoading) {

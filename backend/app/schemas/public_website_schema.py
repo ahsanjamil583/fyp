@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from app.services.smart_order_service import MAX_LINE_QUANTITY  # one definition of the per-line cap
 
 
 class PublicOrderItemRequest(BaseModel):
@@ -7,7 +8,7 @@ class PublicOrderItemRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     itemId: str
-    quantity: int = Field(default=1, ge=1, le=99)
+    quantity: int = Field(default=1, ge=1, le=MAX_LINE_QUANTITY)
     selectedVariantIndex: int | None = None
     selectedVariantName: str = ""
     selectedOptions: dict = Field(default_factory=dict)

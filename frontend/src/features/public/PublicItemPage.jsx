@@ -9,6 +9,7 @@ import { createPublicStripeCheckout, createPublicTransaction, getPublicBusiness,
 import { capitalize, formatTransactionLabel, formatTransactionSuccess, transactionTypeOptions } from "../../utils/transaction.js";
 import { buildPublicSiteModel, inferItemTransactionType, PublicLoadingState, PublicUnavailableState, PublicWebsiteFrame } from "./publicWebsiteShared.jsx";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function PublicItemPage() {
   const { tenantSlug, itemId } = useParams();
@@ -28,7 +29,7 @@ export function PublicItemPage() {
         setBusiness(businessData);
         setItem(itemData);
       } catch (requestError) {
-        setError(requestError.response?.data?.detail || "Item unavailable.");
+        setError(getApiErrorMessage(requestError, "Item unavailable."));
       } finally {
         setIsLoading(false);
       }
@@ -47,7 +48,8 @@ export function PublicItemPage() {
         customerEmail: form.customerEmail,
         transactionType: form.transactionType,
         paymentMethod: form.paymentMethod || getDefaultPaymentMethod(business?.paymentOptions || {}),
-        items: [{ itemId, quantity: Number(form.quantity || 1) }],
+        // Clamped like the customer pages; the API caps a line at 99 and rejects 0.
+        items: [{ itemId, quantity: Math.max(1, Math.min(99, Math.floor(Number(form.quantity) || 1))) }],
         fulfillment: { type: "none", address: {} },
         notes: form.notes,
       });
@@ -61,7 +63,7 @@ export function PublicItemPage() {
       }
       setMessage(formatTransactionSuccess(transaction));
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to submit request.");
+      setError(getApiErrorMessage(requestError, "Unable to submit request."));
     }
   }
 

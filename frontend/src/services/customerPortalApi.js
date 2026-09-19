@@ -60,13 +60,15 @@ export async function addCartItem(payload) {
   return response.data.data;
 }
 
-export async function updateCartItem(itemId, payload) {
-  const response = await apiClient.put(`/customer/cart/items/${itemId}`, payload);
+// Cart lines are addressed by lineId, because one item can appear more than once with
+// different variants. An itemId still resolves, for carts created before lines had ids.
+export async function updateCartItem(lineRef, payload) {
+  const response = await apiClient.put(`/customer/cart/items/${lineRef}`, payload);
   return response.data.data;
 }
 
-export async function removeCartItem(itemId) {
-  const response = await apiClient.delete(`/customer/cart/items/${itemId}`);
+export async function removeCartItem(lineRef) {
+  const response = await apiClient.delete(`/customer/cart/items/${lineRef}`);
   return response.data.data;
 }
 
@@ -188,4 +190,16 @@ export function resolveUploadUrl(url) {
   if (url.startsWith("http")) return url;
   const apiBase = import.meta.env.VITE_API_BASE_URL || "/api/v1";
   return `${apiBase.replace("/api/v1", "")}${url}`;
+}
+
+// The order receipt is a server-rendered page addressed by an unguessable token, so the
+// client only needs the token; it never builds the document itself.
+export async function getCustomerOrderReceiptLink(orderId) {
+  const response = await apiClient.get(`/customer/transactions/${orderId}/receipt-link`);
+  return response.data.data;
+}
+
+export function orderReceiptUrl(receiptToken) {
+  const base = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+  return `${base}/receipts/${receiptToken}`;
 }

@@ -111,6 +111,12 @@ def verify_callback(payload: dict[str, str], hash_key: str = "") -> dict:
 
     return {
         "signatureValid": signature_valid,
+        # Easypay echoes back the hash it was GIVEN, over the request fields only:
+        # `status` is not in HASHED_FIELDS. The customer is handed that same hash in the
+        # redirect form, so they can replay it with status=0000. The hash therefore
+        # proves the request was ours, never that the money arrived, and the caller must
+        # confirm the outcome out of band before crediting anything.
+        "outcomeSigned": False,
         "paid": signature_valid and response_code in {SUCCESS_RESPONSE_CODE, ALREADY_PAID_RESPONSE_CODE},
         "txnRef": str(payload.get("orderRefNum") or ""),
         "amount": amount,

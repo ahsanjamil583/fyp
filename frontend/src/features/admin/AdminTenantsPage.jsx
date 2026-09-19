@@ -4,8 +4,8 @@ import { CheckCircle2, ExternalLink, Filter, ShieldCheck, XCircle } from "lucide
 
 import { decideAdminPackageRequest, decideAdminWebsiteRequest, getAdminTenants, updateAdminTenant } from "../../services/adminApi.js";
 import { getAdminBusinessCategories } from "../../services/businessCategoryApi.js";
-import { formatApiError } from "../../utils/apiErrors.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function AdminTenantsPage() {
   const [tenants, setTenants] = useState([]);
@@ -27,7 +27,7 @@ export function AdminTenantsPage() {
       setCategories(categoryRows);
       setError("");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load tenants.");
+      setError(getApiErrorMessage(requestError, "Unable to load tenants."));
     } finally {
       setIsLoading(false);
     }
@@ -42,7 +42,7 @@ export function AdminTenantsPage() {
       setTenants((current) => current.map((item) => (item.id === tenant.id ? updated : item)));
       setMessage(`Updated ${updated.name}.`);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to update tenant.");
+      setError(getApiErrorMessage(requestError, "Unable to update tenant."));
     } finally {
       setBusyTenant("");
     }
@@ -62,7 +62,7 @@ export function AdminTenantsPage() {
       setTenants((current) => current.map((item) => (item.id === tenant.id ? updated : item)));
       setMessage(`${request.profileName || request.planName} request ${status} for ${updated.name}.`);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || `Unable to ${status} package request.`);
+      setError(getApiErrorMessage(requestError, `Unable to ${status} package request.`));
     } finally {
       setBusyTenant("");
     }
@@ -82,7 +82,7 @@ export function AdminTenantsPage() {
       setTenants((current) => current.map((item) => (item.id === tenant.id ? updated : item)));
       setMessage(`Website request ${status} for ${updated.name}.`);
     } catch (requestError) {
-      setError(formatApiError(requestError.response?.data?.detail, `Unable to ${status} website request.`));
+      setError(getApiErrorMessage(requestError, `Unable to ${status} website request.`));
     } finally {
       setBusyTenant("");
     }

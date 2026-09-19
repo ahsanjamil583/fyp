@@ -15,6 +15,7 @@ import {
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
 import { humanizeInternalName, isDebugMode } from "../../utils/displaySafety.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const sourceLabels = {
   owner_text: "Owner text",
@@ -98,7 +99,7 @@ export function KnowledgeBasePage() {
       const stillExists = data.items?.some((document) => document.id === nextSelectedId);
       setSelectedDocumentId(stillExists ? nextSelectedId : firstId);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load knowledge base.");
+      setError(getApiErrorMessage(requestError, "Unable to load knowledge base."));
     } finally {
       setIsLoading(false);
     }
@@ -134,7 +135,7 @@ export function KnowledgeBasePage() {
           isActive: Boolean(document.isActive),
         });
       } catch (requestError) {
-        setError(requestError.response?.data?.detail || "Unable to load knowledge document.");
+        setError(getApiErrorMessage(requestError, "Unable to load knowledge document."));
       }
     }
     loadDetail();
@@ -158,7 +159,7 @@ export function KnowledgeBasePage() {
       setNotice("Text knowledge saved and indexed successfully.");
       await loadDocuments(data.document?.id || "");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to save text knowledge.");
+      setError(getApiErrorMessage(requestError, "Unable to save text knowledge."));
     } finally {
       setIsSavingText(false);
     }
@@ -188,7 +189,7 @@ export function KnowledgeBasePage() {
       setNotice("File uploaded, text extracted, and RAG indexed successfully.");
       await loadDocuments(data.document?.id || "");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to upload knowledge document.");
+      setError(getApiErrorMessage(requestError, "Unable to upload knowledge document."));
     } finally {
       setIsUploading(false);
     }
@@ -212,7 +213,7 @@ export function KnowledgeBasePage() {
       setNotice("Knowledge document updated and reindexed successfully.");
       await loadDocuments(data.document?.id || selectedDocument.id);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to update knowledge document.");
+      setError(getApiErrorMessage(requestError, "Unable to update knowledge document."));
     } finally {
       setIsUpdating(false);
     }
@@ -231,7 +232,7 @@ export function KnowledgeBasePage() {
       setNotice("Knowledge document deleted successfully.");
       await loadDocuments("");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to delete knowledge document.");
+      setError(getApiErrorMessage(requestError, "Unable to delete knowledge document."));
     }
   }
 
@@ -245,7 +246,7 @@ export function KnowledgeBasePage() {
       setNotice("Full knowledge base reindex completed successfully.");
       await loadDocuments(selectedDocumentId);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to reindex knowledge base.");
+      setError(getApiErrorMessage(requestError, "Unable to reindex knowledge base."));
     } finally {
       setIsReindexing(false);
     }
@@ -264,7 +265,7 @@ export function KnowledgeBasePage() {
       });
       setTestResult(data);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to test this knowledge question.");
+      setError(getApiErrorMessage(requestError, "Unable to test this knowledge question."));
     } finally {
       setIsTesting(false);
     }

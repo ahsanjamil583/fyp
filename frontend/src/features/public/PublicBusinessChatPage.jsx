@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { BusinessAiChatExperience } from "../../components/chat/BusinessAiChatExperience.jsx";
+import { BusinessAiBasketPanel } from "../../components/chat/BusinessAiBasketPanel.jsx";
 import { createPublicOrder, getPublicChatState, sendPublicChatMessage, resolveUploadUrl } from "../../services/publicWebsiteApi.js";
 import { buildPublicSiteModel, PublicLoadingState, PublicUnavailableState, PublicWebsiteFrame } from "./publicWebsiteShared.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const emptyReply = { tenant: null, conversation: null, messages: [], draftOrder: {} };
 
@@ -28,7 +30,7 @@ export function PublicBusinessChatPage() {
         if (data.conversation?.id) localStorage.setItem(storageKey, data.conversation.id);
         setChatState(data);
       } catch (requestError) {
-        setError(requestError.response?.data?.detail || "Unable to load public AI chat. Please refresh and try again.");
+        setError(getApiErrorMessage(requestError, "Unable to load public AI chat. Please refresh and try again."));
       }
     }
 
@@ -51,7 +53,7 @@ export function PublicBusinessChatPage() {
       setDraftQuantities({});
       setMessageText("");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Something went wrong while asking the assistant. Please try again.");
+      setError(getApiErrorMessage(requestError, "Something went wrong while asking the assistant. Please try again."));
     } finally {
       setIsSending(false);
     }
@@ -89,7 +91,8 @@ export function PublicBusinessChatPage() {
         paymentMethod: checkout.paymentMethod || chatState.tenant?.paymentOptions?.defaultMethod || undefined,
         items: chatState.draftOrder.items.map((item) => ({
           itemId: item.itemId,
-          quantity: Number(draftQuantities[item.itemId] || item.quantity || 1),
+          // Clamped like the customer pages; the API caps a line at 99 and rejects 0.
+          quantity: Math.max(1, Math.min(99, Math.floor(Number(draftQuantities[item.itemId] || item.quantity) || 1))),
           selectedVariantIndex: item.selectedVariantIndex ?? null,
           selectedVariantName: item.selectedVariantName || "",
           selectedOptions: item.selectedOptions || {},
@@ -106,7 +109,7 @@ export function PublicBusinessChatPage() {
       const refreshed = await getPublicChatState(tenantSlug, chatState.conversation?.id || localStorage.getItem(storageKey));
       setChatState(refreshed);
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Something went wrong while creating your order. Please try again.");
+      setError(getApiErrorMessage(requestError, "Something went wrong while creating your order. Please try again."));
     } finally {
       setIsConfirming(false);
     }
@@ -128,6 +131,16 @@ export function PublicBusinessChatPage() {
   return (
     <PublicWebsiteFrame business={business} currentPage="chat" siteModel={siteModel}>
       <div className="mx-auto max-w-7xl px-5 py-10">
+        {/* A visitor with no account still gets a basket, held on the conversation. */}
+        {chatState.basket?.kind ? (
+          <div className="mb-4 max-w-md">
+            <BusinessAiBasketPanel
+              basket={chatState.basket}
+              compact
+              readiness={chatState.checkoutReadiness || {}}
+            />
+          </div>
+        ) : null}
         <BusinessAiChatExperience
           accentClass="text-brand-700"
           business={business}

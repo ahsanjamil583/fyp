@@ -406,3 +406,37 @@ class CustomerSourceTagTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CashierShortPaymentTests(unittest.TestCase):
+    """A till sale where the cashier takes less than the total was recorded as paid.
+
+    `changeDue` was clamped at zero, so the shortfall vanished and the order got a
+    full-amount payment record while the drawer was down the difference.
+    """
+
+    def test_taking_less_than_the_total_is_refused(self):
+        import inspect
+
+        from app.services import cashier_order_service
+
+        source = inspect.getsource(cashier_order_service.create_cashier_order)
+        self.assertIn("shortfall", source)
+        self.assertIn("is less than the order total", source)
+
+    def test_quantity_over_the_cap_is_refused_rather_than_clamped(self):
+        """Clamping charged and deducted 99 for a sale of 150, with no error anywhere."""
+        from app.services.smart_order_service import MAX_LINE_QUANTITY, build_transaction_line
+
+        item = {"_id": ObjectId(), "name": "Rice", "price": 100, "currency": "PKR", "isStockTracked": False, "variants": []}
+        with self.assertRaises(HTTPException) as caught:
+            build_transaction_line(item, {"quantity": MAX_LINE_QUANTITY + 1})
+        self.assertEqual(caught.exception.status_code, 422)
+        self.assertIn(str(MAX_LINE_QUANTITY), caught.exception.detail)
+
+    def test_a_quantity_at_the_cap_is_still_accepted(self):
+        from app.services.smart_order_service import MAX_LINE_QUANTITY, build_transaction_line
+
+        item = {"_id": ObjectId(), "name": "Rice", "price": 100, "currency": "PKR", "isStockTracked": False, "variants": []}
+        line, _ = build_transaction_line(item, {"quantity": MAX_LINE_QUANTITY})
+        self.assertEqual(line["quantity"], MAX_LINE_QUANTITY)

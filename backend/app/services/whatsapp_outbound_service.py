@@ -5,6 +5,7 @@ from pymongo import ReturnDocument
 
 from app.core.module_guard import ensure_tenant_module_enabled
 from app.core.object_ids import parse_object_id
+from app.integrations.whatsapp.provider import OTP_REDACTED_TEXT
 from app.db.mongodb import get_database
 
 
@@ -36,9 +37,15 @@ async def acknowledge_outbound_message(tenant_id, message_id, token, delivery_st
     db, tenant_oid = await _authorize(tenant_id, token)
     message_oid = parse_object_id(message_id, "messageId")
     now = datetime.now(timezone.utc)
+    # The OTP code has now left the building, so it must not stay in the log. The row
+    # is kept for support (recipient, status, timing); only the body goes.
+    acknowledged = await db.whatsapp_message_logs.find_one({"_id": message_oid, "tenantId": tenant_oid})
+    update = {"deliveryStatus": delivery_status, "updatedAt": now}
+    if str(((acknowledged or {}).get("rawContext") or {}).get("source") or "").lower() == "otp":
+        update["messageText"] = OTP_REDACTED_TEXT
     result = await db.whatsapp_message_logs.update_one(
         {"_id": message_oid, "tenantId": tenant_oid, "deliveryStatus": "sending"},
-        {"$set": {"deliveryStatus": delivery_status, "updatedAt": now}},
+        {"$set": update},
     )
     if not result.matched_count:
         raise HTTPException(status_code=409, detail="Message is not awaiting delivery confirmation.")

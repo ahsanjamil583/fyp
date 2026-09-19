@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from app.core.object_ids import parse_object_id, serialize_document
 from app.db.mongodb import get_database
 from app.services.customer_portal_common_service import get_customer_profile_and_user, get_marketplace_tenant_or_404
+from app.services.smart_order_service import MAX_LINE_QUANTITY  # one definition of the per-line cap
 
 
 def _detect_language_mode(text: str) -> str:
@@ -43,7 +44,7 @@ def _extract_quantity(message_text: str, item_name: str) -> int:
     for pattern in patterns:
         match = re.search(pattern, text)
         if match:
-            return max(1, min(int(match.group(1)), 99))
+            return max(1, min(int(match.group(1)), MAX_LINE_QUANTITY))
     return 1
 
 

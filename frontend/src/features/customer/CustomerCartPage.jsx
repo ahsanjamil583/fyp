@@ -7,8 +7,8 @@ import { CustomerPaymentInstructions } from "../../components/payments/CustomerP
 import { getDefaultPaymentMethod } from "../../components/payments/paymentMethods.js";
 import { isOnlinePaymentMethod, startOnlinePayment } from "../../services/paymentRedirect.js";
 import { createCustomerTransaction, getCustomerCart, removeCartItem, updateCartItem } from "../../services/customerPortalApi.js";
-import { formatApiError } from "../../utils/apiErrors.js";
 import { capitalize, formatTransactionLabel, formatTransactionSuccess, transactionTypeOptions } from "../../utils/transaction.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function CustomerCartPage() {
   const navigate = useNavigate();
@@ -17,13 +17,25 @@ export function CustomerCartPage() {
   const [checkoutDrafts, setCheckoutDrafts] = useState({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    refreshCart();
+    refreshCart().finally(() => setIsLoading(false));
   }, []);
 
   async function refreshCart() {
-    const data = await getCustomerCart();
+    // Without this the empty state was shown for a failed load, which is
+    // indistinguishable from a genuinely empty cart.
+    let data;
+    try {
+      data = await getCustomerCart();
+      setLoadFailed(false);
+    } catch (requestError) {
+      setLoadFailed(true);
+      setError(getApiErrorMessage(requestError, "Unable to load your cart."));
+      return;
+    }
     setCarts(data);
     setTransactionTypes((current) => {
       const next = { ...current };
@@ -55,14 +67,28 @@ export function CustomerCartPage() {
     });
   }
 
-  async function changeQuantity(itemId, quantity) {
-    await updateCartItem(itemId, { quantity: Number(quantity) });
-    await refreshCart();
+  // Lines, not items: one item can be in the cart twice with different variants.
+  async function changeQuantity(lineRef, quantity) {
+    // Clearing the box yields Number("") === 0, which the API rejects with a 422 and
+    // the quantity silently snapped back with no explanation.
+    const nextQuantity = Math.max(1, Math.min(99, Math.floor(Number(quantity) || 1)));
+    setError("");
+    try {
+      await updateCartItem(lineRef, { quantity: nextQuantity });
+      await refreshCart();
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to update that quantity."));
+    }
   }
 
-  async function removeItem(itemId) {
-    await removeCartItem(itemId);
-    await refreshCart();
+  async function removeItem(lineRef) {
+    setError("");
+    try {
+      await removeCartItem(lineRef);
+      await refreshCart();
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to remove that item."));
+    }
   }
 
   async function checkout(tenantId) {
@@ -107,10 +133,7 @@ export function CustomerCartPage() {
           // Send them to it, where the payment can be retried.
           setMessage("");
           setError(
-            formatApiError(
-              paymentError.response?.data?.detail,
-              "Your order was placed, but the payment page could not be opened. Open the order to try paying again.",
-            ),
+            getApiErrorMessage(paymentError, "Your order was placed, but the payment page could not be opened. Open the order to try paying again."),
           );
           navigate(`/customer/orders/${transaction.id}`);
           return;
@@ -120,7 +143,7 @@ export function CustomerCartPage() {
       setMessage(formatTransactionSuccess(transaction));
       navigate(`/customer/orders/${transaction.id}`);
     } catch (requestError) {
-      setError(formatApiError(requestError.response?.data?.detail, "Unable to checkout cart."));
+      setError(getApiErrorMessage(requestError, "Unable to checkout cart."));
     }
   }
 
@@ -179,7 +202,7 @@ export function CustomerCartPage() {
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       <div className="space-y-5">
         {carts.map((cart) => {
-          const total = cart.itemsDetailed.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+          const total = cart.itemsDetailed.reduce((sum, item) => sum + (Number(item.unitPrice ?? item.price ?? 0) * Number(item.quantity || 0)), 0);
           const checkoutConfig = cart.checkoutConfig || {};
           const allowedFulfillmentTypes = checkoutConfig.allowedFulfillmentTypes || ["none"];
           const checkoutDraft = checkoutDrafts[cart.tenantId] || {
@@ -222,14 +245,17 @@ export function CustomerCartPage() {
               </div>
               <div className="mt-4 space-y-3">
                 {cart.itemsDetailed.map((item) => (
-                  <div key={`${cart.id}-${item.id}`} className="grid gap-3 rounded-xl border border-line p-4 md:grid-cols-[1fr_110px_120px_90px] md:items-center">
+                  <div key={`${cart.id}-${item.lineId || item.id}`} className="grid gap-3 rounded-xl border border-line p-4 md:grid-cols-[1fr_110px_120px_90px] md:items-center">
                     <div>
                       <div className="font-semibold text-ink">{item.name}</div>
-                      <div className="text-sm text-muted">{item.currency} {item.price}</div>
+                      {item.selectedVariantName ? (
+                        <div className="mt-0.5 text-xs font-semibold text-brand">{item.selectedVariantName}</div>
+                      ) : null}
+                      <div className="text-sm text-muted">{item.currency} {item.unitPrice ?? item.price}</div>
                     </div>
-                    <input className="form-input" min="1" type="number" value={item.quantity} onChange={(event) => changeQuantity(item.id, event.target.value)} />
-                    <div className="text-sm font-semibold text-ink">{Number(item.price || 0) * Number(item.quantity || 0)}</div>
-                    <button type="button" className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink" onClick={() => removeItem(item.id)}>
+                    <input className="form-input" min="1" type="number" value={item.quantity} onChange={(event) => changeQuantity(item.lineId || item.id, event.target.value)} />
+                    <div className="text-sm font-semibold text-ink">{Number(item.unitPrice ?? item.price ?? 0) * Number(item.quantity || 0)}</div>
+                    <button type="button" className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink" onClick={() => removeItem(item.lineId || item.id)}>
                       Remove
                     </button>
                   </div>
@@ -323,7 +349,22 @@ export function CustomerCartPage() {
             </div>
           );
         })}
-        {!carts.length ? (
+        {isLoading && !carts.length ? (
+          <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center text-sm text-muted">
+            Loading your cart...
+          </div>
+        ) : null}
+        {!isLoading && loadFailed && !carts.length ? (
+          <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center">
+            <Receipt className="mx-auto text-brand" size={30} />
+            <div className="mt-3 font-bold text-ink">We could not load your cart</div>
+            <p className="mt-1 text-sm text-muted">This is a problem reaching the server, not an empty cart.</p>
+            <button className="ui-btn-primary mt-5" type="button" onClick={() => refreshCart()}>
+              Try again
+            </button>
+          </div>
+        ) : null}
+        {!isLoading && !loadFailed && !carts.length ? (
           <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center">
             <Receipt className="mx-auto text-brand" size={30} />
             <div className="mt-3 font-bold text-ink">Your cart is empty</div>

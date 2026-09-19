@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import hmac
 import secrets
 from math import ceil
@@ -69,7 +71,7 @@ def mask_email(email: str) -> str:
 
 def hash_otp_code(phone: str, code: str, purpose: str, account_type: str) -> str:
     message = f"{normalize_pk_phone(phone)}:{normalize_otp_code(code)}:{purpose}:{account_type}".encode("utf-8")
-    return hmac.new(settings.jwt_secret_key.encode("utf-8"), message, sha256).hexdigest()
+    return hmac.new(settings.signing_key.encode("utf-8"), message, sha256).hexdigest()
 
 
 def verify_otp_hash(phone: str, code: str, purpose: str, account_type: str, expected_hash: str) -> bool:
@@ -79,7 +81,7 @@ def verify_otp_hash(phone: str, code: str, purpose: str, account_type: str, expe
 
 def hash_email_otp_code(email: str, code: str, purpose: str, account_type: str) -> str:
     message = f"{normalize_optional_email(email)}:{normalize_otp_code(code)}:{purpose}:{account_type}:email".encode("utf-8")
-    return hmac.new(settings.jwt_secret_key.encode("utf-8"), message, sha256).hexdigest()
+    return hmac.new(settings.signing_key.encode("utf-8"), message, sha256).hexdigest()
 
 
 def verify_email_otp_hash(email: str, code: str, purpose: str, account_type: str, expected_hash: str) -> bool:
@@ -134,8 +136,22 @@ async def _find_user_by_phone(phone: str, account_type: str) -> dict | None:
     return await db.users.find_one({"phone": normalize_pk_phone(phone), "accountType": account_type})
 
 
-async def _validate_purpose_against_user(phone: str, account_type: str, purpose: str) -> None:
+async def _validate_purpose_against_user(phone: str, account_type: str, purpose: str, for_user_id=None) -> None:
     user = await _find_user_by_phone(phone, account_type)
+
+    # Adding a phone number to an account that does not have one yet is the whole point
+    # of verify_phone, so requiring the number to already be on a user made it
+    # impossible to ever reach: customers never get users.phone set until this succeeds.
+    # The caller is authenticated, so what matters is only that the number does not
+    # already belong to somebody else.
+    if purpose == "verify_phone" and for_user_id is not None:
+        if user and user["_id"] != for_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="That phone number is already registered to another account.",
+            )
+        return
+
     if purpose in {"login", "password_reset", "verify_phone"} and not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active account found for this phone number.")
     if purpose == "register" and user:
@@ -159,13 +175,18 @@ async def _validate_email_purpose_against_user(email: str, account_type: str, pu
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is not active.")
 
 
-async def request_phone_otp(*, phone: str, account_type: str, purpose: str, channel: str = "sms") -> dict:
+async def request_phone_otp(*, phone: str, account_type: str, purpose: str, channel: str = "sms", for_user_id=None) -> dict:
+    """Send a phone OTP.
+
+    `for_user_id` is the authenticated user this code is for. It is what lets an account
+    verify a number it does not yet have on file.
+    """
     db = get_database()
     normalized_phone = normalize_pk_phone(phone)
     account_type = normalize_account_type(account_type)
     purpose = normalize_otp_purpose(purpose)
     channel = normalize_otp_channel(channel)
-    await _validate_purpose_against_user(normalized_phone, account_type, purpose)
+    await _validate_purpose_against_user(normalized_phone, account_type, purpose, for_user_id)
 
     now = datetime.now(timezone.utc)
     latest = await db.otp_challenges.find_one(
@@ -216,8 +237,30 @@ async def request_phone_otp(*, phone: str, account_type: str, purpose: str, chan
     delivery_status = "mock_sent"
     try:
         if channel == "whatsapp":
+            # Without this an unpaired bridge accepts the row and nothing ever collects
+            # it: the customer waits for a code that was never going to arrive, with no
+            # error anywhere. Falling back to SMS is not possible here because the
+            # channel was explicitly requested, so the failure is surfaced instead.
+            from app.services.whatsapp_service import whatsapp_connection_status
+
+            integration = await db.whatsapp_integrations.find_one({"provider": settings.whatsapp_provider})
+            if not integration or whatsapp_connection_status(integration) != "connected":
+                await db.otp_challenges.update_one(
+                    {"_id": challenge["_id"]},
+                    {"$set": {"deliveryStatus": "failed", "deliveryError": "WhatsApp is not connected.", "updatedAt": datetime.now(timezone.utc)}},
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="WhatsApp is not connected right now. Please request the code by SMS instead.",
+                )
+            # The bridge claims queued rows by tenantId, as an ObjectId. Sending this
+            # under the literal string "system-otp" meant no bridge poll could ever match
+            # the row: the customer waited for a code nothing would collect, and because
+            # redaction happens on delivery acknowledgement the plaintext code then sat
+            # in the log until its TTL expired. It goes out under the tenant whose bridge
+            # is actually connected, which is the one the gate above just checked.
             await send_whatsapp_text(
-                tenant_id="system-otp",
+                tenant_id=integration["tenantId"],
                 to_phone=normalized_phone,
                 message_text=message_text,
                 provider=settings.whatsapp_provider,
@@ -237,7 +280,13 @@ async def request_phone_otp(*, phone: str, account_type: str, purpose: str, chan
             {"_id": challenge["_id"]},
             {"$set": {"deliveryStatus": "failed", "deliveryError": str(exc), "updatedAt": datetime.now(timezone.utc)}},
         )
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"OTP delivery failed: {exc}") from exc
+        # The provider's error text includes the configured SMS gateway URL. It is
+        # already stored on the challenge as deliveryError and logged; the caller gets
+        # a generic message.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We could not send the code just now. Please try again in a moment.",
+        ) from exc
 
     await db.otp_challenges.update_one(
         {"_id": challenge["_id"]},
@@ -323,7 +372,9 @@ async def request_email_otp(*, email: str, account_type: str, purpose: str) -> d
 
     delivery_status = "demo_sent" if email_demo_delivery else "sent"
     try:
-        send_otp_email(to_email=normalized_email, code=code)
+        # smtplib blocks for up to 20 seconds. On the event loop that stalls every
+        # other request on the server, so it runs on a worker thread.
+        await asyncio.to_thread(send_otp_email, to_email=normalized_email, code=code)
     except HTTPException:
         await db.otp_challenges.update_one(
             {"_id": challenge["_id"]},
@@ -383,7 +434,11 @@ async def verify_phone_otp(*, phone: str, code: str, account_type: str, purpose:
     if expires_at and expires_at < now:
         await db.otp_challenges.update_one({"_id": challenge["_id"]}, {"$set": {"status": "expired", "updatedAt": now}})
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="OTP expired. Please request a new code.")
-    if challenge.get("status") == "verified" and consume is False:
+    already_verified = challenge.get("status") == "verified" and consume is False
+    if already_verified and verify_otp_hash(normalized_phone, normalized_code, purpose, account_type, challenge.get("codeHash", "")):
+        # Re-checking the hash matters: returning success for ANY code here meant a
+        # caller who knew only the phone number could pass a non-consuming verify once
+        # the real owner had verified, which is what registration checks against.
         return {
             "challengeId": str(challenge["_id"]),
             "phone": normalized_phone,
@@ -451,7 +506,10 @@ async def verify_email_otp(*, email: str, code: str, account_type: str, purpose:
     if expires_at and expires_at < now:
         await db.otp_challenges.update_one({"_id": challenge["_id"]}, {"$set": {"status": "expired", "updatedAt": now}})
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="Verification code expired. Please request a new one.")
-    if challenge.get("status") == "verified" and consume is False:
+    already_verified = challenge.get("status") == "verified" and consume is False
+    if already_verified and verify_email_otp_hash(normalized_email, normalized_code, purpose, account_type, challenge.get("codeHash", "")):
+        # See the phone path above: the hash check is what makes "already verified"
+        # mean "this caller verified it", not "somebody did".
         return {
             "challengeId": str(challenge["_id"]),
             "email": normalized_email,

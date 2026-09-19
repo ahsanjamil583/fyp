@@ -5,6 +5,7 @@ import { PaymentStatusBadge } from "../../components/payments/PaymentStatusBadge
 import { getAdminPayments } from "../../services/adminApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function AdminPaymentsPage() {
   const [data, setData] = useState({ summary: {}, records: [], stripeWebhookEvents: [] });
@@ -18,7 +19,7 @@ export function AdminPaymentsPage() {
       try {
         setData(await getAdminPayments());
       } catch (requestError) {
-        setError(requestError.response?.data?.detail || "Unable to load admin payments.");
+        setError(getApiErrorMessage(requestError, "Unable to load admin payments."));
       } finally {
         setIsLoading(false);
       }

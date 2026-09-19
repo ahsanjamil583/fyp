@@ -8,6 +8,7 @@ import { useModules } from "../../context/ModuleContext.jsx";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getPublicBusinessCategories } from "../../services/businessCategoryApi.js";
 import { disableTenantModule, enableTenantModule } from "../../services/moduleApi.js";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 export function ModuleMarketplace() {
   const { selectedTenant, refreshTenants, selectTenant } = useTenant();
@@ -52,7 +53,7 @@ export function ModuleMarketplace() {
           : `${module.name} enabled successfully.`,
       );
     } catch (error) {
-      setServerError(error.response?.data?.detail || "Unable to update module.");
+      setServerError(getApiErrorMessage(error, "Unable to update module."));
     } finally {
       setBusyModule("");
     }

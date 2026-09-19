@@ -492,6 +492,25 @@ def default_business_categories() -> list[dict]:
     return list(categories.values())
 
 
+# Mirrors the field list update_category accepts (business_category_service). A field an
+# admin can change must not be written back by the seeder on the next boot.
+_ADMIN_EDITABLE_CATEGORY_FIELDS = frozenset(
+    {
+        "name",
+        "description",
+        "icon",
+        "isActive",
+        "suggestedModules",
+        "defaultCustomFields",
+        "aiHints",
+        "aiPromptFragments",
+        "websiteHints",
+        "fulfillmentHints",
+        "analyticsSuggestions",
+    }
+)
+
+
 async def seed_business_categories() -> None:
     status = await get_mongo_status()
     if not status["connected"]:
@@ -504,10 +523,17 @@ async def seed_business_categories() -> None:
         await db.business_categories.update_one(
             {"slug": category["slug"]},
             {
-                "$set": {**category, "isActive": True, "updatedAt": now},
+                # Every field a platform admin can edit is seeded on insert only.
+                # Protecting `isActive` alone still let a restart overwrite an edited
+                # name, description, icon, suggested modules or AI hints, which is the
+                # same bug on a different field. `slug` stays in $set because it is the
+                # match key and update_category enforces its uniqueness separately.
+                "$set": {**{key: value for key, value in category.items() if key not in _ADMIN_EDITABLE_CATEGORY_FIELDS}, "updatedAt": now},
                 "$setOnInsert": {
                     "defaultCustomFields": [],
                     "createdAt": now,
+                    "isActive": True,
+                    **{key: value for key, value in category.items() if key in _ADMIN_EDITABLE_CATEGORY_FIELDS and key != "isActive"},
                 },
             },
             upsert=True,

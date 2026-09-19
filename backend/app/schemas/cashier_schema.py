@@ -7,6 +7,7 @@ none of them may be reached by the customer-facing order routes.
 """
 
 from pydantic import BaseModel, Field
+from app.services.smart_order_service import MAX_LINE_QUANTITY  # one definition of the per-line cap
 
 
 # ------------------------------------------------------------- owner: cashiers --
@@ -56,7 +57,10 @@ class CashierOrderItemRequest(BaseModel):
 
     itemId: str = ""
     name: str = Field(default="", max_length=200)
-    quantity: int = Field(default=1, ge=1, le=999)
+    # Matches MAX_LINE_QUANTITY in smart_order_service, which is what actually decides.
+    # Advertising 999 here while the builder refused anything over 99 meant the schema
+    # accepted a quantity the order could never be created with.
+    quantity: int = Field(default=1, ge=1, le=MAX_LINE_QUANTITY)
     unitPrice: float | None = Field(default=None, ge=0)
     selectedVariantIndex: int | None = None
     selectedVariantName: str = Field(default="", max_length=120)

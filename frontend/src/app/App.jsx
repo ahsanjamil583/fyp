@@ -1,6 +1,7 @@
 import { Suspense, useEffect } from "react";
 import { RouterProvider } from "react-router-dom";
 
+import ErrorBoundary from "../components/common/ErrorBoundary.jsx";
 import { AppProviders } from "./providers.jsx";
 import { router } from "./router.jsx";
 import { setApiNavigationHandler } from "../services/apiClient.js";
@@ -22,10 +23,12 @@ export default function App() {
   }, []);
 
   return (
-    <AppProviders>
-      <Suspense fallback={<RouteFallback />}>
-        <RouterProvider router={router} />
-      </Suspense>
-    </AppProviders>
+    <ErrorBoundary>
+      <AppProviders>
+        <Suspense fallback={<RouteFallback />}>
+          <RouterProvider router={router} />
+        </Suspense>
+      </AppProviders>
+    </ErrorBoundary>
   );
 }

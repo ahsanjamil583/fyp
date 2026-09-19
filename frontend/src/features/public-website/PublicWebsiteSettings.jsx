@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { useTenant } from "../../context/TenantContext.jsx";
 import { getPublicBusinessCategories } from "../../services/businessCategoryApi.js";
 import { publishTenant, unpublishTenant, updateTenant } from "../../services/tenantApi.js";
-import { formatApiError } from "../../utils/apiErrors.js";
 import {
   buildCategoryDrivenWebsiteSettings,
   buildDefaultSections,
@@ -15,6 +14,7 @@ import {
 } from "./websiteBuilderConfig.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 import { StatCard as KitStatCard } from "../../components/ui/index.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 function buildEditorState(tenant) {
   const settings = buildCategoryDrivenWebsiteSettings(null, tenant?.websiteSettings || {}, tenant?.name || "");
@@ -183,7 +183,7 @@ export function PublicWebsiteSettings() {
       selectTenant(saved);
       setMessage("Website settings saved.");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to save website settings.");
+      setError(getApiErrorMessage(requestError, "Unable to save website settings."));
     }
   }
 
@@ -199,7 +199,7 @@ export function PublicWebsiteSettings() {
       selectTenant(saved);
       setMessage(saved.websiteStatus === "published" ? "Website published." : saved.websiteStatus === "pending_review" ? "Website request sent to admin for review." : "Website unpublished.");
     } catch (requestError) {
-      setError(formatApiError(requestError.response?.data?.detail, "Unable to change publish status. Make sure Website Builder is enabled."));
+      setError(getApiErrorMessage(requestError, "Unable to change publish status. Make sure Website Builder is enabled."));
     }
   }
 

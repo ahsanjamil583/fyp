@@ -19,3 +19,13 @@ export async function refreshBusinessStockAlerts(tenantId) {
   const response = await apiClient.post(`/tenants/${tenantId}/notifications/refresh-stock-alerts`);
   return response.data.data;
 }
+
+export async function getOrderMessageSettings(tenantId) {
+  const response = await apiClient.get(`/tenants/${tenantId}/order-messages`);
+  return response.data.data;
+}
+
+export async function updateOrderMessageSettings(tenantId, payload) {
+  const response = await apiClient.put(`/tenants/${tenantId}/order-messages`, payload);
+  return response.data.data;
+}

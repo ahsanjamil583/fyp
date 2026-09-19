@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowRight, Boxes, FileText, ShieldCheck, Users } from "
 import { getAdminOverview } from "../../services/adminApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
 import { StatCard } from "../../components/ui/index.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 function planLabel(planCode) {
   return { starter: "Basic", growth: "AI Ordering", scale: "Full Agent" }[planCode] || "Basic";
@@ -27,7 +28,7 @@ export function AdminOverviewPage() {
       })
       .catch((requestError) => {
         if (active) {
-          setError(requestError.response?.data?.detail || "Unable to load admin overview.");
+          setError(getApiErrorMessage(requestError, "Unable to load admin overview."));
         }
       })
       .finally(() => {

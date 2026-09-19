@@ -17,3 +17,7 @@ chromadb==1.5.9
 
 pypdf==6.4.1
 python-docx==1.2.0
+
+# Test runner. The repository ships 38 test modules under backend/tests but declared no
+# way to run them, so a fresh checkout could not execute its own test suite.
+pytest==9.1.1

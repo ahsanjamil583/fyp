@@ -28,7 +28,7 @@ from app.schemas.whatsapp_schema import (
     WhatsAppOutboundRequest,
     WhatsAppSettingsRequest,
 )
-from app.services.ai_chat_service import build_ai_reply, detect_language_mode, load_conversation_messages, save_message
+from app.services.ai_chat_service import build_ai_reply, build_ai_turn, detect_language_mode, load_conversation_messages, save_message
 from app.services.business_notification_service import create_business_notification
 
 HANDOFF_REPLY = "I have marked this conversation for owner handoff. The business team can review it from the dashboard."
@@ -133,6 +133,23 @@ def bridge_is_online(integration: dict | None) -> bool:
     return 0 <= age <= 90
 
 
+def whatsapp_connection_status(integration: dict | None) -> str:
+    """Derive the live connection status of an integration document.
+
+    This is computed, never stored: `connectionStatus` exists only on the serialized
+    API response. Anything that needs to know whether a message can actually be
+    delivered must call this rather than reading a field off the document, which is
+    always absent and therefore always compared as "not connected".
+    """
+    doc = integration or {}
+    provider = str(doc.get("provider") or settings.whatsapp_provider or "").lower()
+    if provider != "baileys":
+        return "not_configured"
+    if bridge_is_online(doc):
+        return "connected"
+    return "awaiting_bridge" if doc.get("isConnected") else "not_configured"
+
+
 def _serialize_owner_whatsapp_settings(settings_doc: dict | None, tenant: dict | None = None) -> dict:
     data = serialize_whatsapp_settings(settings_doc, tenant)
     tenant_id = data.get("tenantId") or str((tenant or {}).get("_id", ""))
@@ -145,7 +162,7 @@ def _serialize_owner_whatsapp_settings(settings_doc: dict | None, tenant: dict |
     data["bridgeLastError"] = (settings_doc or {}).get("bridgeLastError", "")
     data["bridgeOnline"] = bridge_is_online(settings_doc)
     if data.get("provider") == "baileys":
-        data["connectionStatus"] = "connected" if data["bridgeOnline"] else "awaiting_bridge" if data.get("isConnected") else "not_configured"
+        data["connectionStatus"] = whatsapp_connection_status(settings_doc)
     return data
 
 
@@ -374,6 +391,7 @@ async def process_whatsapp_inbound(
     raw_payload: dict | None = None,
 ) -> dict:
     db = get_database()
+    normalized_phone = normalize_phone(customer_phone)
     conversation = await _get_or_create_conversation(db, tenant, customer_phone, customer_name)
     if provider_message_id:
         existing_log = await db.whatsapp_message_logs.find_one(
@@ -413,12 +431,26 @@ async def process_whatsapp_inbound(
     await save_message(conversation, tenant["_id"], "customer", message_text, intent="whatsapp_inbound", confidence=1.0)
     recent_messages = await load_conversation_messages(conversation["_id"])
 
+    # `None` means "leave whatever is stored alone". Several branches below never run the
+    # agent at all, and writing an empty dict from those destroyed a question the customer
+    # had been asked on the previous turn - along with the checkout context that gates the
+    # detail harvester. A failed turn is the important one: the agent restores the
+    # confirmation it claimed, and an unconditional write here would undo that restore.
+    whatsapp_confirmation: dict | None = None
+
     if _needs_handoff(message_text, integration):
         ai_text = HANDOFF_REPLY
         draft_order = {}
         rag_sources = []
         tool_calls = [{"tool": "handoff_detector", "handoffRequested": True}]
         reply_meta = {"intent": "handoff_requested", "confidence": 1.0, "responseSource": "handoff_rule", "knowledgeCount": 0, "localizationScore": 1.0}
+        # A person is taking over, so any question the agent had outstanding is dropped on
+        # purpose rather than left for them to inherit. The checkout context is kept: it
+        # records only which details are still being asked for, and discarding it shut the
+        # detail gate for the rest of the conversation once the agent resumed.
+        whatsapp_confirmation = {
+            "awaitingDetails": ((conversation.get("pendingBasketConfirmation") or {}).get("awaitingDetails") or [])
+        }
         await db.conversations.update_one({"_id": conversation["_id"]}, {"$set": {"status": "handoff", "handoffRequestedAt": inbound_received_at}})
         await _create_whatsapp_owner_notification(
             tenant["_id"],
@@ -437,7 +469,23 @@ async def process_whatsapp_inbound(
         reply_meta = {"intent": "agent_disabled", "confidence": 1.0, "responseSource": "agent_disabled_rule", "knowledgeCount": 0, "localizationScore": 1.0}
     elif integration.get("autoReplyEnabled", True):
         try:
-            ai_text, draft_order, rag_sources, tool_calls, reply_meta = await build_ai_reply(tenant, message_text, recent_messages, channel="whatsapp")
+            # The sender's number is what links a WhatsApp basket to an account, when
+            # that account has verified the same number. Without a match the customer
+            # still gets a basket, held on the conversation.
+            turn = await build_ai_turn(
+                tenant,
+                message_text,
+                recent_messages,
+                channel="whatsapp",
+                conversation=conversation,
+                phone=normalized_phone,
+            )
+            ai_text = turn["reply"]
+            draft_order = turn["draftOrder"]
+            rag_sources = turn["ragSources"]
+            tool_calls = turn["toolCalls"]
+            reply_meta = turn["meta"]
+            whatsapp_confirmation = turn.get("pendingConfirmation") or {}
         except Exception as exc:
             ai_text = integration.get("fallbackReply") or DEFAULT_FALLBACK_REPLY
             draft_order = {}
@@ -460,10 +508,14 @@ async def process_whatsapp_inbound(
         reply_meta = {"intent": "manual_review", "confidence": 1.0, "responseSource": "manual_review_rule", "knowledgeCount": 0, "localizationScore": 1.0}
 
     now = datetime.now(timezone.utc)
+    conversation_updates = {}
+    if whatsapp_confirmation is not None:
+        conversation_updates["pendingBasketConfirmation"] = whatsapp_confirmation
     await db.conversations.update_one(
         {"_id": conversation["_id"]},
         {
             "$set": {
+                **conversation_updates,
                 "languageDetected": language_mode,
                 "pendingOrderDraft": draft_order,
                 "summary": ai_text,
@@ -543,6 +595,15 @@ async def send_owner_whatsapp_test(tenant_id: str, payload: WhatsAppOutboundRequ
     integration = await db.whatsapp_integrations.find_one({"tenantId": tenant_oid, "isConnected": True})
     if not integration:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Connect WhatsApp before sending a test message.")
+    # `isConnected` only means a bridge was paired at some point. This is the one screen
+    # an owner uses to check WhatsApp is working, so telling them a test was sent when
+    # the bridge is dead is the worst place to get this wrong.
+    connection_status = whatsapp_connection_status(integration)
+    if connection_status != "connected":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"WhatsApp is {connection_status.replace('_', ' ')}. Reconnect the bridge, then send the test again.",
+        )
     try:
         log = await send_whatsapp_text(
             tenant_id=tenant_oid,
@@ -553,7 +614,11 @@ async def send_owner_whatsapp_test(tenant_id: str, payload: WhatsAppOutboundRequ
             raw_context={"source": "owner_test_message"},
         )
     except WhatsAppSendError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unable to send WhatsApp test: {exc}") from exc
+        logger.warning("WhatsApp test send failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The test message could not be sent. Check the WhatsApp connection and try again.",
+        ) from exc
     return {"tenant": serialize_document(tenant), "log": serialize_document(log)}
 
 

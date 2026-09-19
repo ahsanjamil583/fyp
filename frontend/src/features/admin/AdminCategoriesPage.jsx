@@ -7,6 +7,7 @@ import {
   updateAdminBusinessCategory,
 } from "../../services/businessCategoryApi.js";
 import { SectionTitle } from "../../components/ui/SectionTitle.jsx";
+import { getApiErrorMessage } from "../../services/apiError.js";
 
 const emptyCategory = {
   name: "",
@@ -43,7 +44,7 @@ export function AdminCategoriesPage() {
       setCategories(data);
       setError("");
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to load categories.");
+      setError(getApiErrorMessage(requestError, "Unable to load categories."));
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +122,7 @@ export function AdminCategoriesPage() {
       resetForm();
       await refreshCategories();
     } catch (requestError) {
-      setError(requestError.message || requestError.response?.data?.detail || "Unable to save category.");
+      setError(getApiErrorMessage(requestError, "Unable to save category."));
     } finally {
       setIsSaving(false);
     }
@@ -135,7 +136,7 @@ export function AdminCategoriesPage() {
       setMessage("Business category disabled.");
       await refreshCategories();
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Unable to disable category.");
+      setError(getApiErrorMessage(requestError, "Unable to disable category."));
     }
   }
 

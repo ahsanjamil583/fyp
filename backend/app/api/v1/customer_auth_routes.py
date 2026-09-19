@@ -16,6 +16,7 @@ from app.services.auth_service import (
     change_password,
     login_user,
     refresh_auth_token,
+    revoke_user_sessions,
     reset_password_with_email_otp,
     reset_password_with_phone_otp,
     user_public,
@@ -133,7 +134,13 @@ async def refresh(payload: RefreshTokenRequest):
 
 
 @router.post("/logout")
-async def logout():
+async def logout(current_user: dict = Depends(get_current_customer_user)):
+    """Authenticated, so the session can actually be ended.
+
+    Returning success without revoking anything left a stolen refresh token valid for
+    its full lifetime after the user believed they had logged out.
+    """
+    await revoke_user_sessions(current_user["_id"])
     return success_response("Logged out successfully.")
 
 
@@ -159,6 +166,7 @@ async def request_current_phone_verification(payload: PhoneOtpRequest, current_u
         account_type="customer",
         purpose="verify_phone",
         channel=payload.channel,
+        for_user_id=current_user["_id"],
     )
     return success_response("Phone verification OTP sent successfully.", data)
 
