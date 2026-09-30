@@ -1309,3 +1309,243 @@ build against the wrong design.
 | Why the agent is shaped this way | the AI-05 section of `BUG-AUDIT.md` |
 | Frontend routing and guards | `src/app/router.jsx`, `src/components/common/ProtectedRoute.jsx` |
 | Frontend auth | `src/services/apiClient.js` |
+
+---
+
+## 18. Addendum: project analysis and run steps, 2026-09-23
+
+This addendum was appended after re-reading the current project root, `README.md`,
+`docker-compose.yml`, `backend/requirements.txt`, `backend/.env.example`,
+`frontend/package.json`, `whatsapp-bridge/package.json`, and the existing
+`full-context.md`.
+
+### Current project shape
+
+BizXusAI is a three-part local system:
+
+1. **Backend**: FastAPI app in `backend/`, served by `app.main:app`, with MongoDB as the main
+   database, local Chroma persistence for RAG, and mostly simulator/mock defaults for external
+   integrations.
+2. **Frontend**: React 19 + Vite SPA in `frontend/`, served locally on Vite and proxying API
+   traffic to the backend during development.
+3. **WhatsApp bridge**: separate Node 22 service in `whatsapp-bridge/`, required only for real
+   Baileys linked-device WhatsApp delivery. The mock WhatsApp mode does not need it.
+
+Important correction against section 17: `git status --short` currently returned no output,
+so the working tree appears clean at this point. The older note saying the tree was far ahead
+of `main` should be treated as historical unless a future status check says otherwise.
+
+### Required local services
+
+- Python 3.12 for the backend.
+- Node 22 for the frontend and WhatsApp bridge.
+- MongoDB 7 running on `localhost:27017`, unless using Docker Compose.
+- No live Stripe, SMS, OpenAI, Groq, JazzCash, Easypaisa, or WhatsApp account is required for
+  a basic local demo; defaults and simulators cover local startup.
+
+### Backend run steps
+
+From the repository root:
+
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+python -m uvicorn app.main:app --reload
+```
+
+Backend URL:
+
+```text
+http://localhost:8000
+```
+
+Main API prefix:
+
+```text
+http://localhost:8000/api/v1
+```
+
+Health check:
+
+```text
+http://localhost:8000/api/v1/health
+```
+
+If MongoDB is not running, the app can still boot, but database-backed requests will fail.
+For a useful demo, start MongoDB before seeding or using the UI.
+
+### Demo data
+
+With MongoDB running and the backend environment installed:
+
+```bash
+cd backend
+.venv\Scripts\activate
+python scripts/seed_demo_data.py
+```
+
+Expected demo entry points from `README.md`:
+
+```text
+Business owner: owner@bizxus.demo / Demo@12345
+Customer: customer@bizxus.demo / Demo@12345
+Admin: admin@bizxus.demo / Admin@12345
+Public business: /businesses/demo-bazaar
+```
+
+### Frontend run steps
+
+In a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend URL:
+
+```text
+http://localhost:5173
+```
+
+The Vite development server proxies `/api` and `/uploads` to the backend. Keep the backend
+running while using the frontend.
+
+### Optional WhatsApp bridge run steps
+
+Only run this if testing real Baileys linked-device WhatsApp behavior:
+
+```bash
+cd whatsapp-bridge
+npm install
+copy .env.example .env
+npm run dev
+```
+
+Bridge URLs:
+
+```text
+http://localhost:3005/health
+http://localhost:3005/
+```
+
+The bridge and backend must share the same secret values:
+
+```text
+backend/.env: WHATSAPP_BRIDGE_ADMIN_KEY=...
+whatsapp-bridge/.env: BIZXUS_BRIDGE_KEY=...
+```
+
+For ordinary local work, leave WhatsApp in mock/simulator mode and skip the bridge.
+
+### Docker run steps
+
+From the repository root:
+
+```bash
+docker compose up --build
+```
+
+Compose starts:
+
+```text
+MongoDB:  localhost:27017
+Backend:  http://localhost:8000
+Frontend: http://localhost:5173
+```
+
+The Compose file marks `backend/.env` as optional and injects the MongoDB URI for the backend.
+It does not start the WhatsApp bridge.
+
+### Verification commands
+
+Backend compile:
+
+```bash
+cd backend
+python -m compileall app tests scripts
+```
+
+Backend tests:
+
+```bash
+cd backend
+python -m pytest -q
+```
+
+Frontend build:
+
+```bash
+cd frontend
+npm run build
+```
+
+Frontend lint:
+
+```bash
+cd frontend
+npm run lint
+```
+
+WhatsApp bridge syntax check:
+
+```bash
+cd whatsapp-bridge
+npm run check
+```
+
+API smoke check, with backend running:
+
+```bash
+cd backend
+python scripts/smoke_check.py http://localhost:8000/api/v1
+```
+
+### Practical route checklist
+
+After seeding and starting backend + frontend:
+
+- Marketing page: `http://localhost:5173/`
+- Owner login: `http://localhost:5173/auth/login`
+- Owner dashboard: `http://localhost:5173/dashboard`
+- Admin area: `http://localhost:5173/admin`
+- Customer portal: `http://localhost:5173/customer/marketplace`
+- Public demo business: `http://localhost:5173/businesses/demo-bazaar`
+- Cashier workspace: `http://localhost:5173/cashier`
+
+### Change log appended to this file
+
+- 2026-09-23: Added this addendum with current project analysis, corrected clean working-tree
+  observation, and consolidated run steps for backend, frontend, Docker, demo data, tests, and
+  the optional WhatsApp bridge.
+- 2026-09-23: Visually enhanced only the Business Owner Dashboard home page
+  (`frontend/src/features/dashboard/DashboardHome.jsx`) to better match the Landing/Login
+  theme. The edit kept the existing dashboard content, routes, API calls, section order, and
+  functionality intact, and changed only styling/className treatment within the dashboard
+  home component.
+- 2026-09-23: Extended the enhanced Business Owner Dashboard visual theme across the Business
+  Owner portal by passing an owner-only `theme` flag from
+  `frontend/src/components/layout/DashboardLayout.jsx` into
+  `frontend/src/components/layout/Shell.jsx`, then adding scoped `.owner-dashboard-theme`
+  styles in `frontend/src/styles.css`. The CSS rethemes owner-side backgrounds, glass cards,
+  table rows, form controls, buttons, borders, shadows, and the owner workspace chrome without
+  changing routes, API calls, content, or Customer/Admin/Landing/Login pages.
+- 2026-09-23: Refined the owner portal theme in `frontend/src/styles.css` so every Business
+  Owner page uses the intended horizontal ambient treatment: light blue at the far left and
+  far right, a clean white center, and a subtle grid overlay. This replaced the earlier
+  radial blue wash that made some pages look too uniformly blue.
+- 2026-09-23: Applied the same horizontal ambient theme to the Customer portal by passing
+  `theme="customer"` from `frontend/src/components/layout/CustomerLayout.jsx`, mapping that
+  to a scoped `customer-portal-theme` class in `frontend/src/components/layout/Shell.jsx`,
+  and sharing the existing blue-edge / white-center styles in `frontend/src/styles.css`.
+  This changes Customer portal styling only and does not alter customer routes, text, API
+  calls, cart/order behavior, or Admin/Landing/Login pages.
+- 2026-09-24: Applied the same horizontal ambient theme to the Admin portal by passing
+  `theme="admin"` from `frontend/src/components/layout/AdminLayout.jsx`, mapping that to
+  `admin-portal-theme` in `frontend/src/components/layout/Shell.jsx`, and sharing the same
+  scoped theme selectors in `frontend/src/styles.css`. This is a visual-only admin portal
+  theme change; admin routes, text, API calls, and page behavior are unchanged.

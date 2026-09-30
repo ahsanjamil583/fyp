@@ -245,6 +245,7 @@ export function DashboardLayout() {
 
   return (
     <Shell
+      theme="owner"
       title="Business Dashboard"
       subtitle={selectedTenant ? selectedTenant.name : "Create your first business"}
       navItems={visibleNav}

@@ -626,3 +626,174 @@ html {
   animation: particleFloat 9s ease-in-out infinite;
 }
 
+/* ------------------------------------ business owner, customer, and admin portals -- */
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) {
+  background:
+    linear-gradient(90deg, rgba(219, 234, 254, 0.96) 0%, rgba(239, 246, 255, 0.72) 18%, #ffffff 42%, #ffffff 58%, rgba(239, 246, 255, 0.72) 82%, rgba(219, 234, 254, 0.96) 100%);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) > .flex {
+  background:
+    linear-gradient(90deg, rgba(191, 219, 254, 0.72) 0%, rgba(248, 251, 255, 0.88) 28%, #ffffff 50%, rgba(248, 251, 255, 0.88) 72%, rgba(186, 230, 253, 0.62) 100%);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) header {
+  border-color: rgba(191, 219, 254, 0.8);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 8px 24px rgba(16, 22, 51, 0.035);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) main {
+  position: relative;
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) main::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(37, 99, 235, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(37, 99, 235, 0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.28) 37%, rgba(0, 0, 0, 0.18) 63%, rgba(0, 0, 0, 0.85));
+  -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.28) 37%, rgba(0, 0, 0, 0.18) 63%, rgba(0, 0, 0, 0.85));
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) main > * {
+  position: relative;
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) main > .ui-card {
+  overflow: hidden;
+  border-color: rgba(191, 219, 254, 0.88);
+  background:
+    linear-gradient(90deg, rgba(219, 234, 254, 0.62) 0%, rgba(248, 251, 255, 0.82) 22%, rgba(255, 255, 255, 0.98) 43%, rgba(255, 255, 255, 0.98) 57%, rgba(248, 251, 255, 0.82) 78%, rgba(219, 234, 254, 0.62) 100%),
+    rgba(255, 255, 255, 0.92);
+  box-shadow: 0 24px 70px rgba(37, 99, 235, 0.09);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) main > .ui-card::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.7), transparent);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .ui-card .ui-card,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) main > .ui-card > * .ui-card {
+  border-color: rgba(191, 219, 254, 0.72);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 14px 38px rgba(16, 22, 51, 0.055);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .ui-card,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .rounded-card {
+  border-color: rgba(191, 219, 254, 0.72);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .ui-btn-primary,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) a.bg-brand,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) button.bg-brand,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) a.bg-primary,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) button.bg-primary,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .bg-cta {
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.24);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .ui-btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .ui-btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: -55%;
+  background: linear-gradient(60deg, transparent 35%, rgba(255, 255, 255, 0.24) 50%, transparent 65%);
+  transform: translateX(-100%);
+  transition: transform 0.65s ease;
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .ui-btn-primary:hover::after {
+  transform: translateX(100%);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .ui-btn-secondary,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) a[class*="border border-line"],
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) button[class*="border border-line"] {
+  border-color: rgba(191, 219, 254, 0.9);
+  background-color: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 4px 16px rgba(16, 22, 51, 0.035);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .ui-btn-secondary:hover,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) a[class*="border border-line"]:hover,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) button[class*="border border-line"]:hover {
+  border-color: rgba(147, 197, 253, 0.95);
+  background-color: rgba(239, 246, 255, 0.92);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) input,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) select,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) textarea,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .form-input {
+  border-color: rgba(191, 219, 254, 0.86);
+  background-color: rgba(255, 255, 255, 0.92);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) input:focus,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) select:focus,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) textarea:focus,
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .form-input:focus {
+  border-color: var(--primary-bright);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) table {
+  border-color: rgba(191, 219, 254, 0.7);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) thead {
+  background: rgba(239, 246, 255, 0.86);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) tbody tr {
+  transition:
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) tbody tr:hover {
+  background: rgba(239, 246, 255, 0.55);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) .workflow-strip {
+  scrollbar-width: none;
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) main > div.mb-5 {
+  border-color: rgba(191, 219, 254, 0.78);
+  background:
+    linear-gradient(90deg, rgba(239, 246, 255, 0.9) 0%, rgba(255, 255, 255, 0.94) 38%, rgba(255, 255, 255, 0.94) 62%, rgba(239, 246, 255, 0.9) 100%);
+  box-shadow: 0 14px 34px rgba(37, 99, 235, 0.07);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+:is(.owner-dashboard-theme, .customer-portal-theme, .admin-portal-theme) footer {
+  border-color: rgba(191, 219, 254, 0.72);
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+

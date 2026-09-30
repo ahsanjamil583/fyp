@@ -72,6 +72,7 @@ export function CustomerLayout() {
   // bottom of the screen with no way to reach it.
   return (
     <Shell
+      theme="customer"
       title="Customer Portal"
       subtitle="Marketplace, cart, and orders"
       navItems={navItems}

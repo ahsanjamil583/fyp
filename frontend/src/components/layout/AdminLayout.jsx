@@ -84,6 +84,7 @@ export function AdminLayout() {
 
   return (
     <Shell
+      theme="admin"
       title="Admin Panel"
       subtitle="Review, approvals, users, payments, and platform health"
       navItems={navItems}

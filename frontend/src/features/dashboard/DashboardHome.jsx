@@ -119,7 +119,11 @@ export function DashboardHome() {
     : [];
 
   return (
-    <section className="space-y-6">
+    <section className="relative isolate space-y-6 overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-[#f8fbff] via-white to-blue-50/70 p-1">
+      <div className="ai-grid-light-bg pointer-events-none absolute inset-0 opacity-80" />
+      <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-sky-200/45 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-28 left-10 h-72 w-72 rounded-full bg-blue-200/40 blur-3xl" />
+      <div className="relative space-y-6">
       <PageHeader
         icon={Building2}
         eyebrow={selectedTenant.websiteStatus === "published" ? "Live business workspace" : "Setup guidance"}
@@ -130,16 +134,18 @@ export function DashboardHome() {
             : "Follow the guided path below. You do not need to configure every module at once."
         }
         actions={
-          <Link className="ui-btn-primary" to={nextStep.to}>
+          <Link className="ui-btn-primary ai-btn-shimmer" to={nextStep.to}>
             {nextStep.action}
             <ArrowRight size={16} />
           </Link>
         }
       />
 
-      <Card className="bg-surface-purple">
+      <Card className="relative overflow-hidden border-blue-100 bg-white/85 shadow-[0_18px_55px_rgba(37,99,235,0.10)] backdrop-blur-xl">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300 to-transparent" />
+        <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-sky-100/80 blur-3xl" />
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div>
+          <div className="relative">
             <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">
               Recommended owner flow
             </div>
@@ -151,7 +157,7 @@ export function DashboardHome() {
             </p>
           </div>
           {selectedTenant.slug ? (
-            <Link className="ui-btn-secondary shrink-0" to={`/businesses/${selectedTenant.slug}`}>
+            <Link className="ui-btn-secondary shrink-0 border-blue-100 bg-white/90 shadow-sm hover:border-blue-200 hover:bg-blue-50" to={`/businesses/${selectedTenant.slug}`}>
               <Globe size={16} />
               {selectedTenant.websiteStatus === "published" ? "View live website" : "Preview website"}
             </Link>
@@ -163,12 +169,14 @@ export function DashboardHome() {
             <Link
               key={step.title}
               to={step.to}
-              className={`rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-lift ${
-                step.done ? "border-green-200 bg-green-50" : index === setupSteps.indexOf(nextStep) ? "border-brand-200 bg-white" : "border-line bg-white"
+              className={`group rounded-xl border p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lift ${
+                step.done ? "border-blue-200 bg-blue-50/85" : index === setupSteps.indexOf(nextStep) ? "border-brand-200 bg-white shadow-[0_12px_30px_rgba(37,99,235,0.09)]" : "border-blue-100 bg-white/85"
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className={`grid h-10 w-10 place-items-center rounded-xl ${step.done ? "bg-green-100 text-green-700" : "bg-brand-50 text-brand"}`}>
+                <span className={`grid h-10 w-10 place-items-center rounded-xl shadow-sm transition group-hover:scale-105 ${
+                  step.done ? "bg-gradient-to-tr from-blue-600 to-sky-500 text-white" : "bg-brand-50 text-brand"
+                }`}>
                   {step.done ? <CheckCircle2 size={19} /> : <step.icon size={19} />}
                 </span>
                 <span className="text-xs font-black text-subtle">Step {index + 1}</span>
@@ -183,15 +191,22 @@ export function DashboardHome() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summary.map((item) => (
-          <StatCard key={item.label} label={item.label} value={item.value} icon={item.icon} tone={item.tone} />
+          <StatCard
+            key={item.label}
+            label={item.label}
+            value={item.value}
+            icon={item.icon}
+            tone={item.tone}
+            className="border-blue-100 bg-white/90 shadow-[0_12px_34px_rgba(16,22,51,0.05)] backdrop-blur-xl"
+          />
         ))}
       </div>
 
       {phase3Onboarding && !phase3Onboarding.isComplete ? (
-        <Card className="border-orange-200 bg-orange-50">
+        <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-white shadow-[0_14px_38px_rgba(255,152,0,0.10)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-4">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-600">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-600 shadow-sm">
                 <Rocket size={22} strokeWidth={2.1} />
               </span>
               <div>
@@ -212,7 +227,7 @@ export function DashboardHome() {
                 </div>
               </div>
             </div>
-            <Link className="ui-btn-primary shrink-0" to="/dashboard/business">
+            <Link className="ui-btn-primary ai-btn-shimmer shrink-0" to="/dashboard/business">
               Continue Setup
               <ArrowRight size={16} />
             </Link>
@@ -221,7 +236,7 @@ export function DashboardHome() {
       ) : null}
 
       {trends.length ? (
-        <Card>
+        <Card className="border-blue-100 bg-white/90 shadow-[0_16px_42px_rgba(16,22,51,0.06)] backdrop-blur-xl">
           <SectionHeading
             icon={BarChart3}
             title="Last 7 Days"
@@ -259,11 +274,19 @@ export function DashboardHome() {
           />
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {analyticsCards.map((item) => (
-              <StatCard key={item.label} label={item.label} value={item.value} icon={item.icon} tone={item.tone} />
+              <StatCard
+                key={item.label}
+                label={item.label}
+                value={item.value}
+                icon={item.icon}
+                tone={item.tone}
+                className="border-blue-100 bg-white/90 shadow-[0_12px_34px_rgba(16,22,51,0.05)] backdrop-blur-xl"
+              />
             ))}
           </div>
         </>
       ) : null}
+      </div>
     </section>
   );
 }

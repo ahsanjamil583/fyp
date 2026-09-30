@@ -78,6 +78,7 @@ export function Shell({
   headerActions = null,
   outletContext = null,
   flowSteps = [],
+  theme = "default",
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("bizxus_sidebar_collapsed") === "true");
@@ -123,6 +124,15 @@ export function Shell({
     });
   }
 
+  const themeClass =
+    theme === "owner"
+      ? "owner-dashboard-theme"
+      : theme === "customer"
+        ? "customer-portal-theme"
+        : theme === "admin"
+          ? "admin-portal-theme"
+          : "";
+
   const railContent = (
     <>
       <div className={`flex items-center px-2 pb-6 pt-1 ${sidebarCollapsed ? "justify-center" : "gap-3"}`}>
@@ -167,7 +177,7 @@ export function Shell({
   );
 
   return (
-    <div className="min-h-screen bg-page lg:flex">
+    <div className={`min-h-screen bg-page lg:flex ${themeClass}`}>
       {/* Fixed dark rail on large screens. */}
       {!focusMode ? (
       <aside className={`sticky top-0 hidden h-screen shrink-0 flex-col bg-sidebar-rail p-4 shadow-rail transition-all lg:flex ${sidebarCollapsed ? "w-[88px]" : "w-[260px]"}`}>
